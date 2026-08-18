@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /master
+Disallow: /painel
+
+Sitemap: https://vitriniza.com.br/sitemap.xml

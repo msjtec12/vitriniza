@@ -1,0 +1,16 @@
+{
+  "name": "Vitriniza - O comércio perto de você",
+  "short_name": "Vitriniza",
+  "description": "Descubra e compre de quem está perto de você. A vitrine digital inteligente do seu bairro.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9F5",
+  "theme_color": "#E85D2A",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
