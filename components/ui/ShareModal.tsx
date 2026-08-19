@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
-import { X, Copy, Check, Share2, Download, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Copy, Check, Share2, MessageCircle } from 'lucide-react';
 import { store } from '@/lib/data/store';
+import { StoreQRCode } from './StoreQRCode';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -12,17 +12,23 @@ interface ShareModalProps {
   businessSlug: string;
   businessUrl: string;
   businessId: string;
+  businessLogoUrl?: string;
+  neighborhoodName?: string;
+  categoryName?: string;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
   isOpen,
   onClose,
   businessName,
+  businessSlug,
   businessUrl,
   businessId,
+  businessLogoUrl = '',
+  neighborhoodName,
+  categoryName,
 }) => {
   const [copied, setCopied] = useState(false);
-  const qrRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
@@ -42,20 +48,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const handleWhatsAppShare = () => {
     store.logAnalyticsEvent(businessId, 'share_click', { method: 'whatsapp' });
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
-  };
-
-  const handleDownloadQrCode = () => {
-    if (!qrRef.current) return;
-    const canvas = qrRef.current.querySelector('canvas');
-    if (canvas) {
-      const pngUrl = canvas.toDataURL('image/png');
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pngUrl;
-      downloadLink.download = `qrcode-${businessName.toLowerCase().replace(/\s+/g, '-')}.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-    }
   };
 
   return (
@@ -81,29 +73,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           </div>
         </div>
 
-        {/* QR Code Preview */}
-        <div className="flex flex-col items-center justify-center p-5 bg-[#F8F6F0] rounded-2xl border border-[#4FA6A6]/20 mb-5">
-          <div ref={qrRef} className="p-3 bg-white rounded-xl shadow-xs border border-[#E8E4DA]">
-            <QRCodeCanvas
-              value={fullUrl}
-              size={160}
-              level="H"
-              marginSize={2}
-              fgColor="#0E3B43"
-            />
-          </div>
-          <span className="text-[11px] text-[#537379] mt-2 font-semibold">
-            Aponte a câmera do celular para abrir
-          </span>
-
-          <button
-            type="button"
-            onClick={handleDownloadQrCode}
-            className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-stone-50 border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] transition-all shadow-2xs"
-          >
-            <Download className="w-3.5 h-3.5 text-[#E36845]" />
-            <span>Baixar QR Code para balcão (PNG)</span>
-          </button>
+        {/* Personalized QR Code with Store Logo */}
+        <div className="p-5 bg-[#F8F6F0] rounded-2xl border border-[#4FA6A6]/20 mb-5">
+          <StoreQRCode
+            businessName={businessName}
+            businessSlug={businessSlug}
+            businessLogoUrl={businessLogoUrl}
+            businessUrl={businessUrl}
+            neighborhoodName={neighborhoodName}
+            categoryName={categoryName}
+            size={160}
+          />
         </div>
 
         {/* Action Buttons */}

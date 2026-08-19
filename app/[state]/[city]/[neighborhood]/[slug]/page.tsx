@@ -30,6 +30,7 @@ import { ProductCard } from '@/components/ui/ProductCard';
 import { PromotionCard } from '@/components/ui/PromotionCard';
 import { ReviewCard } from '@/components/ui/ReviewCard';
 import { LeafletMap } from '@/components/ui/LeafletMap';
+import { StoreQRCode } from '@/components/ui/StoreQRCode';
 import { ShareModal } from '@/components/ui/ShareModal';
 import { ClaimModal } from '@/components/ui/ClaimModal';
 import { ReviewModal } from '@/components/ui/ReviewModal';
@@ -556,6 +557,20 @@ export default function BusinessShowcasePage() {
               </div>
             </div>
 
+            {/* Official Store QR Code Display */}
+            <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow">
+              <StoreQRCode
+                businessName={business.name}
+                businessSlug={business.slug}
+                businessLogoUrl={business.logo_url}
+                businessUrl={businessUrl}
+                neighborhoodName={business.neighborhood?.name}
+                categoryName={business.category?.name}
+                size={140}
+                variant="display_card"
+              />
+            </div>
+
             {/* Payment Methods */}
             <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow space-y-2.5">
               <h3 className="font-black text-base text-[#0E3B43] flex items-center gap-2">
@@ -616,6 +631,9 @@ export default function BusinessShowcasePage() {
         businessSlug={business.slug}
         businessUrl={businessUrl}
         businessId={business.id}
+        businessLogoUrl={business.logo_url}
+        neighborhoodName={business.neighborhood?.name}
+        categoryName={business.category?.name}
       />
 
       {/* Claim Modal */}

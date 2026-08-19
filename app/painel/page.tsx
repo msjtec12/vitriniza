@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Save,
   Clock,
+  QrCode,
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/Icons';
 import {
@@ -39,10 +40,11 @@ import {
 import { store } from '@/lib/data/store';
 import { Business, Product, Promotion, BusinessImage, Review, PlanLimits } from '@/types';
 import { formatCurrency, formatPhone, cn } from '@/lib/utils';
+import { StoreQRCode } from '@/components/ui/StoreQRCode';
 
 export default function MerchantPanelPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'profile' | 'products' | 'promotions' | 'gallery' | 'reviews' | 'plan'
+    'overview' | 'profile' | 'products' | 'promotions' | 'gallery' | 'reviews' | 'plan' | 'qrcode'
   >('overview');
 
   const [business, setBusiness] = useState<Business | null>(null);
@@ -267,6 +269,7 @@ export default function MerchantPanelPage() {
                 { id: 'products', label: 'Produtos & Cardápio', icon: ShoppingBag, count: business.products?.length },
                 { id: 'promotions', label: 'Ofertas & Promoções', icon: Flame, count: business.promotions?.length },
                 { id: 'gallery', label: 'Fotos & Galeria', icon: ImageIcon },
+                { id: 'qrcode', label: 'QR Code de Balcão & Mesa', icon: QrCode },
                 { id: 'reviews', label: 'Avaliações', icon: Star, count: reviews.length },
                 { id: 'plan', label: 'Meu Plano & Limites', icon: CreditCard },
               ].map((item) => {
@@ -751,6 +754,22 @@ export default function MerchantPanelPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* TAB 8: QR CODE & COUNTER DISPLAY */}
+            {activeTab === 'qrcode' && (
+              <div className="space-y-6">
+                <StoreQRCode
+                  businessName={business.name}
+                  businessSlug={business.slug}
+                  businessLogoUrl={business.logo_url}
+                  businessUrl={businessPublicUrl}
+                  neighborhoodName={business.neighborhood?.name}
+                  categoryName={business.category?.name}
+                  size={200}
+                  variant="display_card"
+                />
               </div>
             )}
           </main>
