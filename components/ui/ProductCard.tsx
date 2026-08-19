@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MessageCircle, Sparkles } from 'lucide-react';
+import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 import { Product } from '@/types';
 import { store } from '@/lib/data/store';
 import { formatCurrency, buildWhatsAppUrl, getBusinessWhatsAppMessage } from '@/lib/utils';
@@ -85,7 +85,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onClick={handleClick}
             className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-xs transition-all active:scale-95"
           >
-            <MessageCircle className="w-3.5 h-3.5 fill-current" />
+            <WhatsAppSolidIcon className="w-3.5 h-3.5" />
             <span>Tenho interesse</span>
           </a>
         </div>

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, Star, MapPin, ShieldCheck, ArrowRight, MessageCircle } from 'lucide-react';
+import { Sparkles, Star, MapPin, ArrowRight } from 'lucide-react';
+import { VerifiedCheckIcon, WhatsAppSolidIcon } from '@/components/ui/Icons';
 import { Business } from '@/types';
 import { store } from '@/lib/data/store';
 import { buildWhatsAppUrl, getBusinessWhatsAppMessage } from '@/lib/utils';
@@ -29,7 +30,7 @@ export const BusinessFeaturedCard: React.FC<BusinessFeaturedCardProps> = ({ busi
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-[#0E3B43]/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-[#0E3B43]/85 via-transparent to-transparent" />
 
         <div className="absolute top-3 left-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#E36845] text-white shadow-md">
@@ -77,7 +78,9 @@ export const BusinessFeaturedCard: React.FC<BusinessFeaturedCardProps> = ({ busi
                 {business.name}
               </h3>
               {business.is_verified && (
-                <ShieldCheck className="w-4 h-4 text-[#4FA6A6] fill-[#4FA6A6]/20" />
+                <span title="Estabelecimento Verificado" className="text-[#4FA6A6]">
+                  <VerifiedCheckIcon className="w-4 h-4" />
+                </span>
               )}
             </div>
           </Link>
@@ -105,7 +108,7 @@ export const BusinessFeaturedCard: React.FC<BusinessFeaturedCardProps> = ({ busi
             onClick={() => store.logAnalyticsEvent(business.id, 'whatsapp_click')}
             className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-sm transition-all active:scale-95 shrink-0"
           >
-            <MessageCircle className="w-4 h-4 fill-current" />
+            <WhatsAppSolidIcon className="w-4 h-4" />
             <span>Chamar</span>
           </a>
         </div>

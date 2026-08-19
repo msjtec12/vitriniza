@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Tag, Flame, MessageCircle, MapPin, Sparkles } from 'lucide-react';
+import { Tag, Flame, MapPin, Sparkles } from 'lucide-react';
+import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 import { Promotion } from '@/types';
 import { store } from '@/lib/data/store';
 import { formatCurrency, buildWhatsAppUrl, getBusinessWhatsAppMessage } from '@/lib/utils';
@@ -43,23 +44,23 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({ promotion }) => {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/85 via-transparent to-transparent" />
 
         {/* Discount Badge in Laranja Coral (#E36845) */}
         <div className="absolute top-3 left-3 flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-[#E36845] text-white shadow-md">
-            <Flame className="w-3.5 h-3.5 fill-current" />
+            <Flame className="w-3.5 h-3.5 fill-current animate-pulse" />
             {discountPercent}% OFF
           </span>
         </div>
 
         {/* Business and Neighborhood */}
         <div className="absolute bottom-3 left-3 right-3 text-white text-xs">
-          <span className="font-bold block truncate drop-shadow-sm text-sm text-[#F8F6F0]">
+          <span className="font-black block truncate drop-shadow-sm text-sm text-[#F8F6F0]">
             {promotion.business_name}
           </span>
           <div className="flex items-center gap-1 text-[#4FA6A6] mt-0.5 text-[11px] font-semibold">
-            <MapPin className="w-3 h-3 text-[#F49C6B]" />
+            <MapPin className="w-3.5 h-3.5 text-[#F49C6B]" />
             <span>{promotion.neighborhood_name || 'Guaianases'}</span>
           </div>
         </div>
@@ -96,15 +97,15 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({ promotion }) => {
           )}
         </div>
 
-        {/* Action Button: Laranja Coral (#E36845) with Hover Laranja Pêssego (#F49C6B) */}
+        {/* Action Button with official WhatsApp icon */}
         <a
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleWhatsAppClick}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95"
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs sm:text-sm font-black tracking-wide shadow-md transition-all active:scale-95"
         >
-          <MessageCircle className="w-4 h-4 fill-current" />
+          <WhatsAppSolidIcon className="w-4 h-4" />
           <span>PEDIR PELO WHATSAPP</span>
         </a>
       </div>
