@@ -66,6 +66,42 @@ class VitrinizaStore {
       status: 'approved',
       created_at: '2026-02-08T15:20:00Z',
     },
+    {
+      id: 'rev-16-1',
+      business_id: 'biz-16',
+      author_name: 'Marcelo Pires',
+      rating: 5,
+      comment: 'O Carlos foi impecável na locação do meu salão comercial. Negociação transparente, rápida e sem burocracia desnecessária!',
+      status: 'approved',
+      created_at: '2026-02-14T11:00:00Z',
+    },
+    {
+      id: 'rev-17-1',
+      business_id: 'biz-17',
+      author_name: 'Julio Cesar Martins',
+      rating: 5,
+      comment: 'A Juliana encontrou um plano de saúde pelo meu MEI que reduziu minha mensalidade em mais de 35% com atendimento nos melhores hospitais.',
+      status: 'approved',
+      created_at: '2026-02-15T14:30:00Z',
+    },
+    {
+      id: 'rev-18-1',
+      business_id: 'biz-18',
+      author_name: 'Renata Guimarães',
+      rating: 5,
+      comment: 'Chamei o Marcos numa emergência de curto-circuito em pleno sábado à noite. Chegou em 25 minutos e resolveu tudo com total segurança.',
+      status: 'approved',
+      created_at: '2026-02-16T22:15:00Z',
+    },
+    {
+      id: 'rev-19-1',
+      business_id: 'biz-19',
+      author_name: 'Luciana Mello',
+      rating: 5,
+      comment: 'A equipe da Dona Maria fez a faxina pós-obra do meu apartamento e deixou impecável, brilhando e cheiroso. Super recomendo!',
+      status: 'approved',
+      created_at: '2026-02-17T17:00:00Z',
+    },
   ];
   private claimRequests: ClaimRequest[] = [];
   private banners: Banner[] = [...mockBanners];

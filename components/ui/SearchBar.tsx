@@ -60,13 +60,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   const quickTags = [
+    { label: '🏠 Imóveis & Aluguel', q: 'imovel' },
+    { label: '🩺 Planos de Saúde', q: 'saude' },
+    { label: '⚡ Eletricista 24h', q: 'eletricista' },
+    { label: '🧹 Diaristas', q: 'diarista' },
     { label: '🍕 Pizzas', q: 'pizza' },
     { label: '💇 Barbearia', q: 'barbearia' },
     { label: '🎂 Bolos & Doces', q: 'bolo' },
     { label: '🐶 Pet Shop', q: 'pet' },
-    { label: '🔧 Eletricista', q: 'eletricista' },
     { label: '🚗 Oficina', q: 'mecanica' },
-    { label: '🍔 Burgers', q: 'burger' },
   ];
 
   if (variant === 'compact') {

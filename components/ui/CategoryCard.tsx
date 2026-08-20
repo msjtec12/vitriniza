@@ -15,6 +15,9 @@ import {
   Shirt,
   Smartphone,
   HeartPulse,
+  Building2,
+  ShieldPlus,
+  Briefcase,
   Store,
 } from 'lucide-react';
 import { Category } from '@/types';
@@ -35,6 +38,30 @@ const categoryVisuals: Record<string, CategoryVisual> = {
     iconColor: 'text-[#E36845]',
     badgeBorder: 'border-orange-500/30',
   },
+  'imoveis-corretores': {
+    icon: Building2,
+    bgGradient: 'from-emerald-600/20 via-teal-700/10 to-emerald-600/5',
+    iconColor: 'text-emerald-700',
+    badgeBorder: 'border-emerald-600/30',
+  },
+  'planos-saude-seguros': {
+    icon: ShieldPlus,
+    bgGradient: 'from-blue-600/20 via-cyan-600/10 to-blue-600/5',
+    iconColor: 'text-blue-700',
+    badgeBorder: 'border-blue-600/30',
+  },
+  'servicos-reformas': {
+    icon: Wrench,
+    bgGradient: 'from-amber-500/20 via-yellow-500/10 to-amber-500/5',
+    iconColor: 'text-amber-600',
+    badgeBorder: 'border-amber-500/30',
+  },
+  'servicos-domesticos': {
+    icon: Sparkles,
+    bgGradient: 'from-teal-500/20 via-sky-500/10 to-teal-500/5',
+    iconColor: 'text-teal-600',
+    badgeBorder: 'border-teal-500/30',
+  },
   'beleza-estetica': {
     icon: Sparkles,
     bgGradient: 'from-pink-500/20 via-rose-500/10 to-pink-500/5',
@@ -52,12 +79,6 @@ const categoryVisuals: Record<string, CategoryVisual> = {
     bgGradient: 'from-emerald-500/20 via-teal-500/10 to-emerald-500/5',
     iconColor: 'text-emerald-600',
     badgeBorder: 'border-emerald-500/30',
-  },
-  'servicos-reformas': {
-    icon: Wrench,
-    bgGradient: 'from-amber-500/20 via-yellow-500/10 to-amber-500/5',
-    iconColor: 'text-amber-600',
-    badgeBorder: 'border-amber-500/30',
   },
   'festas-doces': {
     icon: Cake,
@@ -88,6 +109,12 @@ const categoryVisuals: Record<string, CategoryVisual> = {
     bgGradient: 'from-violet-500/20 via-purple-500/10 to-violet-500/5',
     iconColor: 'text-violet-600',
     badgeBorder: 'border-violet-500/30',
+  },
+  'servicos-profissionais': {
+    icon: Briefcase,
+    bgGradient: 'from-indigo-600/20 via-slate-600/10 to-indigo-600/5',
+    iconColor: 'text-indigo-700',
+    badgeBorder: 'border-indigo-600/30',
   },
   'tecnologia-celulares': {
     icon: Smartphone,

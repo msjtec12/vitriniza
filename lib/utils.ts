@@ -30,14 +30,28 @@ export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`;
 }
 
-export function getBusinessWhatsAppMessage(businessName: string, context?: 'product' | 'promo' | 'general', itemTitle?: string): string {
+export function getBusinessWhatsAppMessage(
+  businessName: string,
+  context?: 'product' | 'promo' | 'general' | 'quote' | 'property',
+  itemTitle?: string
+): string {
   if (context === 'product' && itemTitle) {
-    return `Olá! Vi o produto "${itemTitle}" na Vitriniza e gostaria de saber mais informações e fazer um pedido.`;
+    const lower = itemTitle.toLowerCase();
+    if (lower.includes('sobrado') || lower.includes('apartamento') || lower.includes('casa') || lower.includes('salão') || lower.includes('imóvel') || lower.includes('imovel')) {
+      return `Olá! Vi o imóvel "${itemTitle}" na Vitriniza e gostaria de mais informações e agendar uma visita.`;
+    }
+    if (lower.includes('plano') || lower.includes('saúde') || lower.includes('saude') || lower.includes('convênio') || lower.includes('convenio') || lower.includes('odonto') || lower.includes('seguro')) {
+      return `Olá! Vi a opção "${itemTitle}" na Vitriniza e gostaria de solicitar uma cotação personalizada sem compromisso.`;
+    }
+    if (lower.includes('instalação') || lower.includes('revisão') || lower.includes('diária') || lower.includes('faxina') || lower.includes('serviço') || lower.includes('eletricista') || lower.includes('reparo')) {
+      return `Olá! Vi o serviço "${itemTitle}" na Vitriniza e gostaria de solicitar um orçamento e disponibilidade de agenda.`;
+    }
+    return `Olá! Vi "${itemTitle}" na Vitriniza e gostaria de saber mais informações e fazer um pedido.`;
   }
   if (context === 'promo' && itemTitle) {
-    return `Olá! Vi a oferta "${itemTitle}" na Vitriniza e gostaria de aproveitar esta promoção.`;
+    return `Olá! Vi a oportunidade "${itemTitle}" na Vitriniza e gostaria de aproveitar com você.`;
   }
-  return `Olá! Encontrei a ${businessName} pela Vitriniza e gostaria de mais informações.`;
+  return `Olá! Encontrei o perfil de ${businessName} pela Vitriniza e gostaria de tirar algumas dúvidas e solicitar um atendimento.`;
 }
 
 export function formatDate(dateString: string): string {
