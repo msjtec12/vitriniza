@@ -56,25 +56,33 @@ export default function HomePage() {
     'Localização padrão: Centro de Guaianases (SP)'
   );
 
-  useEffect(() => {
+  const refreshPageData = () => {
     setCategories(store.getCategories());
     setFeaturedBusinesses(store.getFeaturedBusinesses());
     setPromotions(store.getPromotions());
     setArticles(store.getArticles().slice(0, 3));
     setEvents(store.getEvents().slice(0, 2));
 
-    // Default to Guaianases coordinates
     const defaultLat = -23.5424;
     const defaultLng = -46.4178;
-    setUserLocation({ lat: defaultLat, lng: defaultLng });
+    const lat = userLocation?.lat || defaultLat;
+    const lng = userLocation?.lng || defaultLng;
 
-    const initialNearby = store.getBusinesses({
-      user_lat: defaultLat,
-      user_lng: defaultLng,
+    const nearby = store.getBusinesses({
+      user_lat: lat,
+      user_lng: lng,
       max_distance_km: radiusKm,
       sort_by: 'distance',
     });
-    setNearbyBusinesses(initialNearby);
+    setNearbyBusinesses(nearby);
+  };
+
+  useEffect(() => {
+    refreshPageData();
+    setUserLocation({ lat: -23.5424, lng: -46.4178 });
+    store.ensureCloudSynced().then(() => refreshPageData());
+    const unsubscribe = store.subscribe(() => refreshPageData());
+    return () => unsubscribe();
   }, []);
 
   // Subtle and Smooth Automatic Movement (Autoplay) for Promotions Carousel

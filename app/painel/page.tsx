@@ -154,6 +154,9 @@ export default function MerchantPanelPage() {
   useEffect(() => {
     if (isAuthenticated) {
       loadActiveBusiness();
+      store.ensureCloudSynced().then(() => loadActiveBusiness());
+      const unsubscribe = store.subscribe(() => loadActiveBusiness());
+      return () => unsubscribe();
     }
   }, [isAuthenticated]);
 

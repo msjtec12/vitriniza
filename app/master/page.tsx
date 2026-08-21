@@ -162,6 +162,9 @@ export default function MasterAdminPage() {
   useEffect(() => {
     if (isAuthenticated) {
       refreshData();
+      store.ensureCloudSynced().then(() => refreshData());
+      const unsubscribe = store.subscribe(() => refreshData());
+      return () => unsubscribe();
     }
   }, [isAuthenticated]);
 
