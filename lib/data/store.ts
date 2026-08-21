@@ -43,6 +43,7 @@ const STORAGE_KEYS = {
   CLAIMS: 'vitriniza_claims_v1',
   SETTINGS: 'vitriniza_settings_v1',
   ANALYTICS: 'vitriniza_analytics_v1',
+  EVENTS: 'vitriniza_events_v1',
 };
 
 // HYBRID STORE WITH INSTANT LOCAL PERSISTENCE + REAL-TIME SUPABASE CLOUD SYNC & REACTION
@@ -509,6 +510,16 @@ class VitrinizaStore {
         }
       }
 
+      const storedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS);
+      if (storedEvents) {
+        const parsed = JSON.parse(storedEvents);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const storedIds = new Set(parsed.map((e: LocalEvent) => e.id));
+          const missingMocks = mockEvents.filter((e) => !storedIds.has(e.id));
+          this.events = [...parsed, ...missingMocks];
+        }
+      }
+
       this.isHydrated = true;
     } catch (err) {
       console.warn('[VitrinizaStore] Error loading storage:', err);
@@ -527,6 +538,7 @@ class VitrinizaStore {
       localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(this.reviews));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
       localStorage.setItem(STORAGE_KEYS.ANALYTICS, JSON.stringify(this.analyticsEvents));
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(this.events));
     } catch (err) {
       console.warn('[VitrinizaStore] Error saving storage:', err);
     }
@@ -757,8 +769,85 @@ class VitrinizaStore {
     return this.articles.find((a) => a.slug === slug && a.is_published);
   }
 
+  public getAllEvents(): LocalEvent[] {
+    this.ensureHydrated();
+    return this.events;
+  }
+
   public getEvents(): LocalEvent[] {
+    this.ensureHydrated();
     return this.events.filter((e) => e.is_active);
+  }
+
+  public createEvent(data: Partial<LocalEvent>): LocalEvent {
+    this.ensureHydrated();
+    const slug =
+      data.slug ||
+      data.title
+        ?.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '') ||
+      `evento-${Date.now()}`;
+
+    const newEvt: LocalEvent = {
+      id: `evt-${Date.now()}`,
+      title: data.title || 'Novo Evento no Bairro',
+      slug,
+      description: data.description || '',
+      location_name: data.location_name || 'Praça Principal',
+      address: data.address || '',
+      neighborhood_name: data.neighborhood_name || 'Guaianases',
+      city_name: data.city_name || 'São Paulo',
+      event_date: data.event_date || new Date().toISOString().split('T')[0],
+      event_time: data.event_time || '14:00',
+      image_url: data.image_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
+      whatsapp_contact: data.whatsapp_contact || '',
+      organizer_name: data.organizer_name || 'Organização Local',
+      is_active: data.is_active !== undefined ? data.is_active : true,
+      created_at: new Date().toISOString(),
+    };
+
+    this.events.unshift(newEvt);
+    this.saveToStorage();
+    this.notifyListeners();
+    if (supabase) {
+      supabase.from('events').upsert(newEvt).then();
+    }
+    return newEvt;
+  }
+
+  public updateEvent(id: string, updates: Partial<LocalEvent>): LocalEvent | undefined {
+    this.ensureHydrated();
+    const idx = this.events.findIndex((e) => e.id === id);
+    if (idx === -1) return undefined;
+
+    this.events[idx] = { ...this.events[idx], ...updates };
+    this.saveToStorage();
+    this.notifyListeners();
+    if (supabase) {
+      supabase.from('events').update(updates).eq('id', id).then();
+    }
+    return this.events[idx];
+  }
+
+  public deleteEvent(id: string) {
+    this.ensureHydrated();
+    this.events = this.events.filter((e) => e.id !== id);
+    this.saveToStorage();
+    this.notifyListeners();
+    if (supabase) {
+      supabase.from('events').delete().eq('id', id).then();
+    }
+  }
+
+  public toggleEventStatus(id: string): LocalEvent | undefined {
+    const evt = this.events.find((e) => e.id === id);
+    if (evt) {
+      return this.updateEvent(id, { is_active: !evt.is_active });
+    }
+    return undefined;
   }
 
   public getBanners(placement: string = 'homepage'): Banner[] {

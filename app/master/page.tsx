@@ -32,9 +32,10 @@ import {
   LogOut,
   ShieldAlert,
   Upload,
+  Calendar,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
-import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier } from '@/types';
+import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier, LocalEvent } from '@/types';
 import { formatCurrency, formatPhone, cn } from '@/lib/utils';
 
 export default function MasterAdminPage() {
@@ -65,7 +66,7 @@ export default function MasterAdminPage() {
   const [loginAttempts, setLoginAttempts] = useState(0);
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'businesses' | 'create_business' | 'claims' | 'regions' | 'categories' | 'banners' | 'settings'
+    'dashboard' | 'businesses' | 'create_business' | 'claims' | 'events' | 'regions' | 'categories' | 'banners' | 'settings'
   >('dashboard');
 
   const [stats, setStats] = useState(store.getMasterStats());
@@ -73,7 +74,26 @@ export default function MasterAdminPage() {
   const [claims, setClaims] = useState<ClaimRequest[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [events, setEvents] = useState<LocalEvent[]>([]);
   const [settings, setSettings] = useState<PlatformSettings>(store.getPlatformSettings());
+
+  // Events management state
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    location_name: '',
+    address: '',
+    neighborhood_name: 'Guaianases',
+    city_name: 'São Paulo',
+    event_date: '',
+    event_time: '',
+    image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
+    whatsapp_contact: '',
+    organizer_name: 'Associação dos Comerciantes Locais',
+    is_active: true,
+  });
 
   // Search & Filters for business table
   const [searchTerm, setSearchTerm] = useState('');
@@ -175,12 +195,81 @@ export default function MasterAdminPage() {
     setCategories(cats);
     setNeighborhoods(neighs);
     setSettings(store.getPlatformSettings());
+    setEvents(store.getAllEvents());
 
     setCreateForm((prev) => ({
       ...prev,
       category_id: prev.category_id === '1' && cats.length > 0 ? cats[0].id : prev.category_id,
       neighborhood_id: prev.neighborhood_id === '1' && neighs.length > 0 ? neighs[0].id : prev.neighborhood_id,
     }));
+  };
+
+  // Event Management Handlers
+  const handleSaveEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!eventForm.title || !eventForm.event_date) {
+      alert('Por favor, preencha o título e a data do evento.');
+      return;
+    }
+
+    if (editingEventId) {
+      store.updateEvent(editingEventId, eventForm);
+    } else {
+      store.createEvent(eventForm);
+    }
+
+    refreshData();
+    setIsEventModalOpen(false);
+    setEditingEventId(null);
+    resetEventForm();
+  };
+
+  const resetEventForm = () => {
+    setEventForm({
+      title: '',
+      description: '',
+      location_name: '',
+      address: '',
+      neighborhood_name: 'Guaianases',
+      city_name: 'São Paulo',
+      event_date: '',
+      event_time: '',
+      image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
+      whatsapp_contact: '',
+      organizer_name: 'Associação dos Comerciantes Locais',
+      is_active: true,
+    });
+  };
+
+  const handleEditEvent = (evt: LocalEvent) => {
+    setEditingEventId(evt.id);
+    setEventForm({
+      title: evt.title,
+      description: evt.description,
+      location_name: evt.location_name,
+      address: evt.address,
+      neighborhood_name: evt.neighborhood_name,
+      city_name: evt.city_name,
+      event_date: evt.event_date,
+      event_time: evt.event_time,
+      image_url: evt.image_url,
+      whatsapp_contact: evt.whatsapp_contact || '',
+      organizer_name: evt.organizer_name,
+      is_active: evt.is_active,
+    });
+    setIsEventModalOpen(true);
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    if (confirm('Tem certeza que deseja excluir este evento?')) {
+      store.deleteEvent(eventId);
+      refreshData();
+    }
+  };
+
+  const handleToggleEventActive = (eventId: string) => {
+    store.toggleEventStatus(eventId);
+    refreshData();
   };
 
   useEffect(() => {
@@ -418,7 +507,8 @@ export default function MasterAdminPage() {
             { id: 'businesses', label: 'Empresas & Planos', icon: Building, count: businesses.length },
             { id: 'create_business', label: '+ Cadastrar Negócio', icon: Plus },
             { id: 'claims', label: 'Fila de Reivindicações', icon: AlertCircle, count: claims.filter((c) => c.status === 'pending').length },
-            { id: 'settings', label: 'Configurações de Preços', icon: Settings },
+            { id: 'events', label: 'Eventos no Bairro', icon: Calendar, count: events.length },
+            { id: 'settings', label: 'Configurações de Preços & Banner', icon: Settings },
           ].map((tab) => {
             const IconComp = tab.icon;
             const isSelected = activeTab === tab.id;
@@ -1105,7 +1195,275 @@ export default function MasterAdminPage() {
             </div>
           </div>
         )}
+
+        {/* TAB: GESTÃO DE EVENTOS NO BAIRRO */}
+        {activeTab === 'events' && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E8E4DA] pb-5">
+              <div>
+                <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#E36845]" />
+                  <span>Gestão de Eventos no Bairro</span>
+                </h3>
+                <p className="text-xs text-[#537379]">
+                  Cadastre, edite, ative ou desative feiras gastronômicas, bazares, shows e feiras do bairro exibidos no portal.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setEditingEventId(null);
+                  resetEventForm();
+                  setIsEventModalOpen(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black flex items-center gap-2 shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Cadastrar Novo Evento</span>
+              </button>
+            </div>
+
+            {/* Events List Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {events.length > 0 ? (
+                events.map((evt) => (
+                  <div key={evt.id} className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex flex-col justify-between gap-4">
+                    <div className="flex gap-3">
+                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#E8E4DA]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={evt.image_url} alt={evt.title} className="w-full h-full object-cover" />
+                      </div>
+
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider',
+                              evt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600'
+                            )}
+                          >
+                            {evt.is_active ? 'Ativo na Homepage' : 'Inativo / Oculto'}
+                          </span>
+                        </div>
+                        <h4 className="font-black text-xs text-[#0E3B43] line-clamp-1">{evt.title}</h4>
+                        <div className="text-[11px] text-[#537379] space-y-0.5">
+                          <p>📅 <strong>{evt.event_date}</strong> às {evt.event_time}</p>
+                          <p>📍 {evt.location_name} - {evt.neighborhood_name}</p>
+                          <p>👤 {evt.organizer_name}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-[#E8E4DA]">
+                      <button
+                        onClick={() => handleToggleEventActive(evt.id)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
+                          evt.is_active
+                            ? 'bg-stone-200 text-stone-700 hover:bg-stone-300'
+                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        )}
+                      >
+                        {evt.is_active ? 'Desativar Evento' : 'Ativar Evento'}
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditEvent(evt)}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-[#4FA6A6]" />
+                          <span>Editar</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(evt.id)}
+                          className="p-2 rounded-xl bg-white border border-[#E8E4DA] text-stone-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="md:col-span-2 p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
+                  Nenhum evento cadastrado ainda. Clique em "+ Cadastrar Novo Evento" para publicar feiras, bazares e eventos comunitários.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* EVENT MODAL */}
+      {isEventModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#E36845]" />
+                <span>{editingEventId ? 'Editar Evento' : 'Cadastrar Novo Evento no Bairro'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEventModalOpen(false)}
+                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEvent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título do Evento *</label>
+                <input
+                  type="text"
+                  required
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                  placeholder="Ex: Feira Gastronômica & Cultural de Guaianases"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Data do Evento *</label>
+                  <input
+                    type="text"
+                    required
+                    value={eventForm.event_date}
+                    onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
+                    placeholder="Ex: 24 de Setembro ou YYYY-MM-DD"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Horário *</label>
+                  <input
+                    type="text"
+                    required
+                    value={eventForm.event_time}
+                    onChange={(e) => setEventForm({ ...eventForm, event_time: e.target.value })}
+                    placeholder="Ex: 10:00 às 18:00"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Local *</label>
+                  <input
+                    type="text"
+                    required
+                    value={eventForm.location_name}
+                    onChange={(e) => setEventForm({ ...eventForm, location_name: e.target.value })}
+                    placeholder="Ex: Praça de Eventos Guaianases"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Organizador *</label>
+                  <input
+                    type="text"
+                    required
+                    value={eventForm.organizer_name}
+                    onChange={(e) => setEventForm({ ...eventForm, organizer_name: e.target.value })}
+                    placeholder="Ex: Associação de Comerciantes"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço Completo</label>
+                <input
+                  type="text"
+                  value={eventForm.address}
+                  onChange={(e) => setEventForm({ ...eventForm, address: e.target.value })}
+                  placeholder="Ex: Estrada de Poá, s/n (Praça Central)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Contato (Opcional)</label>
+                <input
+                  type="text"
+                  value={eventForm.whatsapp_contact}
+                  onChange={(e) => setEventForm({ ...eventForm, whatsapp_contact: e.target.value })}
+                  placeholder="Ex: 11999998888"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem do Evento</label>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={eventForm.image_url}
+                    onChange={(e) => setEventForm({ ...eventForm, image_url: e.target.value })}
+                    placeholder="https://..."
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-100 cursor-pointer shrink-0">
+                    <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                    <span>📁 Upload Foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImageFileUpload(file, (dataUrl) => {
+                            setEventForm((prev) => ({ ...prev, image_url: dataUrl }));
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {eventForm.image_url && (
+                  <div className="h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={eventForm.image_url} alt="Preview Evento" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Completa do Evento</label>
+                <textarea
+                  rows={3}
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                  placeholder="Detalhes das atrações, horários, expositores..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEventModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                >
+                  {editingEventId ? 'Salvar Alterações' : 'Publicar Evento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
