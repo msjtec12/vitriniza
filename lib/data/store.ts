@@ -19,6 +19,7 @@ import {
   PlanLimits,
 } from '@/types';
 import {
+  mockStates,
   mockBusinesses,
   mockCategories,
   mockCities,
@@ -239,6 +240,83 @@ class VitrinizaStore {
       this.saveToStorage();
     } catch (err) {
       console.warn('[VitrinizaStore] Supabase sync completed with local cache.');
+    }
+  }
+
+  // --- MANUAL / ON-DEMAND FULL CLOUD SEED ---
+  public async pushAllToSupabase(): Promise<{ success: boolean; message: string }> {
+    if (!supabase) {
+      return { success: false, message: 'Supabase não está configurado. Verifique as credenciais.' };
+    }
+
+    try {
+      // 1. Settings
+      await supabase.from('platform_settings').upsert({
+        id: 'main',
+        platform_name: this.settings.platform_name,
+        contact_whatsapp: this.settings.contact_whatsapp,
+        plan_semanal_price: this.settings.plan_prices.semanal,
+        plan_mensal_price: this.settings.plan_prices.mensal,
+        updated_at: new Date().toISOString(),
+      });
+
+      // 2. States, Cities, Neighborhoods, Categories
+      const statesClean = mockStates.map((s) => ({ id: s.id, name: s.name, uf: s.uf }));
+      await supabase.from('states').upsert(statesClean);
+
+      const citiesClean = this.cities.map((c) => ({
+        id: c.id,
+        state_id: c.state_id,
+        name: c.name,
+        slug: c.slug,
+        active: c.active,
+        is_featured: c.is_featured,
+        image_url: c.image_url,
+        description: c.description,
+      }));
+      await supabase.from('cities').upsert(citiesClean);
+
+      const neighsClean = this.neighborhoods.map((n) => ({
+        id: n.id,
+        city_id: n.city_id,
+        name: n.name,
+        slug: n.slug,
+        active: n.active,
+        is_featured: n.is_featured,
+        order_index: n.order_index,
+      }));
+      await supabase.from('neighborhoods').upsert(neighsClean);
+
+      const catsClean = this.categories.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        icon: cat.icon,
+        description: cat.description,
+        image_url: cat.image_url,
+        order_index: cat.order_index,
+        active: cat.active,
+      }));
+      await supabase.from('categories').upsert(catsClean);
+
+      // 3. Businesses
+      const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, ...rest }) => rest);
+      await supabase.from('businesses').upsert(bizClean);
+
+      // 4. Products & Promotions
+      if (this.products.length > 0) {
+        await supabase.from('products').upsert(this.products);
+      }
+      if (this.promotions.length > 0) {
+        await supabase.from('promotions').upsert(this.promotions);
+      }
+
+      return {
+        success: true,
+        message: `Sincronização concluída! ${this.businesses.length} empresas, ${this.categories.length} categorias e produtos enviados para a nuvem.`,
+      };
+    } catch (err: any) {
+      return { success: false, message: `Erro ao enviar para o Supabase: ${err?.message || 'Falha na conexão'}` };
     }
   }
 

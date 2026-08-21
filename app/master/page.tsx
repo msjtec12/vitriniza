@@ -76,6 +76,8 @@ export default function MasterAdminPage() {
   });
 
   const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState<{ text: string; success: boolean } | null>(null);
 
   // Settings form
   const [settingsForm, setSettingsForm] = useState({
@@ -86,6 +88,15 @@ export default function MasterAdminPage() {
     premiumPrice: settings.plan_prices.premium || 49.90,
     contactWhatsApp: settings.contact_whatsapp,
   });
+
+  const handleSyncToSupabase = async () => {
+    setIsSyncingCloud(true);
+    setCloudSyncMsg(null);
+    const result = await store.pushAllToSupabase();
+    setIsSyncingCloud(false);
+    setCloudSyncMsg({ text: result.message, success: result.success });
+    refreshData();
+  };
 
   // Check existing session
   useEffect(() => {
@@ -869,6 +880,39 @@ export default function MasterAdminPage() {
                 Salvar Configurações de Preços
               </button>
             </form>
+
+            {/* Supabase Cloud Database Section */}
+            <div className="pt-6 border-t border-[#E8E4DA] space-y-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#E36845]" />
+                <h4 className="font-black text-sm text-[#0E3B43]">Sincronização em Nuvem (Supabase)</h4>
+              </div>
+              <p className="text-xs text-[#537379] max-w-xl">
+                Envie todos os comércios, categorias, produtos e configurações para o banco em nuvem do Supabase. Assim, qualquer outro dispositivo ou visitante verá os cadastros em tempo real.
+              </p>
+
+              {cloudSyncMsg && (
+                <div
+                  className={cn(
+                    'p-3.5 rounded-xl text-xs font-bold flex items-center gap-2',
+                    cloudSyncMsg.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                  )}
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{cloudSyncMsg.text}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSyncToSupabase}
+                disabled={isSyncingCloud}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4 text-[#4FA6A6]" />
+                <span>{isSyncingCloud ? 'Sincronizando com Supabase...' : '🚀 Popular / Sincronizar Tudo com Supabase'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
