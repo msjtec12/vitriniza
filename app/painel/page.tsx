@@ -546,7 +546,9 @@ export default function MerchantPanelPage() {
                       <Eye className="w-4 h-4 text-[#4FA6A6]" />
                     </div>
                     <div className="text-2xl font-black text-[#0E3B43]">{stats.viewsCount}</div>
-                    <span className="text-[10px] text-emerald-600 font-bold">↑ +18% esta semana</span>
+                    <span className="text-[10px] text-[#537379] font-medium">
+                      {stats.viewsCount === 0 ? 'Aguardando visitantes' : 'Total acumulado'}
+                    </span>
                   </div>
 
                   <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
@@ -555,7 +557,9 @@ export default function MerchantPanelPage() {
                       <MessageCircle className="w-4 h-4 text-emerald-600" />
                     </div>
                     <div className="text-2xl font-black text-[#0E3B43]">{stats.whatsappClicks}</div>
-                    <span className="text-[10px] text-emerald-600 font-bold">Leads diretos gerados</span>
+                    <span className="text-[10px] text-[#537379] font-medium">
+                      {stats.whatsappClicks === 0 ? 'Sem contatos ainda' : 'Leads diretos gerados'}
+                    </span>
                   </div>
 
                   <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
@@ -586,18 +590,30 @@ export default function MerchantPanelPage() {
                     </div>
                   </div>
 
-                  <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#F0ECE1" />
-                        <XAxis dataKey="name" stroke="#537379" fontSize={11} />
-                        <YAxis stroke="#537379" fontSize={11} />
-                        <Tooltip contentStyle={{ backgroundColor: '#0E3B43', color: '#fff', borderRadius: '12px', border: 'none' }} />
-                        <Area type="monotone" dataKey="visualizacoes" stroke="#4FA6A6" fill="#4FA6A6" fillOpacity={0.2} name="Visualizações" />
-                        <Area type="monotone" dataKey="cliquesWhatsApp" stroke="#E36845" fill="#E36845" fillOpacity={0.3} name="Cliques WhatsApp" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {stats.viewsCount === 0 && stats.whatsappClicks === 0 ? (
+                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-[#4FA6A6]/15 flex items-center justify-center mx-auto text-[#0E3B43]">
+                        <TrendingUp className="w-5 h-5" />
+                      </div>
+                      <h4 className="font-black text-xs text-[#0E3B43]">Pronto para o Lançamento! 🚀</h4>
+                      <p className="text-xs text-[#537379] max-w-md mx-auto">
+                        Sua vitrine já está configurada. Assim que os moradores do bairro começarem a acessar sua página e mandar mensagem no WhatsApp, o gráfico de acessos em tempo real aparecerá aqui!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F0ECE1" />
+                          <XAxis dataKey="name" stroke="#537379" fontSize={11} />
+                          <YAxis stroke="#537379" fontSize={11} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0E3B43', color: '#fff', borderRadius: '12px', border: 'none' }} />
+                          <Area type="monotone" dataKey="visualizacoes" stroke="#4FA6A6" fill="#4FA6A6" fillOpacity={0.2} name="Visualizações" />
+                          <Area type="monotone" dataKey="cliquesWhatsApp" stroke="#E36845" fill="#E36845" fillOpacity={0.3} name="Cliques WhatsApp" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

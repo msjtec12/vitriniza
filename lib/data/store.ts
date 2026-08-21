@@ -42,6 +42,7 @@ const STORAGE_KEYS = {
   REVIEWS: 'vitriniza_reviews_v1',
   CLAIMS: 'vitriniza_claims_v1',
   SETTINGS: 'vitriniza_settings_v1',
+  ANALYTICS: 'vitriniza_analytics_v1',
 };
 
 // HYBRID STORE WITH INSTANT LOCAL PERSISTENCE + REAL-TIME SUPABASE CLOUD SYNC & REACTION
@@ -500,6 +501,14 @@ class VitrinizaStore {
         }
       }
 
+      const storedAnalytics = localStorage.getItem(STORAGE_KEYS.ANALYTICS);
+      if (storedAnalytics) {
+        const parsed = JSON.parse(storedAnalytics);
+        if (Array.isArray(parsed)) {
+          this.analyticsEvents = parsed;
+        }
+      }
+
       this.isHydrated = true;
     } catch (err) {
       console.warn('[VitrinizaStore] Error loading storage:', err);
@@ -517,6 +526,7 @@ class VitrinizaStore {
       localStorage.setItem(STORAGE_KEYS.CLAIMS, JSON.stringify(this.claimRequests));
       localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(this.reviews));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+      localStorage.setItem(STORAGE_KEYS.ANALYTICS, JSON.stringify(this.analyticsEvents));
     } catch (err) {
       console.warn('[VitrinizaStore] Error saving storage:', err);
     }
@@ -1084,12 +1094,17 @@ class VitrinizaStore {
   }
 
   public getBusinessStats(businessId: string) {
+    this.ensureHydrated();
     const biz = this.getBusinessById(businessId);
+    const bizEvents = this.analyticsEvents.filter((e) => e.business_id === businessId);
+    const viewsCount = bizEvents.filter((e) => e.event_type === 'business_view').length;
+    const whatsappClicks = bizEvents.filter((e) => e.event_type === 'whatsapp_click').length;
+
     return {
       productsCount: biz?.products?.length || 0,
       promotionsCount: biz?.promotions?.length || 0,
-      viewsCount: 1240,
-      whatsappClicks: 185,
+      viewsCount,
+      whatsappClicks,
       rating: biz?.rating || 5.0,
       reviewsCount: biz?.reviews_count || 0,
     };
@@ -1097,51 +1112,61 @@ class VitrinizaStore {
 
   // --- ANALYTICS & LOGGING ---
   public logAnalyticsEvent(businessId: string, eventType: AnalyticsEvent['event_type'], metadata?: Record<string, unknown>) {
-    this.analyticsEvents.push({
-      id: `evt-${Date.now()}`,
+    this.ensureHydrated();
+    const newEvt: AnalyticsEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       business_id: businessId,
       event_type: eventType,
       metadata,
       created_at: new Date().toISOString(),
-    });
+    };
+    this.analyticsEvents.push(newEvt);
+    this.saveToStorage();
+    this.notifyListeners();
+    if (supabase) {
+      supabase.from('analytics_events').upsert(newEvt).then();
+    }
   }
 
   public getMerchantAnalytics(businessId: string): MerchantAnalytics {
-    const days = 30;
+    this.ensureHydrated();
     const dailyStats = [];
     const now = new Date();
+    const bizEvents = this.analyticsEvents.filter((e) => e.business_id === businessId);
+    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-    for (let i = days - 1; i >= 0; i--) {
+    for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(now.getDate() - i);
-      const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const dateKey = d.toISOString().split('T')[0];
+      const dayName = dayNames[d.getDay()];
 
-      const baseFactor = Math.sin(i * 0.5) * 10 + 25;
-      const views = Math.floor(baseFactor + Math.random() * 15);
-      const whatsappClicks = Math.floor(views * 0.22 + Math.random() * 4);
-      const phoneClicks = Math.floor(views * 0.08 + Math.random() * 2);
+      const dayEvts = bizEvents.filter((e) => e.created_at.startsWith(dateKey));
+      const views = dayEvts.filter((e) => e.event_type === 'business_view').length;
+      const whatsappClicks = dayEvts.filter((e) => e.event_type === 'whatsapp_click').length;
+      const phoneClicks = dayEvts.filter((e) => e.event_type === 'phone_click').length;
 
       dailyStats.push({
-        date: dateStr,
+        date: dayName,
         views,
         whatsapp_clicks: whatsappClicks,
         phone_clicks: phoneClicks,
       });
     }
 
-    const viewsTotal = dailyStats.reduce((acc, curr) => acc + curr.views, 0);
-    const whatsappClicks = dailyStats.reduce((acc, curr) => acc + curr.whatsapp_clicks, 0);
-    const phoneClicks = dailyStats.reduce((acc, curr) => acc + curr.phone_clicks, 0);
+    const viewsTotal = bizEvents.filter((e) => e.event_type === 'business_view').length;
+    const whatsappClicks = bizEvents.filter((e) => e.event_type === 'whatsapp_click').length;
+    const phoneClicks = bizEvents.filter((e) => e.event_type === 'phone_click').length;
 
     return {
       business_id: businessId,
       views_total: viewsTotal,
       whatsapp_clicks: whatsappClicks,
       phone_clicks: phoneClicks,
-      instagram_clicks: Math.floor(viewsTotal * 0.15),
-      map_clicks: Math.floor(viewsTotal * 0.12),
-      products_views: Math.floor(viewsTotal * 0.75),
-      promo_views: Math.floor(viewsTotal * 0.65),
+      instagram_clicks: bizEvents.filter((e) => e.event_type === 'instagram_click').length,
+      map_clicks: bizEvents.filter((e) => e.event_type === 'map_click').length,
+      products_views: bizEvents.filter((e) => e.event_type === 'product_view').length,
+      promo_views: bizEvents.filter((e) => e.event_type === 'promotion_view').length,
       daily_stats: dailyStats,
     };
   }
@@ -1161,14 +1186,17 @@ class VitrinizaStore {
       if (b.plan_id === 'mensal' || b.plan_id === 'pro' || b.plan_id === 'premium') estimatedMRR += (prices.mensal || 49.90);
     });
 
+    const totalVisits = this.analyticsEvents.filter((e) => e.event_type === 'business_view').length;
+    const totalWhatsappClicks = this.analyticsEvents.filter((e) => e.event_type === 'whatsapp_click').length;
+
     return {
       totalBusinesses: total,
       activeBusinesses: active,
       freeCount,
       paidCount,
       estimatedMRR: Number(estimatedMRR.toFixed(2)),
-      totalVisits: 14850,
-      totalWhatsappClicks: 3240,
+      totalVisits,
+      totalWhatsappClicks,
       pendingClaims: this.claimRequests.filter((c) => c.status === 'pending').length,
       citiesCount: this.cities.length,
       neighborhoodsCount: this.neighborhoods.length,
