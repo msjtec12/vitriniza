@@ -118,15 +118,33 @@ export default function MerchantPanelPage() {
 
   const loadActiveBusiness = (bizId?: string) => {
     const list = store.getBusinesses();
-    setAllBusinesses(list);
-    let target = bizId ? list.find((b) => b.id === bizId) : null;
-    if (!target && typeof window !== 'undefined') {
-      const savedId = localStorage.getItem('vitriniza_active_business');
-      target = savedId ? list.find((b) => b.id === savedId) : null;
+    const savedAuthId = typeof window !== 'undefined' ? sessionStorage.getItem('vitriniza_merchant_auth') : null;
+    const savedPhone = typeof window !== 'undefined' ? sessionStorage.getItem('vitriniza_merchant_phone') : null;
+
+    if (!savedAuthId) {
+      setIsAuthenticated(false);
+      setBusiness(null);
+      return;
     }
-    if (!target && list.length > 0) {
-      target = list[0];
+
+    // Tenant Isolation: filter stores strictly matching logged-in merchant session
+    const authBiz = list.find((b) => b.id === savedAuthId);
+    const authPhoneClean = authBiz ? authBiz.whatsapp.replace(/\D/g, '') : (savedPhone || '');
+
+    const myStores = list.filter((b) => {
+      if (b.id === savedAuthId) return true;
+      if (authPhoneClean && authPhoneClean.length >= 8 && b.whatsapp.replace(/\D/g, '').includes(authPhoneClean)) return true;
+      return false;
+    });
+
+    setAllBusinesses(myStores);
+
+    // Target store must strictly belong to myStores
+    let target = bizId ? myStores.find((b) => b.id === bizId) : null;
+    if (!target) {
+      target = myStores.find((b) => b.id === savedAuthId) || myStores[0] || null;
     }
+
     if (target) {
       setBusiness(target);
       setReviews(store.getReviews(target.id));
@@ -145,9 +163,9 @@ export default function MerchantPanelPage() {
         takeaway_available: target.takeaway_available,
         dine_in_available: target.dine_in_available,
       });
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('vitriniza_active_business', target.id);
-      }
+    } else {
+      setIsAuthenticated(false);
+      setBusiness(null);
     }
   };
 
@@ -167,36 +185,36 @@ export default function MerchantPanelPage() {
     const cleanInput = loginPhone.replace(/\D/g, '').trim().toLowerCase();
     const list = store.getBusinesses();
 
-    // Match business by WhatsApp or name
+    // Match business by WhatsApp or exact name
     const found = list.find((b) => {
       const bPhone = b.whatsapp.replace(/\D/g, '');
       return (
-        bPhone.includes(cleanInput) ||
-        cleanInput.includes(bPhone) ||
-        b.name.toLowerCase().includes(loginPhone.toLowerCase().trim()) ||
-        loginPhone.toLowerCase().trim() === 'demo' ||
-        loginPhone.toLowerCase().trim() === 'admin'
+        (cleanInput.length >= 8 && (bPhone.includes(cleanInput) || cleanInput.includes(bPhone))) ||
+        b.name.toLowerCase().trim() === loginPhone.toLowerCase().trim()
       );
     });
 
-    if (found || loginPhone.trim().length > 0) {
-      const selected = found || list[0];
+    if (found) {
       setIsAuthenticated(true);
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('vitriniza_merchant_auth', selected.id);
-        localStorage.setItem('vitriniza_active_business', selected.id);
+        sessionStorage.setItem('vitriniza_merchant_auth', found.id);
+        sessionStorage.setItem('vitriniza_merchant_phone', found.whatsapp.replace(/\D/g, ''));
+        localStorage.setItem('vitriniza_active_business', found.id);
       }
-      loadActiveBusiness(selected.id);
+      loadActiveBusiness(found.id);
     } else {
-      setAuthError('Estabelecimento não encontrado com este WhatsApp. Verifique ou cadastre seu negócio.');
+      setAuthError('Nenhum comércio cadastrado encontrado com este WhatsApp/Nome. Verifique o número ou reivindique seu perfil.');
     }
   };
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('vitriniza_merchant_auth');
+      sessionStorage.removeItem('vitriniza_merchant_phone');
+      localStorage.removeItem('vitriniza_active_business');
     }
     setIsAuthenticated(false);
+    setBusiness(null);
     setLoginPassword('');
   };
 
