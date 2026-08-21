@@ -1,11 +1,11 @@
-export type PlanTier = 'free' | 'destaque' | 'pro' | 'premium';
+export type PlanTier = 'free' | 'semanal' | 'mensal' | 'destaque' | 'pro' | 'premium';
 
 export interface PlanLimits {
   max_products: number; // -1 for unlimited
   max_photos: number;
   can_post_promotions: boolean;
   has_featured_badge: boolean;
-  analytics_level: 'basic' | 'standard' | 'full' | 'maximum';
+  analytics_level?: 'basic' | 'standard' | 'full' | 'maximum';
 }
 
 export interface PlanConfig {
@@ -267,6 +267,8 @@ export interface AnalyticsEvent {
 
 export interface PlatformSettings {
   plan_prices: {
+    semanal: number;
+    mensal: number;
     destaque: number;
     pro: number;
     premium: number;

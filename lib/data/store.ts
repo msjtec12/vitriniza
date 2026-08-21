@@ -15,6 +15,8 @@ import {
   MerchantAnalytics,
   AnalyticsEvent,
   BusinessHour,
+  PlanTier,
+  PlanLimits,
 } from '@/types';
 import {
   mockBusinesses,
@@ -307,42 +309,28 @@ class VitrinizaStore {
     };
   }
 
-  public getPlanLimits(planTier: string): {
-    max_products: number;
-    max_photos: number;
-    can_post_promotions: boolean;
-    has_featured_badge: boolean;
-    analytics_level: 'basic' | 'standard' | 'full' | 'maximum';
-  } {
-    if (planTier === 'destaque') {
+  public getPlanLimits(planTier: PlanTier | string): PlanLimits {
+    if (planTier === 'semanal' || planTier === 'destaque') {
       return {
         max_products: 20,
         max_photos: 10,
-        can_post_promotions: false,
+        can_post_promotions: true,
         has_featured_badge: true,
         analytics_level: 'standard',
       };
     }
-    if (planTier === 'pro') {
+    if (planTier === 'mensal' || planTier === 'pro' || planTier === 'premium') {
       return {
         max_products: -1,
-        max_photos: 25,
+        max_photos: 50,
         can_post_promotions: true,
         has_featured_badge: true,
         analytics_level: 'full',
       };
     }
-    if (planTier === 'premium') {
-      return {
-        max_products: -1,
-        max_photos: -1,
-        can_post_promotions: true,
-        has_featured_badge: true,
-        analytics_level: 'maximum',
-      };
-    }
+    // free / default
     return {
-      max_products: 5,
+      max_products: 0,
       max_photos: 3,
       can_post_promotions: false,
       has_featured_badge: false,
@@ -627,6 +615,10 @@ class VitrinizaStore {
     return newClaim;
   }
 
+  public createClaimRequest(data: Parameters<VitrinizaStore['submitClaimRequest']>[0]): ClaimRequest {
+    return this.submitClaimRequest(data);
+  }
+
   public getClaimRequests(): ClaimRequest[] {
     return this.claimRequests;
   }
@@ -735,9 +727,8 @@ class VitrinizaStore {
     const prices = this.settings.plan_prices;
     let estimatedMRR = 0;
     this.businesses.forEach((b) => {
-      if (b.plan_id === 'destaque') estimatedMRR += prices.destaque;
-      if (b.plan_id === 'pro') estimatedMRR += prices.pro;
-      if (b.plan_id === 'premium') estimatedMRR += prices.premium;
+      if (b.plan_id === 'semanal' || b.plan_id === 'destaque') estimatedMRR += (prices.semanal || 19.90) * 4;
+      if (b.plan_id === 'mensal' || b.plan_id === 'pro' || b.plan_id === 'premium') estimatedMRR += (prices.mensal || 49.90);
     });
 
     return {

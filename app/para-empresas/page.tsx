@@ -9,10 +9,10 @@ import {
   MessageCircle,
   TrendingUp,
   Store,
-  ShieldCheck,
-  Star,
   QrCode,
   Users,
+  Zap,
+  Flame,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { formatCurrency } from '@/lib/utils';
@@ -126,168 +126,193 @@ export default function ParaEmpresasPage() {
         </div>
       </section>
 
-      {/* Pricing Plans Table */}
+      {/* Pricing Plans Table: 3 Clear Plans (Gratuito, Semanal R$ 19,90, Mensal R$ 49,90) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <span className="text-xs font-bold text-[#E36845] uppercase tracking-wider">
-            Planos Acessíveis
+            Planos Acessíveis & Transparentes
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-[#0E3B43] tracking-tight mt-1 mb-3">
             Escolha o plano ideal para seu momento
           </h2>
           <p className="text-xs sm:text-sm text-[#537379]">
-            Sem contrato de fidelidade. Você no controle total do seu comércio.
+            Sem fidelidade ou multas. Você no controle total da presença digital do seu negócio.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
           {/* Plan 1: Gratuito */}
-          <div className="p-6 rounded-3xl bg-white border border-[#E8E4DA] card-shadow flex flex-col justify-between">
+          <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#E8E4DA] card-shadow flex flex-col justify-between hover:border-[#4FA6A6]/40 transition-all">
             <div>
-              <span className="font-bold text-xs text-[#537379] uppercase">Básico</span>
-              <h3 className="font-black text-xl text-[#0E3B43] mt-1 mb-2">Gratuito</h3>
-              <div className="text-3xl font-black text-[#0E3B43] mb-4">R$ 0</div>
-              <p className="text-xs text-[#537379] mb-6">Página essencial para começar a ser encontrado no bairro.</p>
+              <div className="inline-block px-3 py-1 rounded-full bg-stone-100 text-xs font-bold text-[#537379] uppercase tracking-wider mb-3">
+                Início
+              </div>
+              <h3 className="font-black text-2xl text-[#0E3B43] mb-2">Gratuito</h3>
+              <div className="flex items-baseline gap-1 mb-4">
+                <span className="text-4xl font-black text-[#0E3B43]">R$ 0</span>
+                <span className="text-xs text-[#537379] font-medium">/sempre</span>
+              </div>
+              <p className="text-xs text-[#537379] mb-6 leading-relaxed">
+                Página essencial para começar a marcar presença e ser encontrado por vizinhos no bairro.
+              </p>
 
-              <ul className="space-y-2.5 text-xs text-[#0E3B43] mb-6">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Página exclusiva do negócio
+              <ul className="space-y-3 text-xs text-[#0E3B43] mb-8">
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Página exclusiva do estabelecimento</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Botão WhatsApp direto
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Botão de WhatsApp direto nos produtos</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Endereço e mapa
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Endereço completo e rota no mapa</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Até 3 fotos no perfil
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Horários de funcionamento em tempo real</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Até 3 fotos no perfil</span>
                 </li>
               </ul>
             </div>
 
             <Link
               href="/painel"
-              className="w-full py-3 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold text-center block transition-all"
+              className="w-full py-3.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold text-center block transition-all border border-[#E8E4DA]"
             >
               Começar Grátis
             </Link>
           </div>
 
-          {/* Plan 2: Destaque */}
-          <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/30 card-shadow flex flex-col justify-between">
+          {/* Plan 2: Destaque Semanal (R$ 19,90 / semana) */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-[#4FA6A6]/35 card-shadow flex flex-col justify-between hover:border-[#E36845]/50 transition-all">
             <div>
-              <span className="font-bold text-xs text-[#E36845] uppercase">Mais buscado</span>
-              <h3 className="font-black text-xl text-[#0E3B43] mt-1 mb-2">Destaque</h3>
-              <div className="text-3xl font-black text-[#E36845] mb-4">
-                {formatCurrency(settings.plan_prices.destaque)}
-                <span className="text-xs font-normal text-[#537379]">/mês</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-xs font-bold text-[#0E3B43] uppercase tracking-wider mb-3">
+                <Zap className="w-3.5 h-3.5 text-[#E36845]" />
+                <span>Flexível</span>
               </div>
-              <p className="text-xs text-[#537379] mb-6">Catálogo de produtos e prioridade na sua categoria.</p>
+              <h3 className="font-black text-2xl text-[#0E3B43] mb-2">Destaque Semanal</h3>
+              <div className="flex items-baseline gap-1 mb-4">
+                <span className="text-4xl font-black text-[#E36845]">
+                  {formatCurrency(settings.plan_prices.semanal || 19.90)}
+                </span>
+                <span className="text-xs text-[#537379] font-medium">/ 7 dias</span>
+              </div>
+              <p className="text-xs text-[#537379] mb-6 leading-relaxed">
+                Ideal para promoções pontuais, lançamentos, eventos ou para testar o retorno rápido de clientes.
+              </p>
 
-              <ul className="space-y-2.5 text-xs text-[#0E3B43] mb-6">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Tudo do plano Gratuito
+              <ul className="space-y-3 text-xs text-[#0E3B43] mb-8">
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span className="font-bold">Tudo do plano Gratuito</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Selo oficial "Destaque"
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Selo oficial de <strong>Destaque</strong></span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Até 20 produtos no catálogo
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Publicação de <strong>OFERTAS com desconto 🔥</strong></span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Até 10 fotos na galeria
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Até 20 produtos no catálogo</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Métricas de cliques
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Prioridade nos resultados por 7 dias</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Até 10 fotos na galeria</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Métricas de cliques no WhatsApp</span>
                 </li>
               </ul>
             </div>
 
             <Link
               href="/painel"
-              className="w-full py-3 rounded-xl bg-[#F8F6F0] hover:bg-[#E36845] hover:text-white border border-[#4FA6A6]/30 text-[#0E3B43] text-xs font-bold text-center block transition-all"
+              className="w-full py-3.5 rounded-xl bg-[#F8F6F0] hover:bg-[#E36845] hover:text-white border border-[#4FA6A6]/30 text-[#0E3B43] text-xs font-bold text-center block transition-all"
             >
-              Escolher Destaque
+              Escolher Semanal
             </Link>
           </div>
 
-          {/* Plan 3: Pro */}
-          <div className="relative p-6 rounded-3xl bg-[#0E3B43] text-[#F8F6F0] card-shadow flex flex-col justify-between shadow-2xl border border-[#1a5560]">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#E36845] text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
-              Recomendado
+          {/* Plan 3: Mensal Completo (R$ 49,90 / mês) - RECOMENDADO */}
+          <div className="relative p-6 sm:p-8 rounded-3xl bg-[#0E3B43] text-[#F8F6F0] card-shadow flex flex-col justify-between shadow-2xl border-2 border-[#E36845] scale-100 sm:scale-105 z-10">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#E36845] text-white text-xs font-black uppercase tracking-wider shadow-md flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 fill-current" />
+              <span>Mais Vantajoso</span>
             </div>
 
             <div>
-              <span className="font-bold text-xs text-[#4FA6A6] uppercase">Completo</span>
-              <h3 className="font-black text-xl text-[#F8F6F0] mt-1 mb-2">Pro</h3>
-              <div className="text-3xl font-black text-[#F8F6F0] mb-4">
-                {formatCurrency(settings.plan_prices.pro)}
-                <span className="text-xs font-normal text-[#F8F6F0]/70">/mês</span>
+              <div className="inline-block px-3 py-1 rounded-full bg-[#4FA6A6]/20 text-xs font-bold text-[#4FA6A6] uppercase tracking-wider mb-3 mt-1">
+                Completo & Ilimitado
               </div>
-              <p className="text-xs text-[#F8F6F0]/80 mb-6">Produtos ilimitados, ofertas e analytics completo.</p>
+              <h3 className="font-black text-2xl text-[#F8F6F0] mb-2">Mensal Completo</h3>
+              <div className="flex items-baseline gap-1 mb-4">
+                <span className="text-4xl font-black text-[#F8F6F0]">
+                  {formatCurrency(settings.plan_prices.mensal || 49.90)}
+                </span>
+                <span className="text-xs text-[#F8F6F0]/70 font-medium">/mês</span>
+              </div>
+              <p className="text-xs text-[#F8F6F0]/80 mb-6 leading-relaxed">
+                Máxima visibilidade contínua, produtos ilimitados, ofertas constantes e display de balcão.
+              </p>
 
-              <ul className="space-y-2.5 text-xs text-[#F8F6F0]/90 mb-6">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Produtos ILIMITADOS
+              <ul className="space-y-3 text-xs text-[#F8F6F0]/90 mb-8">
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span className="font-bold">Tudo do plano Semanal</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Publicação de OFERTAS 🔥
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Produtos e serviços <strong>ILIMITADOS</strong></span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> QR Code balcão para download
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Publicação contínua de <strong>OFERTAS 🔥</strong></span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Até 25 fotos em alta resolução
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span><strong>QR Code com Logo</strong> e Placa para Balcão</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Analytics completo (7/30/90d)
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Selo oficial <strong>Destaque & Verificado</strong></span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Destaque na Homepage e topo das buscas</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Até 50 fotos em alta resolução</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Painel Analytics completo (7, 30 e 90 dias)</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Check className="w-4 h-4 text-[#4FA6A6] shrink-0" />
+                  <span>Suporte prioritário via WhatsApp</span>
                 </li>
               </ul>
             </div>
 
             <Link
               href="/painel"
-              className="w-full py-3 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black text-center block transition-all shadow-md"
+              className="w-full py-4 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black text-center block transition-all shadow-lg active:scale-95"
             >
-              Escolher Pro
-            </Link>
-          </div>
-
-          {/* Plan 4: Premium */}
-          <div className="p-6 rounded-3xl bg-white border border-[#E8E4DA] card-shadow flex flex-col justify-between">
-            <div>
-              <span className="font-bold text-xs text-[#4FA6A6] uppercase">Máxima Exposição</span>
-              <h3 className="font-black text-xl text-[#0E3B43] mt-1 mb-2">Premium</h3>
-              <div className="text-3xl font-black text-[#0E3B43] mb-4">
-                {formatCurrency(settings.plan_prices.premium)}
-                <span className="text-xs font-normal text-[#537379]">/mês</span>
-              </div>
-              <p className="text-xs text-[#537379] mb-6">Destaque fixo na Homepage da cidade.</p>
-
-              <ul className="space-y-2.5 text-xs text-[#0E3B43] mb-6">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Tudo do plano Pro
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Destaque fixo na Homepage
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Prioridade máxima nas buscas
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Fotos ilimitadas
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-[#4FA6A6]" /> Suporte VIP via WhatsApp
-                </li>
-              </ul>
-            </div>
-
-            <Link
-              href="/painel"
-              className="w-full py-3 rounded-xl bg-[#F8F6F0] hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[#0E3B43] text-xs font-bold text-center block transition-all"
-            >
-              Escolher Premium
+              Escolher Plano Mensal
             </Link>
           </div>
         </div>

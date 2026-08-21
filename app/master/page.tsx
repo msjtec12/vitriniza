@@ -68,9 +68,11 @@ export default function MasterAdminPage() {
 
   // Settings form
   const [settingsForm, setSettingsForm] = useState({
-    destaquePrice: settings.plan_prices.destaque,
-    proPrice: settings.plan_prices.pro,
-    premiumPrice: settings.plan_prices.premium,
+    semanalPrice: settings.plan_prices.semanal || 19.90,
+    mensalPrice: settings.plan_prices.mensal || 49.90,
+    destaquePrice: settings.plan_prices.destaque || 19.90,
+    proPrice: settings.plan_prices.pro || 49.90,
+    premiumPrice: settings.plan_prices.premium || 49.90,
     contactWhatsApp: settings.contact_whatsapp,
   });
 
@@ -158,9 +160,11 @@ export default function MasterAdminPage() {
     e.preventDefault();
     store.updatePlatformSettings({
       plan_prices: {
-        destaque: settingsForm.destaquePrice,
-        pro: settingsForm.proPrice,
-        premium: settingsForm.premiumPrice,
+        semanal: settingsForm.semanalPrice,
+        mensal: settingsForm.mensalPrice,
+        destaque: settingsForm.semanalPrice,
+        pro: settingsForm.mensalPrice,
+        premium: settingsForm.mensalPrice,
       },
       contact_whatsapp: settingsForm.contactWhatsApp,
     });
@@ -357,9 +361,10 @@ export default function MasterAdminPage() {
                 >
                   <option value="">Todos os Planos</option>
                   <option value="free">Gratuito</option>
-                  <option value="destaque">Destaque</option>
-                  <option value="pro">Pro</option>
-                  <option value="premium">Premium</option>
+                  <option value="semanal">Destaque Semanal</option>
+                  <option value="mensal">Mensal Completo</option>
+                  <option value="destaque">Destaque (Legado)</option>
+                  <option value="pro">Pro (Legado)</option>
                 </select>
 
                 <select
@@ -408,9 +413,10 @@ export default function MasterAdminPage() {
                             className="px-2 py-1 rounded-lg border border-[#E8E4DA] bg-white text-xs font-black uppercase text-[#0E3B43] cursor-pointer"
                           >
                             <option value="free">Gratuito (R$ 0)</option>
-                            <option value="destaque">Destaque (R$ 49)</option>
-                            <option value="pro">Pro (R$ 99)</option>
-                            <option value="premium">Premium (R$ 199)</option>
+                            <option value="semanal">Semanal (R$ 19,90)</option>
+                            <option value="mensal">Mensal (R$ 49,90)</option>
+                            <option value="destaque">Destaque (Semanal)</option>
+                            <option value="pro">Pro (Mensal)</option>
                           </select>
                         </td>
 
@@ -701,37 +707,25 @@ export default function MasterAdminPage() {
 
             <form onSubmit={handleSaveSettings} className="space-y-4 max-w-lg">
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Destaque (R$/mês)</label>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Destaque Semanal (R$ / 7 dias)</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  value={settingsForm.destaquePrice}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, destaquePrice: parseFloat(e.target.value) })}
+                  value={settingsForm.semanalPrice}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, semanalPrice: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Pro (R$/mês)</label>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Mensal Completo (R$ / mês)</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  value={settingsForm.proPrice}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, proPrice: parseFloat(e.target.value) })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Premium (R$/mês)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={settingsForm.premiumPrice}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, premiumPrice: parseFloat(e.target.value) })}
+                  value={settingsForm.mensalPrice}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, mensalPrice: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
                 />
               </div>
