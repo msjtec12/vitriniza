@@ -56,12 +56,15 @@ export default function HomePage() {
     'Localização padrão: Centro de Guaianases (SP)'
   );
 
+  const [platformSettings, setPlatformSettings] = useState(() => store.getPlatformSettings());
+
   const refreshPageData = () => {
     setCategories(store.getCategories());
     setFeaturedBusinesses(store.getFeaturedBusinesses());
     setPromotions(store.getPromotions());
     setArticles(store.getArticles().slice(0, 3));
     setEvents(store.getEvents().slice(0, 2));
+    setPlatformSettings(store.getPlatformSettings());
 
     const defaultLat = -23.5424;
     const defaultLng = -46.4178;
@@ -208,11 +211,11 @@ export default function HomePage() {
         <div className="absolute inset-0 z-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80"
+            src={platformSettings.hero_bg_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80'}
             alt="Comércio local do bairro"
             className="w-full h-full object-cover object-center opacity-30 saturate-120"
           />
-          {/* Warm Off-White Gradient Overlays to preserve 60-30-10 contrast */}
+          {/* Warm Off-White Gradient Overlays to preserve contrast */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#F8F6F0]/92 via-[#F8F6F0]/88 to-[#F8F6F0]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/40 via-transparent to-[#F8F6F0]/60" />
         </div>
@@ -228,12 +231,16 @@ export default function HomePage() {
 
           {/* Main Headline in Azul-Petróleo with Coral highlight */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-3xl mx-auto leading-tight mb-4 drop-shadow-2xs">
-            Descubra o melhor <span className="text-[#E36845]">perto de você.</span>
+            {platformSettings.hero_title ? (
+              platformSettings.hero_title
+            ) : (
+              <>Descubra o melhor <span className="text-[#E36845]">perto de você.</span></>
+            )}
           </h1>
 
           {/* Subtext */}
           <p className="text-sm sm:text-lg text-[#0E3B43]/80 font-medium max-w-xl mx-auto mb-8 leading-relaxed">
-            Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.
+            {platformSettings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.'}
           </p>
 
           {/* Dual Search Bar */}

@@ -186,6 +186,10 @@ class VitrinizaStore {
           ...this.settings,
           platform_name: cloudSettings.platform_name || this.settings.platform_name,
           contact_whatsapp: cloudSettings.contact_whatsapp || this.settings.contact_whatsapp,
+          logo_url: cloudSettings.logo_url || this.settings.logo_url,
+          hero_bg_url: cloudSettings.hero_bg_url || this.settings.hero_bg_url,
+          hero_title: cloudSettings.hero_title || this.settings.hero_title,
+          hero_subtitle: cloudSettings.hero_subtitle || this.settings.hero_subtitle,
           plan_prices: {
             semanal: Number(cloudSettings.plan_semanal_price) || 19.90,
             mensal: Number(cloudSettings.plan_mensal_price) || 49.90,
@@ -282,6 +286,10 @@ class VitrinizaStore {
         contact_whatsapp: this.settings.contact_whatsapp,
         plan_semanal_price: this.settings.plan_prices.semanal,
         plan_mensal_price: this.settings.plan_prices.mensal,
+        logo_url: this.settings.logo_url,
+        hero_bg_url: this.settings.hero_bg_url,
+        hero_title: this.settings.hero_title,
+        hero_subtitle: this.settings.hero_subtitle,
         updated_at: new Date().toISOString(),
       });
 
@@ -394,6 +402,10 @@ class VitrinizaStore {
           contact_whatsapp: settings.contact_whatsapp,
           plan_semanal_price: settings.plan_prices.semanal,
           plan_mensal_price: settings.plan_prices.mensal,
+          logo_url: settings.logo_url,
+          hero_bg_url: settings.hero_bg_url,
+          hero_title: settings.hero_title,
+          hero_subtitle: settings.hero_subtitle,
           updated_at: new Date().toISOString(),
         });
     } catch (err) {

@@ -405,6 +405,10 @@ export const mockPlatformSettings: PlatformSettings = {
   contact_email: 'contato@vitriniza.com.br',
   default_city_id: 'city-sp',
   default_neighborhood_id: 'neigh-guaianases',
+  logo_url: '/logo.png',
+  hero_bg_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80',
+  hero_title: 'Descubra o melhor perto de você.',
+  hero_subtitle: 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.',
 };
 
 // 15+ REALISTIC BUSINESSES IN GUAIANASES (SP)

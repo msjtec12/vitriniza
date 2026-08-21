@@ -279,6 +279,10 @@ export interface PlatformSettings {
   contact_email: string;
   default_city_id: string;
   default_neighborhood_id: string;
+  logo_url?: string;
+  hero_bg_url?: string;
+  hero_title?: string;
+  hero_subtitle?: string;
 }
 
 export interface SearchFilters {

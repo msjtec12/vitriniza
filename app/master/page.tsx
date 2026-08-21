@@ -87,6 +87,10 @@ export default function MasterAdminPage() {
     proPrice: settings.plan_prices.pro || 49.90,
     premiumPrice: settings.plan_prices.premium || 49.90,
     contactWhatsApp: settings.contact_whatsapp,
+    logoUrl: settings.logo_url || '/logo.png',
+    heroBgUrl: settings.hero_bg_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80',
+    heroTitle: settings.hero_title || 'Descubra o melhor perto de você.',
+    heroSubtitle: settings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.',
   });
 
   const handleSyncToSupabase = async () => {
@@ -246,6 +250,10 @@ export default function MasterAdminPage() {
         premium: settingsForm.mensalPrice,
       },
       contact_whatsapp: settingsForm.contactWhatsApp,
+      logo_url: settingsForm.logoUrl,
+      hero_bg_url: settingsForm.heroBgUrl,
+      hero_title: settingsForm.heroTitle,
+      hero_subtitle: settingsForm.heroSubtitle,
     });
     refreshData();
     alert('Configurações da plataforma salvas com sucesso!');
@@ -840,47 +848,167 @@ export default function MasterAdminPage() {
               <p className="text-xs text-[#537379]">Edite os valores cobrados nos planos dinamicamente</p>
             </div>
 
-            <form onSubmit={handleSaveSettings} className="space-y-4 max-w-lg">
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Destaque Semanal (R$ / 7 dias)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={settingsForm.semanalPrice}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, semanalPrice: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
-                />
+            <form onSubmit={handleSaveSettings} className="space-y-6 max-w-2xl">
+              <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
+                <h4 className="font-black text-sm text-[#0E3B43] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#E36845]" />
+                  <span>Personalização Visual: Logo & Banner Hero</span>
+                </h4>
+
+                {/* Logo URL */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Plataforma (URL da Imagem)</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.logoUrl}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, logoUrl: e.target.value })}
+                      placeholder="/logo.png ou https://..."
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
+                    />
+                    <div className="w-12 h-12 rounded-xl bg-white border border-[#E8E4DA] p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={settingsForm.logoUrl || '/logo.png'} alt="Preview Logo" className="w-full h-full object-contain mix-blend-multiply" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, logoUrl: '/logo.png' })}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-[#E8E4DA] text-[10px] font-bold text-[#0E3B43] hover:bg-stone-50"
+                    >
+                      Logo Padrão Vitriniza
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hero Background Image URL */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem de Fundo do Banner Hero (Homepage)</label>
+                  <input
+                    type="text"
+                    required
+                    value={settingsForm.heroBgUrl}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroBgUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white mb-2"
+                  />
+                  
+                  {/* Banner Preview */}
+                  <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-900 mb-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={settingsForm.heroBgUrl} alt="Hero Banner Preview" className="w-full h-full object-cover opacity-50" />
+                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-2 text-white">
+                      <span className="text-xs font-black drop-shadow">{settingsForm.heroTitle || 'Título da Homepage'}</span>
+                      <span className="text-[10px] opacity-80 drop-shadow line-clamp-1">{settingsForm.heroSubtitle || 'Subtítulo'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-[#537379] mr-1">Fotos sugeridas:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80' })}
+                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                    >
+                      Bairro/Comércio 1
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1800&auto=format&fit=crop&q=80' })}
+                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                    >
+                      Lojas & Vitrines
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1800&auto=format&fit=crop&q=80' })}
+                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                    >
+                      Gastronomia
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1800&auto=format&fit=crop&q=80' })}
+                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                    >
+                      Imóveis/Cidade
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hero Title */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título Principal do Hero Banner</label>
+                  <input
+                    type="text"
+                    required
+                    value={settingsForm.heroTitle}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
+                    placeholder="Descubra o melhor perto de você."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
+                  />
+                </div>
+
+                {/* Hero Subtitle */}
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Subtítulo do Hero Banner</label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={settingsForm.heroSubtitle}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })}
+                    placeholder="Encontre comércios, profissionais..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white resize-none"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Mensal Completo (R$ / mês)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={settingsForm.mensalPrice}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, mensalPrice: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
-                />
-              </div>
+              <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
+                <h4 className="font-black text-sm text-[#0E3B43]">Preços dos Planos & Suporte</h4>
 
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Suporte da Vitriniza</label>
-                <input
-                  type="text"
-                  required
-                  value={settingsForm.contactWhatsApp}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, contactWhatsApp: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
-                />
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Destaque Semanal (R$ / 7 dias)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={settingsForm.semanalPrice}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, semanalPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Mensal Completo (R$ / mês)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={settingsForm.mensalPrice}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, mensalPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Suporte da Vitriniza</label>
+                  <input
+                    type="text"
+                    required
+                    value={settingsForm.contactWhatsApp}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, contactWhatsApp: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
-                className="px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                className="px-8 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer active:scale-95"
               >
-                Salvar Configurações de Preços
+                Salvar Alterações Globais da Plataforma
               </button>
             </form>
 

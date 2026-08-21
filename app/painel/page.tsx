@@ -77,6 +77,8 @@ export default function MerchantPanelPage() {
     address: '',
     number: '',
     postal_code: '',
+    logo_url: '',
+    cover_url: '',
     delivery_available: false,
     takeaway_available: false,
     dine_in_available: false,
@@ -159,6 +161,8 @@ export default function MerchantPanelPage() {
         address: target.address,
         number: target.number,
         postal_code: target.postal_code,
+        logo_url: target.logo_url || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200&auto=format&fit=crop&q=80',
+        cover_url: target.cover_url || 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1200&auto=format&fit=crop&q=80',
         delivery_available: target.delivery_available,
         takeaway_available: target.takeaway_available,
         dine_in_available: target.dine_in_available,
@@ -593,7 +597,88 @@ export default function MerchantPanelPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSaveProfile} className="space-y-4">
+                <form onSubmit={handleSaveProfile} className="space-y-6">
+                  {/* Identity Images Card */}
+                  <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
+                    <h4 className="font-black text-xs uppercase tracking-wider text-[#0E3B43] flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-[#E36845]" />
+                      <span>Identidade Visual: Logo e Foto de Capa</span>
+                    </h4>
+
+                    {/* Store Logo */}
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Sua Empresa (URL da Imagem)</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          required
+                          value={profileForm.logo_url}
+                          onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
+                          placeholder="https://..."
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
+                        />
+                        <div className="w-12 h-12 rounded-xl bg-white border border-[#E8E4DA] p-1 shrink-0 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={profileForm.logo_url} alt="Preview Logo" className="w-full h-full object-cover rounded-lg" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Store Cover / Banner */}
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem de Capa da Vitrine (Banner Principal)</label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.cover_url}
+                        onChange={(e) => setProfileForm({ ...profileForm, cover_url: e.target.value })}
+                        placeholder="https://images.unsplash.com/..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white mb-2"
+                      />
+                      
+                      {/* Cover Banner Preview */}
+                      <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-900 mb-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={profileForm.cover_url} alt="Preview Capa" className="w-full h-full object-cover opacity-80" />
+                        <div className="absolute bottom-2 left-3 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                          Previsualização da Capa
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-[#537379] mr-1">Sugestões de fotos:</span>
+                        <button
+                          type="button"
+                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1200&auto=format&fit=crop&q=80' })}
+                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                        >
+                          Pizzaria/Restaurante
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200&auto=format&fit=crop&q=80' })}
+                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                        >
+                          Barbearia/Beleza
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=1200&auto=format&fit=crop&q=80' })}
+                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                        >
+                          Imóveis/Corretor
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1200&auto=format&fit=crop&q=80' })}
+                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
+                        >
+                          Serviços/Eletricista
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento</label>

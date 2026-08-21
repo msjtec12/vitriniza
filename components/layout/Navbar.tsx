@@ -22,10 +22,19 @@ export const Navbar: React.FC = () => {
   const [favCount, setFavCount] = useState(0);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('Guaianases');
   const [isRegionMenuOpen, setIsRegionMenuOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('/logo.png');
 
   const neighborhoods = store.getNeighborhoods();
 
   useEffect(() => {
+    const updateSettings = () => {
+      const s = store.getPlatformSettings();
+      setLogoUrl(s.logo_url || '/logo.png');
+    };
+    updateSettings();
+    store.ensureCloudSynced().then(() => updateSettings());
+    const unsubscribe = store.subscribe(() => updateSettings());
+
     const updateFavs = () => {
       try {
         const favs = JSON.parse(localStorage.getItem('vitriniza_favorites') || '[]');
@@ -36,7 +45,10 @@ export const Navbar: React.FC = () => {
     };
     updateFavs();
     window.addEventListener('storage', updateFavs);
-    return () => window.removeEventListener('storage', updateFavs);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', updateFavs);
+    };
   }, []);
 
   const navLinks = [
@@ -56,7 +68,7 @@ export const Navbar: React.FC = () => {
             {/* Real Logo image with transparent blending */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo.png"
+              src={logoUrl || '/logo.png'}
               alt="Vitriniza - O comércio perto de você"
               className="h-14 sm:h-18 md:h-20 w-auto max-w-[190px] sm:max-w-[260px] object-contain transition-transform group-hover:scale-105 mix-blend-multiply contrast-105"
               style={{ mixBlendMode: 'multiply' }}
