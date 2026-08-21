@@ -43,7 +43,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'vitriniza_settings_v1',
 };
 
-// HYBRID STORE WITH INSTANT LOCALSTORAGE PERSISTENCE + SUPABASE SYNC
+// HYBRID STORE WITH INSTANT LOCAL PERSISTENCE + REAL-TIME SUPABASE CLOUD SYNC
 class VitrinizaStore {
   private businesses: Business[] = [...mockBusinesses];
   private categories: Category[] = [...mockCategories];
@@ -123,21 +123,200 @@ class VitrinizaStore {
   private settings: PlatformSettings = { ...mockPlatformSettings };
   private analyticsEvents: AnalyticsEvent[] = [];
   private isHydrated: boolean = false;
+  private isCloudSynced: boolean = false;
 
   constructor() {
     this.loadFromStorage();
     this.attachRelationships();
+    if (this.isBrowser()) {
+      this.initCloudSync();
+    }
   }
 
   private isBrowser(): boolean {
     return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
   }
 
+  // --- CLOUD SYNC WITH SUPABASE ---
+  public async initCloudSync() {
+    if (!supabase || this.isCloudSynced) return;
+
+    try {
+      // 1. Fetch Cloud Settings
+      const { data: cloudSettings, error: errSettings } = await supabase
+        .from('platform_settings')
+        .select('*')
+        .eq('id', 'main')
+        .single();
+
+      if (!errSettings && cloudSettings) {
+        this.settings = {
+          ...this.settings,
+          platform_name: cloudSettings.platform_name || this.settings.platform_name,
+          contact_whatsapp: cloudSettings.contact_whatsapp || this.settings.contact_whatsapp,
+          plan_prices: {
+            semanal: Number(cloudSettings.plan_semanal_price) || 19.90,
+            mensal: Number(cloudSettings.plan_mensal_price) || 49.90,
+            destaque: Number(cloudSettings.plan_semanal_price) || 19.90,
+            pro: Number(cloudSettings.plan_mensal_price) || 49.90,
+            premium: Number(cloudSettings.plan_mensal_price) || 49.90,
+          },
+        };
+      }
+
+      // 2. Fetch Cloud Businesses
+      const { data: cloudBusinesses, error: errBiz } = await supabase
+        .from('businesses')
+        .select('*');
+
+      if (!errBiz && Array.isArray(cloudBusinesses) && cloudBusinesses.length > 0) {
+        const cloudMap = new Map(cloudBusinesses.map((b: any) => [b.id, b]));
+        const merged = this.businesses.map((local) => {
+          if (cloudMap.has(local.id)) {
+            const cloudItem = cloudMap.get(local.id);
+            cloudMap.delete(local.id);
+            return { ...local, ...cloudItem };
+          }
+          return local;
+        });
+        // Add new businesses from cloud that were created on other devices
+        cloudMap.forEach((cloudItem) => {
+          merged.unshift(cloudItem as Business);
+        });
+
+        this.businesses = merged;
+      }
+
+      // 3. Fetch Cloud Products
+      const { data: cloudProducts, error: errProd } = await supabase
+        .from('products')
+        .select('*');
+
+      if (!errProd && Array.isArray(cloudProducts) && cloudProducts.length > 0) {
+        const prodMap = new Map(cloudProducts.map((p: any) => [p.id, p]));
+        const mergedProds = this.products.map((local) => {
+          if (prodMap.has(local.id)) {
+            const p = prodMap.get(local.id);
+            prodMap.delete(local.id);
+            return { ...local, ...p };
+          }
+          return local;
+        });
+        prodMap.forEach((p) => mergedProds.push(p as Product));
+        this.products = mergedProds;
+      }
+
+      // 4. Fetch Cloud Promotions
+      const { data: cloudPromos, error: errPromo } = await supabase
+        .from('promotions')
+        .select('*');
+
+      if (!errPromo && Array.isArray(cloudPromos) && cloudPromos.length > 0) {
+        const promoMap = new Map(cloudPromos.map((pr: any) => [pr.id, pr]));
+        const mergedPromos = this.promotions.map((local) => {
+          if (promoMap.has(local.id)) {
+            const pr = promoMap.get(local.id);
+            promoMap.delete(local.id);
+            return { ...local, ...pr };
+          }
+          return local;
+        });
+        promoMap.forEach((pr) => mergedPromos.push(pr as Promotion));
+        this.promotions = mergedPromos;
+      }
+
+      // 5. Fetch Cloud Claims
+      const { data: cloudClaims, error: errClaims } = await supabase
+        .from('claim_requests')
+        .select('*');
+
+      if (!errClaims && Array.isArray(cloudClaims) && cloudClaims.length > 0) {
+        this.claimRequests = cloudClaims as ClaimRequest[];
+      }
+
+      this.isCloudSynced = true;
+      this.attachRelationships();
+      this.saveToStorage();
+    } catch (err) {
+      console.warn('[VitrinizaStore] Supabase sync completed with local cache.');
+    }
+  }
+
+  // --- ASYNC CLOUD DISPATCH HELPERS ---
+  private syncBusinessToCloud(biz: Business) {
+    if (!supabase) return;
+    try {
+      const { category, neighborhood, city, products, promotions, ...clean } = biz;
+      supabase
+        .from('businesses')
+        .upsert(clean)
+        .then(({ error }) => {
+          if (error) console.warn('[Supabase Biz Sync]', error.message);
+        });
+    } catch {
+      // safe failover
+    }
+  }
+
+  private syncDeleteBusinessFromCloud(id: string) {
+    if (!supabase) return;
+    try {
+      supabase.from('businesses').delete().eq('id', id).then();
+    } catch {
+      // safe failover
+    }
+  }
+
+  private syncSettingsToCloud(settings: PlatformSettings) {
+    if (!supabase) return;
+    try {
+      supabase
+        .from('platform_settings')
+        .upsert({
+          id: 'main',
+          platform_name: settings.platform_name,
+          contact_whatsapp: settings.contact_whatsapp,
+          plan_semanal_price: settings.plan_prices.semanal,
+          plan_mensal_price: settings.plan_prices.mensal,
+          updated_at: new Date().toISOString(),
+        })
+        .then();
+    } catch {
+      // safe failover
+    }
+  }
+
+  private syncProductToCloud(prod: Product) {
+    if (!supabase) return;
+    try {
+      supabase.from('products').upsert(prod).then();
+    } catch {
+      // safe failover
+    }
+  }
+
+  private syncPromotionToCloud(promo: Promotion) {
+    if (!supabase) return;
+    try {
+      supabase.from('promotions').upsert(promo).then();
+    } catch {
+      // safe failover
+    }
+  }
+
+  private syncClaimToCloud(claim: ClaimRequest) {
+    if (!supabase) return;
+    try {
+      supabase.from('claim_requests').upsert(claim).then();
+    } catch {
+      // safe failover
+    }
+  }
+
   private loadFromStorage() {
     if (!this.isBrowser()) return;
 
     try {
-      // 1. Businesses
       const storedBiz = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
       if (storedBiz) {
         const parsed = JSON.parse(storedBiz);
@@ -148,7 +327,6 @@ class VitrinizaStore {
         }
       }
 
-      // 2. Products
       const storedProds = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (storedProds) {
         const parsed = JSON.parse(storedProds);
@@ -159,7 +337,6 @@ class VitrinizaStore {
         }
       }
 
-      // 3. Promotions
       const storedPromos = localStorage.getItem(STORAGE_KEYS.PROMOTIONS);
       if (storedPromos) {
         const parsed = JSON.parse(storedPromos);
@@ -170,7 +347,6 @@ class VitrinizaStore {
         }
       }
 
-      // 4. Claims
       const storedClaims = localStorage.getItem(STORAGE_KEYS.CLAIMS);
       if (storedClaims) {
         const parsed = JSON.parse(storedClaims);
@@ -179,7 +355,6 @@ class VitrinizaStore {
         }
       }
 
-      // 5. Reviews
       const storedReviews = localStorage.getItem(STORAGE_KEYS.REVIEWS);
       if (storedReviews) {
         const parsed = JSON.parse(storedReviews);
@@ -190,7 +365,6 @@ class VitrinizaStore {
         }
       }
 
-      // 6. Settings
       const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (storedSettings) {
         const parsed = JSON.parse(storedSettings);
@@ -209,7 +383,6 @@ class VitrinizaStore {
     if (!this.isBrowser()) return;
 
     try {
-      // Clean circular references before saving
       const cleanBusinesses = this.businesses.map(({ category, neighborhood, city, products, promotions, ...rest }) => rest);
       localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(cleanBusinesses));
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(this.products));
@@ -463,6 +636,7 @@ class VitrinizaStore {
   public updatePlatformSettings(newSettings: Partial<PlatformSettings>) {
     this.settings = { ...this.settings, ...newSettings };
     this.saveToStorage();
+    this.syncSettingsToCloud(this.settings);
   }
 
   // --- CRUD BUSINESSES (Merchant & Master) ---
@@ -527,6 +701,7 @@ class VitrinizaStore {
     this.businesses.unshift(newBiz);
     this.attachRelationships();
     this.saveToStorage();
+    this.syncBusinessToCloud(newBiz);
     return newBiz;
   }
 
@@ -542,6 +717,7 @@ class VitrinizaStore {
     };
     this.attachRelationships();
     this.saveToStorage();
+    this.syncBusinessToCloud(this.businesses[index]);
     return this.businesses[index];
   }
 
@@ -551,6 +727,7 @@ class VitrinizaStore {
     this.businesses = this.businesses.filter((b) => b.id !== id);
     this.attachRelationships();
     this.saveToStorage();
+    this.syncDeleteBusinessFromCloud(id);
     return this.businesses.length < initialLen;
   }
 
@@ -574,6 +751,7 @@ class VitrinizaStore {
     this.products.push(newProduct);
     this.attachRelationships();
     this.saveToStorage();
+    this.syncProductToCloud(newProduct);
     return newProduct;
   }
 
@@ -585,6 +763,7 @@ class VitrinizaStore {
     this.products[index] = { ...this.products[index], ...updates };
     this.attachRelationships();
     this.saveToStorage();
+    this.syncProductToCloud(this.products[index]);
     return this.products[index];
   }
 
@@ -594,6 +773,9 @@ class VitrinizaStore {
     this.products = this.products.filter((p) => p.id !== id);
     this.attachRelationships();
     this.saveToStorage();
+    if (supabase) {
+      supabase.from('products').delete().eq('id', id).then();
+    }
     return this.products.length < initialLen;
   }
 
@@ -623,6 +805,7 @@ class VitrinizaStore {
     this.promotions.unshift(newPromo);
     this.attachRelationships();
     this.saveToStorage();
+    this.syncPromotionToCloud(newPromo);
     return newPromo;
   }
 
@@ -634,6 +817,7 @@ class VitrinizaStore {
     this.promotions[index] = { ...this.promotions[index], ...updates };
     this.attachRelationships();
     this.saveToStorage();
+    this.syncPromotionToCloud(this.promotions[index]);
     return this.promotions[index];
   }
 
@@ -643,6 +827,9 @@ class VitrinizaStore {
     this.promotions = this.promotions.filter((p) => p.id !== id);
     this.attachRelationships();
     this.saveToStorage();
+    if (supabase) {
+      supabase.from('promotions').delete().eq('id', id).then();
+    }
     return this.promotions.length < initialLen;
   }
 
@@ -669,7 +856,6 @@ class VitrinizaStore {
 
     this.reviews.unshift(newReview);
 
-    // Recalculate business rating
     const bizReviews = this.reviews.filter((r) => r.business_id === data.business_id && r.status === 'approved');
     const avgRating = bizReviews.reduce((acc, r) => acc + r.rating, 0) / bizReviews.length;
     this.updateBusiness(data.business_id, {
@@ -678,10 +864,13 @@ class VitrinizaStore {
     });
 
     this.saveToStorage();
+    if (supabase) {
+      supabase.from('reviews').upsert(newReview).then();
+    }
     return newReview;
   }
 
-  // --- CLAIM PROFILE (Esta empresa é sua?) ---
+  // --- CLAIM PROFILE ---
   public submitClaimRequest(data: {
     business_id: string;
     requester_name: string;
@@ -707,6 +896,7 @@ class VitrinizaStore {
 
     this.claimRequests.unshift(newClaim);
     this.saveToStorage();
+    this.syncClaimToCloud(newClaim);
     return newClaim;
   }
 
@@ -737,6 +927,7 @@ class VitrinizaStore {
     }
 
     this.saveToStorage();
+    this.syncClaimToCloud(this.claimRequests[index]);
     return this.claimRequests[index];
   }
 
