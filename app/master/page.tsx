@@ -31,12 +31,32 @@ import {
   KeyRound,
   LogOut,
   ShieldAlert,
+  Upload,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier } from '@/types';
 import { formatCurrency, formatPhone, cn } from '@/lib/utils';
 
 export default function MasterAdminPage() {
+  // Helper for reading image files from local disk/device
+  const handleImageFileUpload = (file: File, callback: (dataUrl: string) => void) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      alert('A imagem é muito grande. Escolha um arquivo de até 8MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        callback(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // SECURITY AUTHENTICATION STATE
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [adminEmail, setAdminEmail] = useState('');
@@ -855,10 +875,10 @@ export default function MasterAdminPage() {
                   <span>Personalização Visual: Logo & Banner Hero</span>
                 </h4>
 
-                {/* Logo URL */}
+                {/* Logo URL & File Upload */}
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Plataforma (URL da Imagem)</label>
-                  <div className="flex items-center gap-3">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Plataforma</label>
+                  <div className="flex items-center gap-3 mb-2">
                     <input
                       type="text"
                       required
@@ -872,28 +892,67 @@ export default function MasterAdminPage() {
                       <img src={settingsForm.logoUrl || '/logo.png'} alt="Preview Logo" className="w-full h-full object-contain mix-blend-multiply" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs">
+                      <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                      <span>📁 Enviar Arquivo do Dispositivo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImageFileUpload(file, (dataUrl) => {
+                              setSettingsForm((prev) => ({ ...prev, logoUrl: dataUrl }));
+                            });
+                          }
+                        }}
+                      />
+                    </label>
+
                     <button
                       type="button"
                       onClick={() => setSettingsForm({ ...settingsForm, logoUrl: '/logo.png' })}
-                      className="px-2.5 py-1 rounded-lg bg-white border border-[#E8E4DA] text-[10px] font-bold text-[#0E3B43] hover:bg-stone-50"
+                      className="px-2.5 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50"
                     >
                       Logo Padrão Vitriniza
                     </button>
                   </div>
                 </div>
 
-                {/* Hero Background Image URL */}
+                {/* Hero Background Image URL & File Upload */}
                 <div>
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem de Fundo do Banner Hero (Homepage)</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.heroBgUrl}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, heroBgUrl: e.target.value })}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white mb-2"
-                  />
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.heroBgUrl}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, heroBgUrl: e.target.value })}
+                      placeholder="https://images.unsplash.com/..."
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
+                    />
+
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs shrink-0">
+                      <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                      <span>📁 Enviar Foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImageFileUpload(file, (dataUrl) => {
+                              setSettingsForm((prev) => ({ ...prev, heroBgUrl: dataUrl }));
+                            });
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   
                   {/* Banner Preview */}
                   <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-900 mb-2">

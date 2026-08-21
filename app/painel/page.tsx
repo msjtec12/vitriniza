@@ -32,6 +32,7 @@ import {
   UserCheck,
   ShieldCheck,
   AlertCircle,
+  Upload,
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/Icons';
 import {
@@ -49,6 +50,25 @@ import { formatCurrency, formatPhone, cn } from '@/lib/utils';
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
 
 export default function MerchantPanelPage() {
+  // Helper for reading image files from local disk/device
+  const handleImageFileUpload = (file: File, callback: (dataUrl: string) => void) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      alert('A imagem é muito grande. Escolha um arquivo de até 8MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        callback(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // SECURITY AUTHENTICATION STATE
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [loginPhone, setLoginPhone] = useState('');
@@ -607,8 +627,8 @@ export default function MerchantPanelPage() {
 
                     {/* Store Logo */}
                     <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Sua Empresa (URL da Imagem)</label>
-                      <div className="flex items-center gap-3">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Sua Empresa</label>
+                      <div className="flex items-center gap-3 mb-2">
                         <input
                           type="text"
                           required
@@ -622,19 +642,57 @@ export default function MerchantPanelPage() {
                           <img src={profileForm.logo_url} alt="Preview Logo" className="w-full h-full object-cover rounded-lg" />
                         </div>
                       </div>
+
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs">
+                        <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                        <span>📁 Escolher Arquivo do Computador/Celular (Logo)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageFileUpload(file, (dataUrl) => {
+                                setProfileForm((prev) => ({ ...prev, logo_url: dataUrl }));
+                              });
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
 
                     {/* Store Cover / Banner */}
                     <div>
                       <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem de Capa da Vitrine (Banner Principal)</label>
-                      <input
-                        type="text"
-                        required
-                        value={profileForm.cover_url}
-                        onChange={(e) => setProfileForm({ ...profileForm, cover_url: e.target.value })}
-                        placeholder="https://images.unsplash.com/..."
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white mb-2"
-                      />
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          required
+                          value={profileForm.cover_url}
+                          onChange={(e) => setProfileForm({ ...profileForm, cover_url: e.target.value })}
+                          placeholder="https://images.unsplash.com/..."
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
+                        />
+                        
+                        <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs shrink-0">
+                          <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                          <span>📁 Escolher Foto (Capa)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleImageFileUpload(file, (dataUrl) => {
+                                  setProfileForm((prev) => ({ ...prev, cover_url: dataUrl }));
+                                });
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
                       
                       {/* Cover Banner Preview */}
                       <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-900 mb-2">
@@ -935,6 +993,252 @@ export default function MerchantPanelPage() {
           </div>
         </div>
       </div>
+
+      {/* PRODUCT MODAL */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-lg text-[#0E3B43]">Adicionar Novo Produto</h3>
+              <button
+                type="button"
+                onClick={() => setIsProductModalOpen(false)}
+                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Produto *</label>
+                <input
+                  type="text"
+                  required
+                  value={productForm.name}
+                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                  placeholder="Ex: Pizza Calabresa Especial"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem do Produto</label>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={productForm.image_url}
+                    onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
+                    placeholder="https://..."
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-100 cursor-pointer shrink-0">
+                    <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                    <span>📁 Foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImageFileUpload(file, (dataUrl) => {
+                            setProductForm((prev) => ({ ...prev, image_url: dataUrl }));
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {productForm.image_url && (
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={productForm.image_url} alt="Preview Produto" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Normal (R$) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={productForm.price}
+                    onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                    placeholder="49.90"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Promo (Opcional)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={productForm.promo_price}
+                    onChange={(e) => setProductForm({ ...productForm, promo_price: e.target.value })}
+                    placeholder="39.90"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição do Produto</label>
+                <textarea
+                  rows={2}
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  placeholder="Ingredientes ou detalhes do produto..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                >
+                  Salvar Produto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROMOTION MODAL */}
+      {isPromoModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
+                <Flame className="w-5 h-5 text-[#E36845]" />
+                <span>Criar Oferta Especial 🔥</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsPromoModalOpen(false)}
+                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPromotion} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título da Oferta *</label>
+                <input
+                  type="text"
+                  required
+                  value={promoForm.title}
+                  onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })}
+                  placeholder="Ex: Pizza em Dobro Terça e Quarta!"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem da Oferta</label>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={promoForm.image_url}
+                    onChange={(e) => setPromoForm({ ...promoForm, image_url: e.target.value })}
+                    placeholder="https://..."
+                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-100 cursor-pointer shrink-0">
+                    <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                    <span>📁 Foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImageFileUpload(file, (dataUrl) => {
+                            setPromoForm((prev) => ({ ...prev, image_url: dataUrl }));
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {promoForm.image_url && (
+                  <div className="h-24 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={promoForm.image_url} alt="Preview Oferta" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">De (R$) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={promoForm.original_price}
+                    onChange={(e) => setPromoForm({ ...promoForm, original_price: e.target.value })}
+                    placeholder="85.00"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Por apenas (R$) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={promoForm.promo_price}
+                    onChange={(e) => setPromoForm({ ...promoForm, promo_price: e.target.value })}
+                    placeholder="49.90"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Regras & Condições</label>
+                <textarea
+                  rows={2}
+                  value={promoForm.rules}
+                  onChange={(e) => setPromoForm({ ...promoForm, rules: e.target.value })}
+                  placeholder="Ex: Válido para pedidos efetuados pelo WhatsApp."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPromoModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                >
+                  Publicar Oferta 🔥
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
