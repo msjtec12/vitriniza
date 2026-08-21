@@ -524,71 +524,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. QUEM FAZ O BAIRRO ACONTECER (HISTÓRIAS LOCAIS) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-[#0E3B43]" />
-              <h2 className="text-xl sm:text-2xl font-black text-[#0E3B43] tracking-tight">
-                Quem faz o bairro acontecer
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm text-[#537379]">
-              Histórias inspiradoras de comerciantes e artesãos locais
-            </p>
-          </div>
 
-          <Link
-            href="/descobrir"
-            className="text-xs sm:text-sm font-bold text-[#E36845] hover:text-[#F49C6B] flex items-center gap-1 shrink-0 transition-colors"
-          >
-            <span>Ver mais histórias</span>
-            <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {articles.map((art) => (
-            <Link
-              key={art.id}
-              href={`/descobrir/${art.slug}`}
-              className="group flex flex-col bg-white rounded-3xl border border-[#4FA6A6]/20 overflow-hidden card-shadow card-shadow-hover transition-all duration-300"
-            >
-              <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={art.cover_image}
-                  alt={art.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <div className="absolute top-3 left-3">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/95 backdrop-blur-md text-[#0E3B43] border border-[#E8E4DA]">
-                    {art.category}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 flex flex-col flex-1 justify-between bg-white">
-                <div>
-                  <h3 className="font-black text-base text-[#0E3B43] group-hover:text-[#E36845] transition-colors line-clamp-2 mb-2 leading-snug">
-                    {art.title}
-                  </h3>
-                  <p className="text-xs text-[#537379] line-clamp-3 mb-4 leading-relaxed">
-                    {art.excerpt}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-[#537379] pt-3 border-t border-[#E8E4DA]">
-                  <span className="font-semibold">{art.neighborhood_name}</span>
-                  <span className="font-bold text-[#0E3B43] group-hover:text-[#E36845] transition-colors">Ler história →</span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {/* 7. EVENTOS LOCAIS */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
