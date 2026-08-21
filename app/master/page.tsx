@@ -1451,8 +1451,8 @@ export default function MasterAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP do Local (Verificação ViaCEP)</label>
-                    <div className="flex items-center gap-2">
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP do Local (ViaCEP)</label>
+                    <div className="relative flex items-center">
                       <input
                         type="text"
                         value={eventForm.postal_code}
@@ -1464,15 +1464,15 @@ export default function MasterAdminPage() {
                           }
                         }}
                         placeholder="08410-000"
-                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                        className="w-full pl-3.5 pr-22 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium focus:border-[#E36845]"
                       />
                       <button
                         type="button"
                         onClick={() => handleLookupEventCep(eventForm.postal_code)}
                         disabled={eventCepLoading}
-                        className="px-3 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shrink-0 transition-all cursor-pointer disabled:opacity-50"
+                        className="absolute right-1 px-2.5 py-1.5 rounded-lg bg-[#0E3B43] hover:bg-[#154e58] text-white text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50"
                       >
-                        {eventCepLoading ? 'Consultando...' : '🔍 Verificar CEP'}
+                        {eventCepLoading ? '...' : '🔍 Buscar'}
                       </button>
                     </div>
                   </div>

@@ -816,7 +816,7 @@ export default function MerchantPanelPage() {
 
                     <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
                       <label className="block text-xs font-bold text-[#0E3B43]">Endereço Verificado por CEP (ViaCEP)</label>
-                      <div className="flex items-center gap-2">
+                      <div className="relative flex items-center">
                         <input
                           type="text"
                           value={profileForm.postal_code}
@@ -828,15 +828,15 @@ export default function MerchantPanelPage() {
                             }
                           }}
                           placeholder="08410-000"
-                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                          className="w-full pl-3.5 pr-24 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium focus:border-[#E36845]"
                         />
                         <button
                           type="button"
                           onClick={() => handleLookupMerchantCep(profileForm.postal_code)}
                           disabled={cepLoading}
-                          className="px-3 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shrink-0 transition-all cursor-pointer disabled:opacity-50"
+                          className="absolute right-1 px-3 py-1.5 rounded-lg bg-[#0E3B43] hover:bg-[#154e58] text-white text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50"
                         >
-                          {cepLoading ? 'Consultando...' : '🔍 Buscar CEP'}
+                          {cepLoading ? '...' : '🔍 Buscar CEP'}
                         </button>
                       </div>
 
