@@ -447,37 +447,31 @@ class VitrinizaStore {
 
     try {
       const storedBiz = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
-      if (storedBiz) {
+      if (storedBiz !== null) {
         const parsed = JSON.parse(storedBiz);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedIds = new Set(parsed.map((b: Business) => b.id));
-          const missingMocks = mockBusinesses.filter((b) => !storedIds.has(b.id));
-          this.businesses = [...parsed, ...missingMocks];
+        if (Array.isArray(parsed)) {
+          this.businesses = parsed;
         }
       }
 
       const storedProds = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-      if (storedProds) {
+      if (storedProds !== null) {
         const parsed = JSON.parse(storedProds);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedIds = new Set(parsed.map((p: Product) => p.id));
-          const missingMocks = mockProducts.filter((p) => !storedIds.has(p.id));
-          this.products = [...parsed, ...missingMocks];
+        if (Array.isArray(parsed)) {
+          this.products = parsed;
         }
       }
 
       const storedPromos = localStorage.getItem(STORAGE_KEYS.PROMOTIONS);
-      if (storedPromos) {
+      if (storedPromos !== null) {
         const parsed = JSON.parse(storedPromos);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedIds = new Set(parsed.map((pr: Promotion) => pr.id));
-          const missingMocks = mockPromotions.filter((pr) => !storedIds.has(pr.id));
-          this.promotions = [...parsed, ...missingMocks];
+        if (Array.isArray(parsed)) {
+          this.promotions = parsed;
         }
       }
 
       const storedClaims = localStorage.getItem(STORAGE_KEYS.CLAIMS);
-      if (storedClaims) {
+      if (storedClaims !== null) {
         const parsed = JSON.parse(storedClaims);
         if (Array.isArray(parsed)) {
           this.claimRequests = parsed;
@@ -485,17 +479,15 @@ class VitrinizaStore {
       }
 
       const storedReviews = localStorage.getItem(STORAGE_KEYS.REVIEWS);
-      if (storedReviews) {
+      if (storedReviews !== null) {
         const parsed = JSON.parse(storedReviews);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedIds = new Set(parsed.map((r: Review) => r.id));
-          const missingReviews = this.reviews.filter((r) => !storedIds.has(r.id));
-          this.reviews = [...parsed, ...missingReviews];
+        if (Array.isArray(parsed)) {
+          this.reviews = parsed;
         }
       }
 
       const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      if (storedSettings) {
+      if (storedSettings !== null) {
         const parsed = JSON.parse(storedSettings);
         if (parsed && typeof parsed === 'object') {
           this.settings = { ...this.settings, ...parsed };
@@ -503,7 +495,7 @@ class VitrinizaStore {
       }
 
       const storedAnalytics = localStorage.getItem(STORAGE_KEYS.ANALYTICS);
-      if (storedAnalytics) {
+      if (storedAnalytics !== null) {
         const parsed = JSON.parse(storedAnalytics);
         if (Array.isArray(parsed)) {
           this.analyticsEvents = parsed;
@@ -511,12 +503,10 @@ class VitrinizaStore {
       }
 
       const storedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS);
-      if (storedEvents) {
+      if (storedEvents !== null) {
         const parsed = JSON.parse(storedEvents);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const storedIds = new Set(parsed.map((e: LocalEvent) => e.id));
-          const missingMocks = mockEvents.filter((e) => !storedIds.has(e.id));
-          this.events = [...parsed, ...missingMocks];
+        if (Array.isArray(parsed)) {
+          this.events = parsed;
         }
       }
 
