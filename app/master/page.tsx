@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier, LocalEvent } from '@/types';
-import { formatCurrency, formatPhone, cn } from '@/lib/utils';
+import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr } from '@/lib/utils';
 
 export default function MasterAdminPage() {
   // Helper for reading image files from local disk/device
@@ -80,15 +80,19 @@ export default function MasterAdminPage() {
   // Events management state
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventCepLoading, setEventCepLoading] = useState(false);
+  const [eventCepMsg, setEventCepMsg] = useState<{ text: string; success: boolean } | null>(null);
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
     location_name: '',
+    postal_code: '08410-000',
     address: '',
     neighborhood_name: 'Guaianases',
     city_name: 'São Paulo',
-    event_date: '',
-    event_time: '',
+    event_date: new Date().toISOString().split('T')[0],
+    start_time: '10:00',
+    end_time: '18:00',
     image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
     whatsapp_contact: '',
     organizer_name: 'Associação dos Comerciantes Locais',
@@ -204,7 +208,33 @@ export default function MasterAdminPage() {
     }));
   };
 
-  // Event Management Handlers
+  // Event Management Handlers & CEP Lookup
+  const handleLookupEventCep = async (cepInput: string) => {
+    const cleanCep = cepInput.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setEventCepMsg({ text: 'Digite os 8 números do CEP para consultar.', success: false });
+      return;
+    }
+    setEventCepLoading(true);
+    setEventCepMsg(null);
+    const res = await fetchAddressByCep(cleanCep);
+    setEventCepLoading(false);
+    if (res) {
+      setEventForm((prev) => ({
+        ...prev,
+        address: res.logradouro || prev.address,
+        neighborhood_name: res.bairro || prev.neighborhood_name,
+        city_name: `${res.localidade}/${res.uf}`,
+      }));
+      setEventCepMsg({
+        text: `✓ Endereço verificado pelo CEP: ${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
+        success: true,
+      });
+    } else {
+      setEventCepMsg({ text: '⚠️ CEP não encontrado no ViaCEP. Preencha o endereço manualmente.', success: false });
+    }
+  };
+
   const handleSaveEvent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventForm.title || !eventForm.event_date) {
@@ -212,10 +242,28 @@ export default function MasterAdminPage() {
       return;
     }
 
+    const formattedDateLabel = formatDatePtBr(eventForm.event_date);
+    const formattedTimeLabel = `${eventForm.start_time || '10:00'} às ${eventForm.end_time || '18:00'}`;
+
+    const payload = {
+      title: eventForm.title,
+      description: eventForm.description,
+      location_name: eventForm.location_name,
+      address: eventForm.address,
+      neighborhood_name: eventForm.neighborhood_name,
+      city_name: eventForm.city_name,
+      event_date: formattedDateLabel || eventForm.event_date,
+      event_time: formattedTimeLabel,
+      image_url: eventForm.image_url,
+      whatsapp_contact: eventForm.whatsapp_contact,
+      organizer_name: eventForm.organizer_name,
+      is_active: eventForm.is_active,
+    };
+
     if (editingEventId) {
-      store.updateEvent(editingEventId, eventForm);
+      store.updateEvent(editingEventId, payload);
     } else {
-      store.createEvent(eventForm);
+      store.createEvent(payload);
     }
 
     refreshData();
@@ -225,15 +273,18 @@ export default function MasterAdminPage() {
   };
 
   const resetEventForm = () => {
+    setEventCepMsg(null);
     setEventForm({
       title: '',
       description: '',
       location_name: '',
+      postal_code: '08410-000',
       address: '',
       neighborhood_name: 'Guaianases',
       city_name: 'São Paulo',
-      event_date: '',
-      event_time: '',
+      event_date: new Date().toISOString().split('T')[0],
+      start_time: '10:00',
+      end_time: '18:00',
       image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
       whatsapp_contact: '',
       organizer_name: 'Associação dos Comerciantes Locais',
@@ -243,15 +294,28 @@ export default function MasterAdminPage() {
 
   const handleEditEvent = (evt: LocalEvent) => {
     setEditingEventId(evt.id);
+    setEventCepMsg(null);
+
+    // Extract start/end time if format is "10:00 às 18:00"
+    let st = '10:00';
+    let et = '18:00';
+    if (evt.event_time.includes('às')) {
+      const parts = evt.event_time.split('às').map((s) => s.trim());
+      if (parts[0]) st = parts[0];
+      if (parts[1]) et = parts[1];
+    }
+
     setEventForm({
       title: evt.title,
       description: evt.description,
       location_name: evt.location_name,
+      postal_code: '08410-000',
       address: evt.address,
       neighborhood_name: evt.neighborhood_name,
       city_name: evt.city_name,
-      event_date: evt.event_date,
-      event_time: evt.event_time,
+      event_date: new Date().toISOString().split('T')[0],
+      start_time: st,
+      end_time: et,
       image_url: evt.image_url,
       whatsapp_contact: evt.whatsapp_contact || '',
       organizer_name: evt.organizer_name,
@@ -1326,43 +1390,144 @@ export default function MasterAdminPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Date & Time Picker Section */}
+              <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Data do Evento *</label>
+                    <input
+                      type="date"
+                      required
+                      value={eventForm.event_date}
+                      onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Horário de Início *</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.start_time}
+                      onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Horário de Término *</label>
+                    <input
+                      type="time"
+                      required
+                      value={eventForm.end_time}
+                      onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-[#0E3B43] font-bold">
+                  <span>📅 Formato exibido aos moradores:</span>
+                  <span className="text-[#E36845]">
+                    {formatDatePtBr(eventForm.event_date)} ({eventForm.start_time} às {eventForm.end_time})
+                  </span>
+                </div>
+              </div>
+
+              {/* Location & CEP Section */}
+              <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Local / Espaço *</label>
+                    <input
+                      type="text"
+                      required
+                      value={eventForm.location_name}
+                      onChange={(e) => setEventForm({ ...eventForm, location_name: e.target.value })}
+                      placeholder="Ex: Praça de Eventos Guaianases"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP do Local (Verificação ViaCEP)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={eventForm.postal_code}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEventForm({ ...eventForm, postal_code: val });
+                          if (val.replace(/\D/g, '').length === 8) {
+                            handleLookupEventCep(val);
+                          }
+                        }}
+                        placeholder="08410-000"
+                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleLookupEventCep(eventForm.postal_code)}
+                        disabled={eventCepLoading}
+                        className="px-3 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shrink-0 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {eventCepLoading ? 'Consultando...' : '🔍 Verificar CEP'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {eventCepMsg && (
+                  <div
+                    className={cn(
+                      'p-2.5 rounded-xl text-xs font-bold flex items-center gap-2',
+                      eventCepMsg.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                    )}
+                  >
+                    <span>{eventCepMsg.text}</span>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Data do Evento *</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço / Logradouro</label>
                   <input
                     type="text"
                     required
-                    value={eventForm.event_date}
-                    onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
-                    placeholder="Ex: 24 de Setembro ou YYYY-MM-DD"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    value={eventForm.address}
+                    onChange={(e) => setEventForm({ ...eventForm, address: e.target.value })}
+                    placeholder="Ex: Estrada de Poá, s/n (Praça Central)"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Horário *</label>
-                  <input
-                    type="text"
-                    required
-                    value={eventForm.event_time}
-                    onChange={(e) => setEventForm({ ...eventForm, event_time: e.target.value })}
-                    placeholder="Ex: 10:00 às 18:00"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      required
+                      value={eventForm.neighborhood_name}
+                      onChange={(e) => setEventForm({ ...eventForm, neighborhood_name: e.target.value })}
+                      placeholder="Guaianases"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Cidade / UF</label>
+                    <input
+                      type="text"
+                      required
+                      value={eventForm.city_name}
+                      onChange={(e) => setEventForm({ ...eventForm, city_name: e.target.value })}
+                      placeholder="São Paulo/SP"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Local *</label>
-                  <input
-                    type="text"
-                    required
-                    value={eventForm.location_name}
-                    onChange={(e) => setEventForm({ ...eventForm, location_name: e.target.value })}
-                    placeholder="Ex: Praça de Eventos Guaianases"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1">Organizador *</label>
                   <input
@@ -1374,28 +1539,16 @@ export default function MasterAdminPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço Completo</label>
-                <input
-                  type="text"
-                  value={eventForm.address}
-                  onChange={(e) => setEventForm({ ...eventForm, address: e.target.value })}
-                  placeholder="Ex: Estrada de Poá, s/n (Praça Central)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Contato (Opcional)</label>
-                <input
-                  type="text"
-                  value={eventForm.whatsapp_contact}
-                  onChange={(e) => setEventForm({ ...eventForm, whatsapp_contact: e.target.value })}
-                  placeholder="Ex: 11999998888"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                />
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Contato (Opcional)</label>
+                  <input
+                    type="text"
+                    value={eventForm.whatsapp_contact}
+                    onChange={(e) => setEventForm({ ...eventForm, whatsapp_contact: e.target.value })}
+                    placeholder="Ex: 11999998888"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
               </div>
 
               <div>

@@ -59,10 +59,58 @@ export function formatDate(dateString: string): string {
     const d = new Date(dateString);
     return d.toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: '2-digit',
+      month: 'short',
       year: 'numeric',
     });
   } catch {
     return dateString;
+  }
+}
+
+export interface CepAddressResult {
+  cep: string;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  erro?: boolean;
+}
+
+export async function fetchAddressByCep(cep: string): Promise<CepAddressResult | null> {
+  const cleanCep = cep.replace(/\D/g, '');
+  if (cleanCep.length !== 8) return null;
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+    if (!res.ok) return null;
+    const data: CepAddressResult = await res.json();
+    if (data.erro) return null;
+    return data;
+  } catch (err) {
+    console.error('Erro ao consultar CEP:', err);
+    return null;
+  }
+}
+
+export function formatDatePtBr(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1;
+      const day = parseInt(parts[2]);
+      const d = new Date(year, month, day);
+      return d.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
   }
 }

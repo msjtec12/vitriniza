@@ -46,7 +46,7 @@ import {
 } from 'recharts';
 import { store } from '@/lib/data/store';
 import { Business, Product, Promotion, BusinessImage, Review, PlanLimits } from '@/types';
-import { formatCurrency, formatPhone, cn } from '@/lib/utils';
+import { formatCurrency, formatPhone, cn, fetchAddressByCep } from '@/lib/utils';
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
 
 export default function MerchantPanelPage() {
@@ -84,6 +84,34 @@ export default function MerchantPanelPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepMsg, setCepMsg] = useState<{ text: string; success: boolean } | null>(null);
+
+  const handleLookupMerchantCep = async (cepInput: string) => {
+    const cleanCep = cepInput.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setCepMsg({ text: 'Digite os 8 dígitos do CEP.', success: false });
+      return;
+    }
+    setCepLoading(true);
+    setCepMsg(null);
+    const res = await fetchAddressByCep(cleanCep);
+    setCepLoading(false);
+    if (res) {
+      setProfileForm((prev) => ({
+        ...prev,
+        address: `${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
+        postal_code: res.cep,
+      }));
+      setCepMsg({
+        text: `✓ Endereço verificado pelo CEP: ${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
+        success: true,
+      });
+    } else {
+      setCepMsg({ text: '⚠️ CEP não encontrado no ViaCEP. Preencha manualmente.', success: false });
+    }
+  };
 
   // Form states for profile
   const [profileForm, setProfileForm] = useState({
@@ -786,14 +814,53 @@ export default function MerchantPanelPage() {
                       />
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço</label>
-                      <input
-                        type="text"
-                        value={profileForm.address}
-                        onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                      />
+                    <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                      <label className="block text-xs font-bold text-[#0E3B43]">Endereço Verificado por CEP (ViaCEP)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={profileForm.postal_code}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProfileForm({ ...profileForm, postal_code: val });
+                            if (val.replace(/\D/g, '').length === 8) {
+                              handleLookupMerchantCep(val);
+                            }
+                          }}
+                          placeholder="08410-000"
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleLookupMerchantCep(profileForm.postal_code)}
+                          disabled={cepLoading}
+                          className="px-3 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shrink-0 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {cepLoading ? 'Consultando...' : '🔍 Buscar CEP'}
+                        </button>
+                      </div>
+
+                      {cepMsg && (
+                        <div
+                          className={cn(
+                            'p-2.5 rounded-xl text-xs font-bold flex items-center gap-2',
+                            cepMsg.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                          )}
+                        >
+                          <span>{cepMsg.text}</span>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço Completo / Logradouro</label>
+                        <input
+                          type="text"
+                          value={profileForm.address}
+                          onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                          placeholder="Ex: Rua Salvador Gianetti, 500 - Guaianases"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                        />
+                      </div>
                     </div>
 
                     <div className="sm:col-span-2">
