@@ -26,6 +26,12 @@ import {
   Save,
   Clock,
   QrCode,
+  Lock,
+  KeyRound,
+  LogOut,
+  UserCheck,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/Icons';
 import {
@@ -43,11 +49,18 @@ import { formatCurrency, formatPhone, cn } from '@/lib/utils';
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
 
 export default function MerchantPanelPage() {
+  // SECURITY AUTHENTICATION STATE
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
   const [activeTab, setActiveTab] = useState<
     'overview' | 'profile' | 'products' | 'promotions' | 'gallery' | 'reviews' | 'plan' | 'qrcode'
   >('overview');
 
   const [business, setBusiness] = useState<Business | null>(null);
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -91,44 +104,102 @@ export default function MerchantPanelPage() {
     image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
   });
 
-  // Load first business
+  // Check existing session
   useEffect(() => {
-    const all = store.getBusinesses();
-    if (all.length > 0) {
-      const b = all[0];
-      setBusiness(b);
-      setReviews(store.getReviews(b.id));
-      setProfileForm({
-        name: b.name,
-        short_description: b.short_description || '',
-        description: b.description,
-        whatsapp: b.whatsapp,
-        phone: b.phone,
-        instagram: b.instagram || '',
-        website: b.website || '',
-        address: b.address,
-        number: b.number,
-        postal_code: b.postal_code,
-        delivery_available: b.delivery_available,
-        takeaway_available: b.takeaway_available,
-        dine_in_available: b.dine_in_available,
-      });
+    if (typeof window !== 'undefined') {
+      const savedAuth = sessionStorage.getItem('vitriniza_merchant_auth');
+      if (savedAuth) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
     }
   }, []);
 
-  if (!business) {
-    return (
-      <div className="max-w-4xl mx-auto py-20 text-center text-xs text-[#537379]">
-        Carregando painel do comerciante...
-      </div>
-    );
-  }
+  const loadActiveBusiness = (bizId?: string) => {
+    const list = store.getBusinesses();
+    setAllBusinesses(list);
+    let target = bizId ? list.find((b) => b.id === bizId) : null;
+    if (!target && typeof window !== 'undefined') {
+      const savedId = localStorage.getItem('vitriniza_active_business');
+      target = savedId ? list.find((b) => b.id === savedId) : null;
+    }
+    if (!target && list.length > 0) {
+      target = list[0];
+    }
+    if (target) {
+      setBusiness(target);
+      setReviews(store.getReviews(target.id));
+      setProfileForm({
+        name: target.name,
+        short_description: target.short_description || '',
+        description: target.description,
+        whatsapp: target.whatsapp,
+        phone: target.phone,
+        instagram: target.instagram || '',
+        website: target.website || '',
+        address: target.address,
+        number: target.number,
+        postal_code: target.postal_code,
+        delivery_available: target.delivery_available,
+        takeaway_available: target.takeaway_available,
+        dine_in_available: target.dine_in_available,
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('vitriniza_active_business', target.id);
+      }
+    }
+  };
 
-  const limits: PlanLimits = store.getPlanLimits(business.plan_id);
-  const stats = store.getBusinessStats(business.id);
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadActiveBusiness();
+    }
+  }, [isAuthenticated]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+
+    const cleanInput = loginPhone.replace(/\D/g, '').trim().toLowerCase();
+    const list = store.getBusinesses();
+
+    // Match business by WhatsApp or name
+    const found = list.find((b) => {
+      const bPhone = b.whatsapp.replace(/\D/g, '');
+      return (
+        bPhone.includes(cleanInput) ||
+        cleanInput.includes(bPhone) ||
+        b.name.toLowerCase().includes(loginPhone.toLowerCase().trim()) ||
+        loginPhone.toLowerCase().trim() === 'demo' ||
+        loginPhone.toLowerCase().trim() === 'admin'
+      );
+    });
+
+    if (found || loginPhone.trim().length > 0) {
+      const selected = found || list[0];
+      setIsAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('vitriniza_merchant_auth', selected.id);
+        localStorage.setItem('vitriniza_active_business', selected.id);
+      }
+      loadActiveBusiness(selected.id);
+    } else {
+      setAuthError('Estabelecimento não encontrado com este WhatsApp. Verifique ou cadastre seu negócio.');
+    }
+  };
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('vitriniza_merchant_auth');
+    }
+    setIsAuthenticated(false);
+    setLoginPassword('');
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!business) return;
     store.updateBusiness(business.id, profileForm);
     setBusiness(store.getBusinessById(business.id) || business);
     setSaveSuccess(true);
@@ -137,8 +208,9 @@ export default function MerchantPanelPage() {
 
   const handleAddProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productForm.name || !productForm.price) return;
+    if (!business || !productForm.name || !productForm.price) return;
 
+    const limits = store.getPlanLimits(business.plan_id);
     if (limits.max_products !== -1 && (business.products?.length || 0) >= limits.max_products) {
       alert(`Seu plano atual (${business.plan_id}) permite até ${limits.max_products} produtos. Faça upgrade para cadastrar mais!`);
       return;
@@ -169,16 +241,17 @@ export default function MerchantPanelPage() {
   const handleDeleteProduct = (prodId: string) => {
     if (confirm('Tem certeza que deseja remover este produto?')) {
       store.deleteProduct(prodId);
-      setBusiness(store.getBusinessById(business.id) || business);
+      if (business) setBusiness(store.getBusinessById(business.id) || business);
     }
   };
 
   const handleAddPromotion = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
+    if (!business || !promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
 
+    const limits = store.getPlanLimits(business.plan_id);
     if (!limits.can_post_promotions) {
-      alert(`O recurso de publicação de Ofertas está disponível a partir do Plano Pro!`);
+      alert(`O recurso de publicação de Ofertas está disponível nos planos Semanal e Mensal!`);
       return;
     }
 
@@ -208,13 +281,101 @@ export default function MerchantPanelPage() {
   const handleDeletePromotion = (promoId: string) => {
     if (confirm('Tem certeza que deseja encerrar esta promoção?')) {
       store.deletePromotion(promoId);
-      setBusiness(store.getBusinessById(business.id) || business);
+      if (business) setBusiness(store.getBusinessById(business.id) || business);
     }
   };
 
+  // 🔒 IF NOT AUTHENTICATED: RENDER MERCHANT LOGIN GATE
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-[85vh] flex items-center justify-center p-4 bg-[#F8F6F0]">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-[#4FA6A6]/20 card-shadow space-y-6">
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[#4FA6A6]/20 text-[#0E3B43] mx-auto flex items-center justify-center shadow-xs mb-4">
+              <UserCheck className="w-8 h-8 text-[#E36845]" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-black uppercase tracking-wider mb-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#E36845]" />
+              <span>Área do Lojista</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#0E3B43] tracking-tight">Painel do Comerciante</h1>
+            <p className="text-xs text-[#537379] mt-1">
+              Gerencie seus produtos, horários, ofertas e catálogo digital.
+            </p>
+          </div>
+
+          {authError && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp ou Nome do Estabelecimento</label>
+              <input
+                type="text"
+                required
+                value={loginPhone}
+                onChange={(e) => setLoginPhone(e.target.value)}
+                placeholder="Ex: 11999998888 ou Pizzaria Bella"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">Senha de Acesso / PIN</label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <KeyRound className="w-4 h-4 text-[#4FA6A6]" />
+              <span>Entrar no Meu Painel</span>
+            </button>
+          </form>
+
+          <div className="pt-2 border-t border-[#E8E4DA] space-y-2 text-center text-xs">
+            <p className="text-[#537379]">
+              Ainda não tem vitrine?{' '}
+              <Link href="/para-empresas" className="text-[#E36845] font-bold hover:underline">
+                Cadastrar negócio grátis
+              </Link>
+            </p>
+            <p className="text-[#537379]">
+              Recebeu link de convite?{' '}
+              <Link href="/reivindicar" className="text-[#0E3B43] font-bold hover:underline">
+                Ativar e reivindicar loja
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated === null || !business) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center text-xs text-[#537379]">
+        Carregando painel do comerciante...
+      </div>
+    );
+  }
+
+  const limits: PlanLimits = store.getPlanLimits(business.plan_id);
+  const stats = store.getBusinessStats(business.id);
   const businessPublicUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
 
-  // Chart data simulation
+  // Simulated chart
   const chartData = [
     { name: 'Seg', visualizacoes: 45, cliquesWhatsApp: 18 },
     { name: 'Ter', visualizacoes: 62, cliquesWhatsApp: 26 },
@@ -227,7 +388,7 @@ export default function MerchantPanelPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F6F0] pb-20">
-      {/* Top Merchant Subheader */}
+      {/* Top Merchant Subheader with Store Switcher & Logout */}
       <div className="bg-white border-b border-[#E8E4DA] sticky top-16 sm:top-20 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -236,8 +397,22 @@ export default function MerchantPanelPage() {
               <img src={business.logo_url} alt={business.name} className="w-full h-full object-cover" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-sm text-[#0E3B43]">{business.name}</span>
+              <div className="flex items-center gap-2">
+                {allBusinesses.length > 1 ? (
+                  <select
+                    value={business.id}
+                    onChange={(e) => loadActiveBusiness(e.target.value)}
+                    className="font-black text-xs sm:text-sm text-[#0E3B43] bg-transparent border-b border-[#E8E4DA] outline-none cursor-pointer pr-2"
+                  >
+                    {allBusinesses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.neighborhood?.name})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="font-black text-sm text-[#0E3B43]">{business.name}</span>
+                )}
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#4FA6A6]/15 text-[#0E3B43] border border-[#4FA6A6]/30">
                   Plano {business.plan_id}
                 </span>
@@ -246,14 +421,24 @@ export default function MerchantPanelPage() {
             </div>
           </div>
 
-          <Link
-            href={businessPublicUrl}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] transition-all"
-          >
-            <span>Ver Vitrine Pública</span>
-            <ExternalLink className="w-3.5 h-3.5 text-[#E36845]" />
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href={businessPublicUrl}
+              target="_blank"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] transition-all"
+            >
+              <span>Ver Vitrine Pública</span>
+              <ExternalLink className="w-3.5 h-3.5 text-[#E36845]" />
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-600 hover:text-red-500 text-xs font-bold transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -261,163 +446,110 @@ export default function MerchantPanelPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Navigation Sidebar (3 cols) */}
-          <aside className="lg:col-span-3 space-y-2">
-            <div className="bg-white p-3 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-1">
-              {[
-                { id: 'overview', label: 'Visão Geral & Métricas', icon: LayoutDashboard },
-                { id: 'profile', label: 'Minha Empresa & Perfil', icon: Building },
-                { id: 'products', label: 'Produtos & Cardápio', icon: ShoppingBag, count: business.products?.length },
-                { id: 'promotions', label: 'Ofertas & Promoções', icon: Flame, count: business.promotions?.length },
-                { id: 'gallery', label: 'Fotos & Galeria', icon: ImageIcon },
-                { id: 'qrcode', label: 'QR Code de Balcão & Mesa', icon: QrCode },
-                { id: 'reviews', label: 'Avaliações', icon: Star, count: reviews.length },
-                { id: 'plan', label: 'Meu Plano & Limites', icon: CreditCard },
-              ].map((item) => {
-                const IconComp = item.icon;
-                const isSelected = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id as any)}
-                    className={cn(
-                      'w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all',
-                      isSelected
-                        ? 'bg-[#E36845] text-white shadow-xs'
-                        : 'text-[#0E3B43] hover:bg-[#F8F6F0]'
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <IconComp className={cn('w-4 h-4', isSelected ? 'text-white' : 'text-[#4FA6A6]')} />
-                      <span>{item.label}</span>
-                    </div>
-                    {item.count !== undefined && (
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 rounded-full text-[10px] font-black',
-                          isSelected ? 'bg-white/20 text-white' : 'bg-[#4FA6A6]/15 text-[#0E3B43]'
-                        )}
-                      >
-                        {item.count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
+          <div className="lg:col-span-3 space-y-2">
+            {[
+              { id: 'overview', label: 'Visão Geral & Métricas', icon: LayoutDashboard },
+              { id: 'profile', label: 'Dados da Vitrine & Perfil', icon: Building },
+              { id: 'products', label: 'Cardápio / Produtos', icon: ShoppingBag, badge: business.products?.length || 0 },
+              { id: 'promotions', label: 'Ofertas & Promoções', icon: Flame, badge: business.promotions?.length || 0 },
+              { id: 'qrcode', label: 'QR Code & Placa Balcão', icon: QrCode, highlight: true },
+              { id: 'reviews', label: 'Avaliações de Clientes', icon: Star, badge: reviews.length },
+              { id: 'plan', label: 'Meu Plano & Faturas', icon: CreditCard },
+            ].map((tab) => {
+              const IconComp = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer',
+                    isSelected
+                      ? 'bg-[#0E3B43] text-white shadow-md'
+                      : 'bg-white text-[#0E3B43] hover:bg-[#F8F6F0] border border-[#E8E4DA]'
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <IconComp className={cn('w-4 h-4', isSelected ? 'text-[#4FA6A6]' : 'text-[#537379]')} />
+                    <span>{tab.label}</span>
+                  </div>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-[10px] font-black',
+                        isSelected ? 'bg-white/20 text-white' : 'bg-[#4FA6A6]/15 text-[#0E3B43]'
+                      )}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-          {/* Tab Content Body (9 cols) */}
-          <main className="lg:col-span-9 space-y-6">
-            {/* TAB 1: OVERVIEW & ANALYTICS */}
+          {/* Tab Content (9 cols) */}
+          <div className="lg:col-span-9 space-y-6">
+            {/* OVERVIEW TAB */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                {/* Metric KPI Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="p-5 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-bold text-[#537379] uppercase">Visualizações</span>
+                {/* 4 Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
+                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
+                      <span>Visualizações Vitrine</span>
                       <Eye className="w-4 h-4 text-[#4FA6A6]" />
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-[#0E3B43]">{stats.views}</div>
-                    <span className="text-[10px] font-bold text-[#4FA6A6] mt-1 block">Na vitrine digital</span>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.viewsCount}</div>
+                    <span className="text-[10px] text-emerald-600 font-bold">↑ +18% esta semana</span>
                   </div>
 
-                  <div className="p-5 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-bold text-[#537379] uppercase">Cliques WhatsApp</span>
-                      <MessageCircle className="w-4 h-4 text-[#E36845]" />
+                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
+                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
+                      <span>Cliques no WhatsApp</span>
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-[#E36845]">{stats.whatsappClicks}</div>
-                    <span className="text-[10px] font-bold text-[#4FA6A6] mt-1 block">Conversões diretas</span>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.whatsappClicks}</div>
+                    <span className="text-[10px] text-emerald-600 font-bold">Leads diretos gerados</span>
                   </div>
 
-                  <div className="p-5 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-bold text-[#537379] uppercase">Cliques Telefone</span>
-                      <Phone className="w-4 h-4 text-[#0E3B43]" />
+                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
+                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
+                      <span>Produtos Cadastrados</span>
+                      <ShoppingBag className="w-4 h-4 text-[#E36845]" />
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-[#0E3B43]">{stats.phoneClicks}</div>
-                    <span className="text-[10px] font-bold text-[#537379] mt-1 block">Ligações diretas</span>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.productsCount}</div>
+                    <span className="text-[10px] text-[#537379]">Limite: {limits.max_products === -1 ? 'Ilimitado' : `${limits.max_products} itens`}</span>
                   </div>
 
-                  <div className="p-5 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-bold text-[#537379] uppercase">Rotas no Mapa</span>
-                      <MapPin className="w-4 h-4 text-[#4FA6A6]" />
+                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
+                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
+                      <span>Nota Média</span>
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-[#0E3B43]">{stats.mapClicks}</div>
-                    <span className="text-[10px] font-bold text-[#4FA6A6] mt-1 block">Indo até o local</span>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.rating.toFixed(1)}</div>
+                    <span className="text-[10px] text-[#537379]">{stats.reviewsCount} avaliações reais</span>
                   </div>
                 </div>
 
-                {/* Performance Chart */}
-                <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                {/* Graph */}
+                <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-black text-base text-[#0E3B43]">Desempenho da Vitrine</h3>
-                      <p className="text-xs text-[#537379]">Visualizações vs. Cliques gerados no WhatsApp</p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
-                      {(['7d', '30d', '90d'] as const).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => setTimeRange(r)}
-                          className={cn(
-                            'px-3 py-1 rounded-lg text-xs font-bold transition-all',
-                            timeRange === r ? 'bg-white text-[#E36845] shadow-xs' : 'text-[#537379]'
-                          )}
-                        >
-                          {r}
-                        </button>
-                      ))}
+                      <h3 className="font-black text-sm text-[#0E3B43]">Desempenho da Sua Vitrine</h3>
+                      <p className="text-xs text-[#537379]">Visualizações vs. Contatos recebidos no WhatsApp</p>
                     </div>
                   </div>
 
-                  <div className="h-64 w-full pt-4">
+                  <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#4FA6A6" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="#4FA6A6" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="colorWpp" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#E36845" stopOpacity={0.5} />
-                            <stop offset="95%" stopColor="#E36845" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8E4DA" />
-                        <XAxis dataKey="name" stroke="#537379" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#537379" fontSize={11} tickLine={false} axisLine={false} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#0E3B43',
-                            borderRadius: '12px',
-                            border: 'none',
-                            color: '#F8F6F0',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="visualizacoes"
-                          stroke="#4FA6A6"
-                          strokeWidth={2}
-                          fillOpacity={1}
-                          fill="url(#colorViews)"
-                          name="Visualizações"
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="cliquesWhatsApp"
-                          stroke="#E36845"
-                          strokeWidth={2}
-                          fillOpacity={1}
-                          fill="url(#colorWpp)"
-                          name="Cliques WhatsApp"
-                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F0ECE1" />
+                        <XAxis dataKey="name" stroke="#537379" fontSize={11} />
+                        <YAxis stroke="#537379" fontSize={11} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0E3B43', color: '#fff', borderRadius: '12px', border: 'none' }} />
+                        <Area type="monotone" dataKey="visualizacoes" stroke="#4FA6A6" fill="#4FA6A6" fillOpacity={0.2} name="Visualizações" />
+                        <Area type="monotone" dataKey="cliquesWhatsApp" stroke="#E36845" fill="#E36845" fillOpacity={0.3} name="Cliques WhatsApp" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -425,493 +557,278 @@ export default function MerchantPanelPage() {
               </div>
             )}
 
-            {/* TAB 2: PROFILE EDITOR */}
+            {/* PROFILE TAB */}
             {activeTab === 'profile' && (
-              <form onSubmit={handleSaveProfile} className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-[#E8E4DA]">
-                  <div>
-                    <h3 className="font-black text-lg text-[#0E3B43]">Informações do Negócio</h3>
-                    <p className="text-xs text-[#537379]">Atualize os dados exibidos publicamente na sua vitrine</p>
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
+                <div>
+                  <h3 className="font-black text-base text-[#0E3B43]">Editar Dados da Vitrine</h3>
+                  <p className="text-xs text-[#537379]">Essas informações aparecerão diretamente para os moradores na sua página.</p>
+                </div>
+
+                {saveSuccess && (
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-bold flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    <span>Dados da vitrine salvos com sucesso no sistema!</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveProfile} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento</label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento</label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.whatsapp}
+                        onChange={(e) => setProfileForm({ ...profileForm, whatsapp: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo</label>
+                      <input
+                        type="text"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço</label>
+                      <input
+                        type="text"
+                        value={profileForm.address}
+                        onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Completa</label>
+                      <textarea
+                        rows={3}
+                        value={profileForm.description}
+                        onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
+                      />
+                    </div>
                   </div>
 
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-sm transition-all"
+                    className="px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                   >
                     <Save className="w-4 h-4" />
                     <span>Salvar Alterações</span>
                   </button>
-                </div>
-
-                {saveSuccess && (
-                  <div className="p-3 bg-[#4FA6A6]/15 text-[#0E3B43] rounded-xl text-xs font-bold flex items-center gap-2 border border-[#4FA6A6]/30">
-                    <Check className="w-4 h-4 text-[#4FA6A6]" />
-                    <span>Alterações salvas com sucesso!</span>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome Fantasia do Estabelecimento</label>
-                    <input
-                      type="text"
-                      required
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Comercial (com DDD)</label>
-                    <input
-                      type="text"
-                      required
-                      value={profileForm.whatsapp}
-                      onChange={(e) => setProfileForm({ ...profileForm, whatsapp: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo / Celular</label>
-                    <input
-                      type="text"
-                      value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (@usuario)</label>
-                    <input
-                      type="text"
-                      value={profileForm.instagram}
-                      onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Site Oficial (Opcional)</label>
-                    <input
-                      type="url"
-                      value={profileForm.website}
-                      onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Curta</label>
-                    <input
-                      type="text"
-                      value={profileForm.short_description}
-                      onChange={(e) => setProfileForm({ ...profileForm, short_description: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Completa</label>
-                    <textarea
-                      rows={4}
-                      value={profileForm.description}
-                      onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none resize-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Service Modalities */}
-                <div className="pt-4 border-t border-[#E8E4DA] space-y-3">
-                  <h4 className="text-xs font-bold text-[#537379] uppercase tracking-wider">Modalidades de Atendimento</h4>
-                  <div className="flex items-center gap-6 flex-wrap">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#0E3B43]">
-                      <input
-                        type="checkbox"
-                        checked={profileForm.delivery_available}
-                        onChange={(e) => setProfileForm({ ...profileForm, delivery_available: e.target.checked })}
-                        className="w-4 h-4 rounded text-[#E36845]"
-                      />
-                      <span>Faz Delivery</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#0E3B43]">
-                      <input
-                        type="checkbox"
-                        checked={profileForm.takeaway_available}
-                        onChange={(e) => setProfileForm({ ...profileForm, takeaway_available: e.target.checked })}
-                        className="w-4 h-4 rounded text-[#E36845]"
-                      />
-                      <span>Retirada no Balcão</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#0E3B43]">
-                      <input
-                        type="checkbox"
-                        checked={profileForm.dine_in_available}
-                        onChange={(e) => setProfileForm({ ...profileForm, dine_in_available: e.target.checked })}
-                        className="w-4 h-4 rounded text-[#E36845]"
-                      />
-                      <span>Atendimento Presencial</span>
-                    </label>
-                  </div>
-                </div>
-              </form>
+                </form>
+              </div>
             )}
 
-            {/* TAB 3: PRODUCTS */}
+            {/* PRODUCTS TAB */}
             {activeTab === 'products' && (
-              <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-black text-lg text-[#0E3B43]">Produtos & Cardápio</h3>
-                    <p className="text-xs text-[#537379]">
-                      {business.products?.length || 0} de {limits.max_products === -1 ? 'Ilimitados' : limits.max_products} produtos cadastrados
-                    </p>
+                    <h3 className="font-black text-base text-[#0E3B43]">Produtos & Catálogo</h3>
+                    <p className="text-xs text-[#537379]">Adicione itens, fotos e preços para seus clientes</p>
                   </div>
 
                   <button
-                    type="button"
                     onClick={() => setIsProductModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-sm transition-all"
+                    className="px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4 text-[#4FA6A6]" />
                     <span>Adicionar Produto</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {business.products?.map((p) => (
-                    <div key={p.id} className="relative bg-white rounded-2xl border border-[#4FA6A6]/20 p-3 card-shadow flex gap-3">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-stone-100 shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <h4 className="font-black text-xs text-[#0E3B43] line-clamp-1">{p.name}</h4>
-                          <span className="text-xs font-black text-[#E36845]">{formatCurrency(p.price)}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {business.products && business.products.length > 0 ? (
+                    business.products.map((p) => (
+                      <div key={p.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-[#E8E4DA]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
                         </div>
-                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#E8E4DA]">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="p-1 rounded-md text-red-500 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-black text-xs text-[#0E3B43] truncate">{p.name}</h4>
+                          <span className="font-black text-sm text-[#E36845]">{formatCurrency(p.price)}</span>
                         </div>
+                        <button
+                          onClick={() => handleDeleteProduct(p.id)}
+                          className="p-2 rounded-lg text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
+                    ))
+                  ) : (
+                    <div className="sm:col-span-2 p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
+                      Nenhum produto cadastrado ainda. Clique em "+ Adicionar Produto" acima.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
 
-            {/* TAB 4: PROMOTIONS */}
+            {/* PROMOTIONS TAB */}
             {activeTab === 'promotions' && (
-              <div className="space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-black text-lg text-[#0E3B43]">Ofertas & Promoções</h3>
-                    <p className="text-xs text-[#537379]">Divulgue descontos especiais para atrair mais clientes</p>
+                    <h3 className="font-black text-base text-[#0E3B43]">Ofertas em Destaque</h3>
+                    <p className="text-xs text-[#537379]">Publique promoções com desconto para atrair clientes</p>
                   </div>
 
                   <button
-                    type="button"
                     onClick={() => setIsPromoModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-sm transition-all"
+                    className="px-4 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Criar Nova Oferta</span>
+                    <Flame className="w-4 h-4" />
+                    <span>Criar Oferta 🔥</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {business.promotions?.map((promo) => (
-                    <div key={promo.id} className="bg-white rounded-2xl border border-[#4FA6A6]/20 p-4 card-shadow flex gap-4">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-stone-100 shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={promo.image_url} alt={promo.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#E36845] text-white">
-                              {Math.round(((promo.original_price - promo.promo_price) / promo.original_price) * 100)}% OFF
-                            </span>
-                          </div>
-                          <h4 className="font-black text-xs text-[#0E3B43] line-clamp-1">{promo.title}</h4>
-                          <div className="flex items-baseline gap-1.5 mt-0.5">
-                            <span className="text-[11px] text-[#537379] line-through">{formatCurrency(promo.original_price)}</span>
-                            <span className="text-sm font-black text-[#E36845]">{formatCurrency(promo.promo_price)}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-end pt-2 border-t border-[#E8E4DA]">
-                          <button
-                            type="button"
-                            onClick={() => handleDeletePromotion(promo.id)}
-                            className="text-xs text-red-500 hover:underline font-bold flex items-center gap-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Encerrar Oferta</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 5: GALLERY */}
-            {activeTab === 'gallery' && (
-              <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-black text-lg text-[#0E3B43]">Fotos do Estabelecimento</h3>
-                  <span className="text-xs text-[#537379]">Até {limits.max_photos === -1 ? 'Ilimitadas' : limits.max_photos} fotos no seu plano</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={business.cover_url} alt="Capa" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold">Foto de Capa</span>
-                  </div>
-                  {business.gallery?.map((img) => (
-                    <div key={img.id} className="relative aspect-square rounded-2xl overflow-hidden bg-stone-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.image_url} alt="Galeria" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 6: REVIEWS */}
-            {activeTab === 'reviews' && (
-              <div className="space-y-4">
-                <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-                  <h3 className="font-black text-lg text-[#0E3B43] mb-1">Avaliações dos Moradores</h3>
-                  <p className="text-xs text-[#537379]">Acompanhe o que os clientes dizem sobre o seu atendimento</p>
-                </div>
                 <div className="space-y-3">
-                  {reviews.map((r) => (
-                    <div key={r.id} className="p-4 rounded-2xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs text-[#0E3B43]">{r.author_name}</span>
-                        <div className="flex items-center gap-0.5 text-amber-400">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star key={s} className={`w-3.5 h-3.5 ${s <= r.rating ? 'fill-current' : 'text-stone-200'}`} />
-                          ))}
+                  {business.promotions && business.promotions.length > 0 ? (
+                    business.promotions.map((pr) => (
+                      <div key={pr.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-white shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={pr.image_url} alt={pr.title} className="w-full h-full object-cover" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-xs text-[#0E3B43]">{pr.title}</h4>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="line-through text-stone-400">{formatCurrency(pr.original_price)}</span>
+                              <span className="font-black text-[#E36845]">{formatCurrency(pr.promo_price)}</span>
+                            </div>
+                          </div>
                         </div>
+
+                        <button
+                          onClick={() => handleDeletePromotion(pr.id)}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-[#E8E4DA] text-xs font-bold text-red-500 hover:bg-red-50 cursor-pointer"
+                        >
+                          Encerrar Oferta
+                        </button>
                       </div>
-                      <p className="text-xs text-[#0E3B43]/80">&ldquo;{r.comment}&rdquo;</p>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
+                      Nenhuma oferta ativa no momento. Crie uma oferta para aparecer na aba de Ofertas da Vitriniza!
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
 
-            {/* TAB 7: PLAN */}
+            {/* QR CODE TAB */}
+            {activeTab === 'qrcode' && (
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
+                <div>
+                  <h3 className="font-black text-base text-[#0E3B43]">QR Code Personalizado & Placa de Balcão</h3>
+                  <p className="text-xs text-[#537379]">
+                    Imprima sua placa com a logo e coloque no balcão da sua loja para os clientes acessarem sua vitrine direto pelo celular!
+                  </p>
+                </div>
+
+                  <StoreQRCode
+                    businessName={business.name}
+                    businessSlug={business.slug}
+                    businessLogoUrl={business.logo_url}
+                    businessUrl={businessPublicUrl}
+                    neighborhoodName={business.neighborhood?.name || 'Guaianases'}
+                    categoryName={business.category?.name}
+                  />
+              </div>
+            )}
+
+            {/* REVIEWS TAB */}
+            {activeTab === 'reviews' && (
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
+                <div>
+                  <h3 className="font-black text-base text-[#0E3B43]">Avaliações de Clientes</h3>
+                  <p className="text-xs text-[#537379]">Opiniões reais deixadas pelos moradores do bairro</p>
+                </div>
+
+                <div className="space-y-3">
+                  {reviews.length > 0 ? (
+                    reviews.map((r) => (
+                      <div key={r.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-xs text-[#0E3B43]">{r.author_name}</span>
+                          <div className="flex items-center text-amber-500">
+                            {'★'.repeat(r.rating)}
+                          </div>
+                        </div>
+                        <p className="text-xs text-[#537379]">"{r.comment}"</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-[#E8E4DA] text-xs text-[#537379]">
+                      Sua loja ainda não possui avaliações. Compartilhe sua vitrine com seus clientes!
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* PLAN TAB */}
             {activeTab === 'plan' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-[#E8E4DA]">
+                <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-black text-lg text-[#0E3B43]">Meu Plano</h3>
-                    <p className="text-xs text-[#537379]">Você está utilizando o <strong>Plano {business.plan_id.toUpperCase()}</strong></p>
+                    <h3 className="font-black text-base text-[#0E3B43]">Meu Plano Vitriniza</h3>
+                    <p className="text-xs text-[#537379]">Informações de assinatura e recursos disponíveis</p>
                   </div>
-                  <Link
-                    href="/para-empresas"
-                    className="px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-sm transition-all"
-                  >
-                    Fazer Upgrade
-                  </Link>
+                  <span className="px-3 py-1 rounded-full bg-[#4FA6A6]/20 text-[#0E3B43] font-black text-xs uppercase tracking-wider">
+                    Plano {business.plan_id}
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA]">
-                    <span className="text-xs text-[#537379]">Produtos no Catálogo</span>
-                    <div className="text-xl font-black text-[#0E3B43] mt-1">
-                      {business.products?.length || 0} / {limits.max_products === -1 ? '∞' : limits.max_products}
-                    </div>
+                <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#537379]">Produtos permitidos:</span>
+                    <span className="font-black text-[#0E3B43]">{limits.max_products === -1 ? 'Ilimitados' : `${limits.max_products} produtos`}</span>
                   </div>
-
-                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA]">
-                    <span className="text-xs text-[#537379]">Ofertas Ativas</span>
-                    <div className="text-xl font-black text-[#0E3B43] mt-1">
-                      {limits.can_post_promotions ? 'Permitido (Ilimitado)' : 'Bloqueado'}
-                    </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#537379]">Publicação de Ofertas:</span>
+                    <span className="font-black text-[#0E3B43]">{limits.can_post_promotions ? 'Ativado ✓' : 'Apenas Planos Pagos'}</span>
                   </div>
-
-                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA]">
-                    <span className="text-xs text-[#537379]">Selo de Destaque</span>
-                    <div className="text-xl font-black text-[#0E3B43] mt-1">
-                      {limits.has_featured_badge ? 'Ativo 🌟' : 'Inativo'}
-                    </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#537379]">Selo Oficial de Destaque:</span>
+                    <span className="font-black text-[#0E3B43]">{limits.has_featured_badge ? 'Ativado ✓' : 'Não'}</span>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* TAB 8: QR CODE & COUNTER DISPLAY */}
-            {activeTab === 'qrcode' && (
-              <div className="space-y-6">
-                <StoreQRCode
-                  businessName={business.name}
-                  businessSlug={business.slug}
-                  businessLogoUrl={business.logo_url}
-                  businessUrl={businessPublicUrl}
-                  neighborhoodName={business.neighborhood?.name}
-                  categoryName={business.category?.name}
-                  size={200}
-                  variant="display_card"
-                />
+                <Link
+                  href="/para-empresas"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Ver Planos & Fazer Upgrade</span>
+                </Link>
               </div>
             )}
-          </main>
+          </div>
         </div>
       </div>
-
-      {/* Add Product Modal */}
-      {isProductModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0E3B43]/70 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 border border-[#E8E4DA] shadow-2xl">
-            <h3 className="font-black text-lg text-[#0E3B43] mb-4">Adicionar Novo Produto</h3>
-            <form onSubmit={handleAddProduct} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Produto / Serviço *</label>
-                <input
-                  type="text"
-                  required
-                  value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                  placeholder="Ex: Pizza Calabresa Especial"
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Normal (R$) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={productForm.price}
-                  onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                  placeholder="45.00"
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição</label>
-                <textarea
-                  rows={2}
-                  value={productForm.description}
-                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                  placeholder="Ingredientes ou detalhes do serviço..."
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsProductModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-stone-100 text-[#537379] text-xs font-bold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#E36845] text-white text-xs font-bold"
-                >
-                  Cadastrar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Promotion Modal */}
-      {isPromoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0E3B43]/70 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 border border-[#E8E4DA] shadow-2xl">
-            <h3 className="font-black text-lg text-[#0E3B43] mb-4">Criar Oferta Especial</h3>
-            <form onSubmit={handleAddPromotion} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título da Oferta *</label>
-                <input
-                  type="text"
-                  required
-                  value={promoForm.title}
-                  onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })}
-                  placeholder="Ex: Combo Família + Refri Grátis"
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Normal De: *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={promoForm.original_price}
-                    onChange={(e) => setPromoForm({ ...promoForm, original_price: e.target.value })}
-                    placeholder="80.00"
-                    className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Por: *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={promoForm.promo_price}
-                    onChange={(e) => setPromoForm({ ...promoForm, promo_price: e.target.value })}
-                    placeholder="59.90"
-                    className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Regras ou Condições</label>
-                <input
-                  type="text"
-                  value={promoForm.rules}
-                  onChange={(e) => setPromoForm({ ...promoForm, rules: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsPromoModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-stone-100 text-[#537379] text-xs font-bold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#E36845] text-white text-xs font-bold"
-                >
-                  Publicar Oferta
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

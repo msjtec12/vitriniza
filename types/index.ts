@@ -176,6 +176,7 @@ export interface Business {
   gallery?: BusinessImage[];
   products?: Product[];
   promotions?: Promotion[];
+  distance_km?: number;
   owner_id?: string;
   created_at: string;
   updated_at: string;

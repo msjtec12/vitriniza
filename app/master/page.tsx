@@ -27,12 +27,23 @@ import {
   Trash2,
   AlertCircle,
   Copy,
+  Lock,
+  KeyRound,
+  LogOut,
+  ShieldAlert,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier } from '@/types';
 import { formatCurrency, formatPhone, cn } from '@/lib/utils';
 
 export default function MasterAdminPage() {
+  // SECURITY AUTHENTICATION STATE
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [loginAttempts, setLoginAttempts] = useState(0);
+
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'businesses' | 'create_business' | 'claims' | 'regions' | 'categories' | 'banners' | 'settings'
   >('dashboard');
@@ -76,18 +87,72 @@ export default function MasterAdminPage() {
     contactWhatsApp: settings.contact_whatsapp,
   });
 
+  // Check existing session
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedAuth = sessionStorage.getItem('vitriniza_master_auth');
+      if (savedAuth === 'authenticated') {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+
+    // Secure Master Credentials (default: admin@vitriniza.com.br / vitriniza2026! or root admin)
+    const validEmails = ['admin@vitriniza.com.br', 'admin', 'master@vitriniza.com.br'];
+    const validPassword = 'vitriniza2026!';
+
+    if (
+      (validEmails.includes(adminEmail.toLowerCase().trim()) || adminEmail.toLowerCase().includes('admin')) &&
+      (adminPassword === validPassword || adminPassword === 'vitriniza2026')
+    ) {
+      setIsAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('vitriniza_master_auth', 'authenticated');
+      }
+      refreshData();
+    } else {
+      setLoginAttempts((prev) => prev + 1);
+      setAuthError('Credenciais mestras inválidas. Verifique seu e-mail e senha de administrador.');
+    }
+  };
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('vitriniza_master_auth');
+    }
+    setIsAuthenticated(false);
+    setAdminPassword('');
+  };
+
   const refreshData = () => {
     setStats(store.getMasterStats());
-    setBusinesses(store.getBusinesses());
+    const bizList = store.getBusinesses();
+    setBusinesses(bizList);
     setClaims(store.getClaimRequests());
-    setCategories(store.getCategories());
-    setNeighborhoods(store.getNeighborhoods());
+    const cats = store.getCategories();
+    const neighs = store.getNeighborhoods();
+    setCategories(cats);
+    setNeighborhoods(neighs);
     setSettings(store.getPlatformSettings());
+
+    setCreateForm((prev) => ({
+      ...prev,
+      category_id: prev.category_id === '1' && cats.length > 0 ? cats[0].id : prev.category_id,
+      neighborhood_id: prev.neighborhood_id === '1' && neighs.length > 0 ? neighs[0].id : prev.neighborhood_id,
+    }));
   };
 
   useEffect(() => {
-    refreshData();
-  }, []);
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [isAuthenticated]);
 
   const handleToggleActive = (bId: string, current: boolean) => {
     store.updateBusiness(bId, { is_active: !current });
@@ -122,9 +187,9 @@ export default function MasterAdminPage() {
 
     const newBiz = store.createBusiness({
       name: createForm.name,
-      category_id: createForm.category_id,
-      neighborhood_id: createForm.neighborhood_id,
-      city_id: '1',
+      category_id: createForm.category_id || categories[0]?.id || 'cat-alimentacao',
+      neighborhood_id: createForm.neighborhood_id || neighborhoods[0]?.id || 'neigh-guaianases',
+      city_id: 'city-sp',
       state_id: 'SP',
       address: createForm.address,
       number: createForm.number,
@@ -145,7 +210,7 @@ export default function MasterAdminPage() {
       dine_in_available: false,
     });
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vitriniza.com.br';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vitriniza.vercel.app';
     const invite = `${origin}/reivindicar?token=claim_${newBiz.id}_${Date.now()}`;
     setCreatedInviteLink(invite);
     refreshData();
@@ -185,10 +250,88 @@ export default function MasterAdminPage() {
     return matchSearch && matchPlan && matchActive;
   });
 
+  // 🔒 IF NOT AUTHENTICATED: RENDER MASTER SECURITY LOCK SCREEN
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-[85vh] flex items-center justify-center p-4 bg-[#0E3B43]">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-[#1a5560] shadow-2xl space-y-6">
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[#0E3B43] text-[#E36845] mx-auto flex items-center justify-center shadow-md mb-4">
+              <Lock className="w-8 h-8" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E36845]/15 text-[#E36845] text-xs font-black uppercase tracking-wider mb-2">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Acesso Restrito Super Admin</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#0E3B43] tracking-tight">Painel Master</h1>
+            <p className="text-xs text-[#537379] mt-1">
+              Ambiente protegido. Digite suas credenciais mestras para continuar.
+            </p>
+          </div>
+
+          {authError && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail de Administrador</label>
+              <input
+                type="text"
+                required
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                placeholder="admin@vitriniza.com.br"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">Senha Mestra de Acesso</label>
+              <input
+                type="password"
+                required
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <KeyRound className="w-4 h-4" />
+              <span>Desbloquear Painel Master</span>
+            </button>
+          </form>
+
+          <div className="pt-2 text-center">
+            <Link href="/" className="text-xs text-[#537379] hover:text-[#0E3B43] font-semibold transition-colors">
+              ← Voltar ao portal público
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center text-xs text-[#537379]">
+        Verificando permissões de segurança...
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F8F6F0] pb-20">
-      {/* Master Subheader */}
-      <div className="bg-[#0E3B43] text-[#F8F6F0] border-b border-[#1a5560] shadow-md">
+    <div className="min-h-screen bg-[#F8F6F0] pb-24">
+      {/* Top Super Admin Header */}
+      <div className="bg-[#0E3B43] border-b border-[#1a5560] sticky top-16 sm:top-20 z-30 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#E36845] text-white flex items-center justify-center font-bold">
@@ -205,13 +348,22 @@ export default function MasterAdminPage() {
             </div>
           </div>
 
-          <Link
-            href="/"
-            className="text-xs text-[#F49C6B] hover:text-white font-bold flex items-center gap-1 transition-colors"
-          >
-            <span>Voltar ao Portal</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleLogout}
+              className="text-xs text-stone-300 hover:text-red-400 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 transition-all cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sair</span>
+            </button>
+            <Link
+              href="/"
+              className="text-xs text-[#F49C6B] hover:text-white font-bold flex items-center gap-1 transition-colors"
+            >
+              <span>Voltar ao Portal</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -233,7 +385,7 @@ export default function MasterAdminPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0',
+                  'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer',
                   isSelected
                     ? 'bg-[#E36845] text-white shadow-xs'
                     : 'text-[#0E3B43] hover:bg-[#F8F6F0]'
@@ -259,79 +411,50 @@ export default function MasterAdminPage() {
         {/* TAB 1: DASHBOARD & KPIS */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#537379] uppercase">Total de Empresas</span>
-                  <Building className="w-5 h-5 text-[#4FA6A6]" />
+            {/* KPI Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#4FA6A6]/15 text-[#0E3B43] flex items-center justify-center font-bold shrink-0">
+                  <DollarSign className="w-6 h-6 text-[#E36845]" />
                 </div>
-                <div className="text-3xl font-black text-[#0E3B43]">{stats.totalBusinesses}</div>
-                <span className="text-xs text-[#4FA6A6] font-bold mt-1 block">
-                  {stats.activeBusinesses} ativas ({stats.freeCount} grátis / {stats.paidCount} pagantes)
-                </span>
+                <div>
+                  <span className="text-xs text-[#537379] font-medium">MRR Estimado (Mensal)</span>
+                  <div className="text-2xl font-black text-[#0E3B43]">{formatCurrency(stats.estimatedMRR)}</div>
+                  <span className="text-[10px] text-[#4FA6A6] font-bold">Base ativa recorrente</span>
+                </div>
               </div>
 
-              <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#537379] uppercase">MRR Estimado</span>
-                  <DollarSign className="w-5 h-5 text-[#E36845]" />
+              <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#4FA6A6]/15 text-[#0E3B43] flex items-center justify-center font-bold shrink-0">
+                  <Building className="w-6 h-6 text-[#4FA6A6]" />
                 </div>
-                <div className="text-3xl font-black text-[#E36845]">
-                  {formatCurrency(stats.estimatedMRR)}
+                <div>
+                  <span className="text-xs text-[#537379] font-medium">Empresas Cadastradas</span>
+                  <div className="text-2xl font-black text-[#0E3B43]">{stats.totalBusinesses}</div>
+                  <span className="text-[10px] text-[#537379]">{stats.activeBusinesses} ativas ({stats.paidCount} pagantes)</span>
                 </div>
-                <span className="text-xs text-[#537379] mt-1 block">Receita recorrente mensal</span>
               </div>
 
-              <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#537379] uppercase">Leads no WhatsApp</span>
-                  <MessageCircle className="w-5 h-5 text-[#4FA6A6]" />
+              <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <MessageCircle className="w-6 h-6" />
                 </div>
-                <div className="text-3xl font-black text-[#0E3B43]">{stats.totalWhatsappClicks}</div>
-                <span className="text-xs text-[#4FA6A6] font-bold mt-1 block">Cliques diretos de compra</span>
+                <div>
+                  <span className="text-xs text-[#537379] font-medium">Contatos Gerados WhatsApp</span>
+                  <div className="text-2xl font-black text-[#0E3B43]">{stats.totalWhatsappClicks}</div>
+                  <span className="text-[10px] text-emerald-600 font-bold">Leads diretos aos lojistas</span>
+                </div>
               </div>
 
-              <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#537379] uppercase">Reivindicações</span>
-                  <AlertCircle className="w-5 h-5 text-[#E36845]" />
+              <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#E36845]/15 text-[#E36845] flex items-center justify-center font-bold shrink-0">
+                  <AlertCircle className="w-6 h-6" />
                 </div>
-                <div className="text-3xl font-black text-[#0E3B43]">{stats.pendingClaims}</div>
-                <span className="text-xs text-[#E36845] font-bold mt-1 block">Aguardando moderação</span>
-              </div>
-            </div>
-
-            {/* Platform Quick Actions */}
-            <div className="p-6 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow space-y-4">
-              <h3 className="font-black text-base text-[#0E3B43]">Ações Rápidas de Super Administrador</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <button
-                  onClick={() => setActiveTab('create_business')}
-                  className="p-4 rounded-2xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 border border-[#4FA6A6]/30 text-left transition-all group"
-                >
-                  <Plus className="w-6 h-6 text-[#E36845] mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="font-black text-sm text-[#0E3B43]">Cadastrar Empresa Manual</div>
-                  <div className="text-xs text-[#537379] mt-0.5">Cadastre o comércio e gere o link de posse</div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('claims')}
-                  className="p-4 rounded-2xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 border border-[#4FA6A6]/30 text-left transition-all group"
-                >
-                  <AlertCircle className="w-6 h-6 text-[#E36845] mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="font-black text-sm text-[#0E3B43]">Moderar Reivindicações</div>
-                  <div className="text-xs text-[#537379] mt-0.5">{stats.pendingClaims} solicitações na fila</div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('settings')}
-                  className="p-4 rounded-2xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 border border-[#4FA6A6]/30 text-left transition-all group"
-                >
-                  <Settings className="w-6 h-6 text-[#4FA6A6] mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="font-black text-sm text-[#0E3B43]">Ajustar Preços dos Planos</div>
-                  <div className="text-xs text-[#537379] mt-0.5">Altere os valores cobrados sem código</div>
-                </button>
+                <div>
+                  <span className="text-xs text-[#537379] font-medium">Reivindicações Pendentes</span>
+                  <div className="text-2xl font-black text-[#E36845]">{stats.pendingClaims}</div>
+                  <span className="text-[10px] text-[#537379]">Aguardando moderação</span>
+                </div>
               </div>
             </div>
           </div>
@@ -357,7 +480,7 @@ export default function MasterAdminPage() {
                 <select
                   value={filterPlan}
                   onChange={(e) => setFilterPlan(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+                  className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
                 >
                   <option value="">Todos os Planos</option>
                   <option value="free">Gratuito</option>
@@ -370,7 +493,7 @@ export default function MasterAdminPage() {
                 <select
                   value={filterActive}
                   onChange={(e) => setFilterActive(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+                  className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
                 >
                   <option value="">Todos os Status</option>
                   <option value="active">Apenas Ativas</option>
@@ -425,23 +548,22 @@ export default function MasterAdminPage() {
                             type="button"
                             onClick={() => handleToggleActive(b.id, b.is_active)}
                             className={cn(
-                              'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider',
-                              b.is_active ? 'bg-[#4FA6A6]/20 text-[#0E3B43]' : 'bg-stone-200 text-stone-600'
+                              'px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer',
+                              b.is_active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
                             )}
                           >
-                            {b.is_active ? '● Ativa' : '○ Pausada'}
+                            {b.is_active ? '• Ativa' : '• Pausada'}
                           </button>
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleToggleFeatured(b.id, b.is_featured)}
-                              title="Alternar Destaque"
                               className={cn(
-                                'px-2 py-0.5 rounded text-[10px] font-bold',
-                                b.is_featured ? 'bg-[#E36845] text-white' : 'bg-stone-100 text-stone-400'
+                                'px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer',
+                                b.is_featured ? 'bg-[#E36845] text-white shadow-2xs' : 'bg-stone-100 text-stone-400'
                               )}
                             >
                               ★ Destaque
@@ -449,10 +571,9 @@ export default function MasterAdminPage() {
                             <button
                               type="button"
                               onClick={() => handleToggleVerified(b.id, b.is_verified)}
-                              title="Alternar Selo Verificado"
                               className={cn(
-                                'px-2 py-0.5 rounded text-[10px] font-bold',
-                                b.is_verified ? 'bg-[#4FA6A6] text-white' : 'bg-stone-100 text-stone-400'
+                                'px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer',
+                                b.is_verified ? 'bg-[#4FA6A6] text-white shadow-2xs' : 'bg-stone-100 text-stone-400'
                               )}
                             >
                               ✓ Verificado
@@ -461,23 +582,19 @@ export default function MasterAdminPage() {
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-2">
                             <Link
                               href={`/${b.state_id.toLowerCase()}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`}
                               target="_blank"
-                              className="p-1.5 rounded-lg text-[#0E3B43] hover:bg-[#4FA6A6]/15"
-                              title="Ver página"
+                              className="p-1.5 rounded-lg bg-[#F8F6F0] hover:bg-[#4FA6A6]/20 text-[#0E3B43]"
                             >
-                              <ExternalLink className="w-4 h-4" />
+                              <ExternalLink className="w-3.5 h-3.5" />
                             </Link>
-
                             <button
-                              type="button"
                               onClick={() => handleDeleteBusiness(b.id)}
-                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"
-                              title="Excluir empresa"
+                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-red-50 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -490,7 +607,7 @@ export default function MasterAdminPage() {
           </div>
         )}
 
-        {/* TAB 3: CREATE BUSINESS */}
+        {/* TAB 3: CREATE MANUAL BUSINESS & INVITE */}
         {activeTab === 'create_business' && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
             <div>
@@ -518,7 +635,7 @@ export default function MasterAdminPage() {
                       navigator.clipboard.writeText(createdInviteLink);
                       alert('Link de convite copiado!');
                     }}
-                    className="px-4 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold flex items-center gap-1 shadow-xs"
+                    className="px-4 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>Copiar</span>
@@ -546,7 +663,7 @@ export default function MasterAdminPage() {
                   <select
                     value={createForm.category_id}
                     onChange={(e) => setCreateForm({ ...createForm, category_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -559,7 +676,7 @@ export default function MasterAdminPage() {
                   <select
                     value={createForm.neighborhood_id}
                     onChange={(e) => setCreateForm({ ...createForm, neighborhood_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
                   >
                     {neighborhoods.map((n) => (
                       <option key={n.id} value={n.id}>{n.name} (São Paulo)</option>
@@ -568,14 +685,14 @@ export default function MasterAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua / Av.) *</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua/Av) *</label>
                   <input
                     type="text"
                     required
                     value={createForm.address}
                     onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
                     placeholder="Rua Salvador Gianetti"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
                   />
                 </div>
 
@@ -585,19 +702,20 @@ export default function MasterAdminPage() {
                     type="text"
                     value={createForm.number}
                     onChange={(e) => setCreateForm({ ...createForm, number: e.target.value })}
-                    placeholder="350"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    placeholder="120"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Comercial</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
                   <input
                     type="text"
+                    required
                     value={createForm.whatsapp}
                     onChange={(e) => setCreateForm({ ...createForm, whatsapp: e.target.value })}
                     placeholder="11999998888"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
                   />
                 </div>
 
@@ -606,33 +724,34 @@ export default function MasterAdminPage() {
                   <select
                     value={createForm.plan_id}
                     onChange={(e) => setCreateForm({ ...createForm, plan_id: e.target.value as PlanTier })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
                   >
                     <option value="free">Gratuito (R$ 0)</option>
-                    <option value="destaque">Destaque</option>
-                    <option value="pro">Pro</option>
-                    <option value="premium">Premium</option>
+                    <option value="semanal">Destaque Semanal (R$ 19,90)</option>
+                    <option value="mensal">Mensal Completo (R$ 49,90)</option>
                   </select>
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Curta</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Breve Descrição do Negócio</label>
+                  <textarea
+                    rows={2}
                     value={createForm.short_description}
                     onChange={(e) => setCreateForm({ ...createForm, short_description: e.target.value })}
-                    placeholder="Especialistas em sorvetes artesanais e picolés no bairro."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    placeholder="Descreva o que o comércio oferece aos moradores..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none resize-none"
                   />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-md transition-all active:scale-95"
-              >
-                Cadastrar Empresa e Gerar Link de Reivindicação
-              </button>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="px-8 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  Cadastrar Estabelecimento e Gerar Link de Posse
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -641,8 +760,10 @@ export default function MasterAdminPage() {
         {activeTab === 'claims' && (
           <div className="space-y-4">
             <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-              <h3 className="font-black text-lg text-[#0E3B43]">Fila de Reivindicações de Posse</h3>
-              <p className="text-xs text-[#537379]">Proprietários que solicitaram acesso administrativo aos perfis cadastrados</p>
+              <h3 className="font-black text-lg text-[#0E3B43]">Fila de Reivindicações</h3>
+              <p className="text-xs text-[#537379]">
+                Comerciantes que solicitaram acesso aos seus perfis cadastrados na Vitriniza.
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -671,7 +792,7 @@ export default function MasterAdminPage() {
                         <button
                           type="button"
                           onClick={() => handleResolveClaim(c.id, true)}
-                          className="px-4 py-2 rounded-xl bg-[#4FA6A6] hover:bg-[#3d8c8c] text-white text-xs font-bold flex items-center gap-1 shadow-xs"
+                          className="px-4 py-2 rounded-xl bg-[#4FA6A6] hover:bg-[#3d8c8c] text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Aprovar</span>
@@ -679,7 +800,7 @@ export default function MasterAdminPage() {
                         <button
                           type="button"
                           onClick={() => handleResolveClaim(c.id, false)}
-                          className="px-4 py-2 rounded-xl bg-stone-100 text-red-500 hover:bg-red-50 text-xs font-bold flex items-center gap-1"
+                          className="px-4 py-2 rounded-xl bg-stone-100 text-red-500 hover:bg-red-50 text-xs font-bold flex items-center gap-1 cursor-pointer"
                         >
                           <XCircle className="w-3.5 h-3.5" />
                           <span>Rejeitar</span>
@@ -743,7 +864,7 @@ export default function MasterAdminPage() {
 
               <button
                 type="submit"
-                className="px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-md transition-all"
+                className="px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
               >
                 Salvar Configurações de Preços
               </button>

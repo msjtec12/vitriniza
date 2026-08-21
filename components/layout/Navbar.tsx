@@ -10,9 +10,9 @@ import {
   Compass,
   Flame,
   Search,
-  ShieldCheck,
   Building2,
   ChevronDown,
+  UserCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { store } from '@/lib/data/store';
@@ -68,7 +68,7 @@ export const Navbar: React.FC = () => {
             <button
               onClick={() => setIsRegionMenuOpen(!isRegionMenuOpen)}
               type="button"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] transition-all shadow-2xs"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] transition-all shadow-2xs cursor-pointer"
             >
               <MapPin className="w-3.5 h-3.5 text-[#E36845]" />
               <span>{selectedNeighborhood} - SP</span>
@@ -88,7 +88,7 @@ export const Navbar: React.FC = () => {
                       setIsRegionMenuOpen(false);
                     }}
                     className={cn(
-                      'w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all',
+                      'w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer',
                       selectedNeighborhood === n.name
                         ? 'bg-[#E36845] text-white font-bold'
                         : 'text-[#0E3B43] hover:bg-[#F8F6F0]'
@@ -103,7 +103,7 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        {/* Desktop Navigation Links in Azul-Petróleo */}
+        {/* Desktop Navigation Links */}
         <nav className="hidden lg:flex items-center gap-1">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
@@ -124,7 +124,7 @@ export const Navbar: React.FC = () => {
           })}
         </nav>
 
-        {/* Right CTA Actions */}
+        {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Favorites */}
           <Link
@@ -140,22 +140,15 @@ export const Navbar: React.FC = () => {
             )}
           </Link>
 
-          {/* Merchant Panel link */}
+          {/* Discreet Merchant Access Link */}
           <Link
             href="/painel"
-            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs sm:text-sm font-bold shadow-sm transition-all active:scale-95"
+            title="Área restrita do lojista"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F8F6F0] border border-[#4FA6A6]/30 text-[#0E3B43] text-xs font-bold shadow-2xs transition-all"
           >
-            <Store className="w-4 h-4 text-[#4FA6A6]" />
-            <span>Painel Comerciante</span>
-          </Link>
-
-          {/* Master Admin shortcut */}
-          <Link
-            href="/master"
-            title="Painel Master Administrador"
-            className="p-2.5 rounded-full bg-white hover:bg-stone-100 border border-[#E8E4DA] text-[#0E3B43] text-xs font-bold transition-all shadow-2xs"
-          >
-            <ShieldCheck className="w-4 h-4 text-[#4FA6A6]" />
+            <UserCheck className="w-3.5 h-3.5 text-[#E36845]" />
+            <span className="hidden sm:inline">Área do Lojista</span>
+            <span className="sm:hidden">Entrar</span>
           </Link>
         </div>
       </div>

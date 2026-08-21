@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Flame, Heart, Store } from 'lucide-react';
+import { Home, Search, Flame, Heart, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const BottomNav: React.FC = () => {
@@ -14,7 +14,7 @@ export const BottomNav: React.FC = () => {
     { label: 'Explorar', href: '/buscar', icon: Search },
     { label: 'Ofertas', href: '/buscar?promocoes=true', icon: Flame },
     { label: 'Favoritos', href: '/favoritos', icon: Heart },
-    { label: 'Painel', href: '/painel', icon: Store },
+    { label: 'Empresas', href: '/para-empresas', icon: Building2 },
   ];
 
   return (

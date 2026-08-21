@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Store, Heart, ShieldCheck, MapPin, Sparkles } from 'lucide-react';
+import { Store, MapPin, Sparkles, UserCheck } from 'lucide-react';
 import { store } from '@/lib/data/store';
 
 export const Footer: React.FC = () => {
@@ -67,7 +67,7 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* For Merchants & Admin */}
+          {/* For Merchants */}
           <div>
             <h4 className="font-bold text-sm text-[#F8F6F0] mb-3 uppercase tracking-wider">
               Para Empreendedores
@@ -80,14 +80,14 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <Link href="/painel" className="hover:text-[#F49C6B] flex items-center gap-1.5 transition-colors">
-                  <Store className="w-3.5 h-3.5 text-[#4FA6A6]" />
-                  <span>Acessar Painel do Comerciante</span>
+                  <UserCheck className="w-3.5 h-3.5 text-[#4FA6A6]" />
+                  <span>Área do Comerciante (Login)</span>
                 </Link>
               </li>
               <li>
-                <Link href="/master" className="hover:text-[#F49C6B] flex items-center gap-1.5 transition-colors">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#4FA6A6]" />
-                  <span>Painel Administrativo Master</span>
+                <Link href="/reivindicar" className="hover:text-[#F49C6B] flex items-center gap-1.5 transition-colors">
+                  <Store className="w-3.5 h-3.5 text-[#4FA6A6]" />
+                  <span>Ativar / Reivindicar Loja</span>
                 </Link>
               </li>
               <li>
