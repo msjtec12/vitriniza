@@ -214,88 +214,46 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12 sm:space-y-16 lg:space-y-20 pb-16 bg-[#F8F6F0]">
-      {/* 1. HERO SECTION WITH THEMATIC LOCAL COMMERCE BACKGROUND IMAGE & GRAPHIC BANNER */}
-      <section className="relative pt-8 sm:pt-14 pb-12 sm:pb-16 overflow-hidden border-b border-[#E8E4DA]">
-        {/* Background Image of Local Neighborhood Commerce */}
+      {/* 1. HERO SECTION WITH FULL-WIDTH THEMATIC BACKGROUND IMAGE */}
+      <section className="relative pt-12 sm:pt-20 pb-14 sm:pb-20 overflow-hidden border-b border-[#E8E4DA]">
+        {/* Full-Width Background Image */}
         <div className="absolute inset-0 z-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={platformSettings.hero_bg_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80'}
             alt="Comércio local do bairro"
-            className="w-full h-full object-cover object-center opacity-25 saturate-120"
+            className="w-full h-full object-cover object-center opacity-40 saturate-120"
           />
-          {/* Warm Off-White Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#F8F6F0]/95 via-[#F8F6F0]/88 to-[#F8F6F0]" />
+          {/* Subtle Off-White Ambient Gradient Overlay for high text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#F8F6F0]/90 via-[#F8F6F0]/82 to-[#F8F6F0]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/50 via-transparent to-[#F8F6F0]/70" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Left Content Column */}
-            <div className="lg:col-span-7 text-center lg:text-left">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4FA6A6]/15 border border-[#4FA6A6]/30 shadow-2xs mb-4 backdrop-blur-xs">
-                <span className="w-2 h-2 rounded-full bg-[#E36845] animate-pulse" />
-                <span className="text-xs font-black text-[#0E3B43] uppercase tracking-wider">
-                  Vitrine digital inteligente do seu bairro
-                </span>
-              </div>
-
-              {/* Main Headline */}
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight leading-tight mb-4 drop-shadow-2xs">
-                {platformSettings.hero_title ? (
-                  platformSettings.hero_title
-                ) : (
-                  <>Descubra o melhor <span className="text-[#E36845]">perto de você.</span></>
-                )}
-              </h1>
-
-              {/* Subtext */}
-              <p className="text-sm sm:text-lg text-[#0E3B43]/85 font-medium max-w-xl mx-auto lg:mx-0 mb-6 leading-relaxed">
-                {platformSettings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.'}
-              </p>
-
-              {/* Search Bar */}
-              <div className="max-w-2xl mx-auto lg:mx-0">
-                <SearchBar />
-              </div>
-            </div>
-
-            {/* Right Column: Hero Visual Graphic Banner Card */}
-            <div className="lg:col-span-5 hidden lg:block">
-              <div className="relative bg-gradient-to-br from-[#0E3B43] to-[#154E58] rounded-3xl p-6 text-white shadow-2xl overflow-hidden border border-[#4FA6A6]/30 group">
-                {/* Visual Ambient Cover Image */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80"
-                  alt="Comércios Locais em Destaque"
-                  className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43] via-[#0E3B43]/60 to-transparent" />
-
-                <div className="relative z-10 space-y-4">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white text-xs font-black">
-                    <Sparkles className="w-3.5 h-3.5 text-[#E36845]" />
-                    <span>Conexão Direta Bairro & Cidade</span>
-                  </div>
-
-                  <h3 className="text-2xl font-black leading-snug">
-                    Tudo o que o seu bairro oferece em um só lugar.
-                  </h3>
-
-                  <div className="space-y-2.5 pt-2 text-xs font-bold">
-                    <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/10">
-                      <span className="w-7 h-7 rounded-xl bg-[#25D366] text-white flex items-center justify-center shrink-0 font-black">💬</span>
-                      <span>Atendimento direto pelo WhatsApp com o lojista</span>
-                    </div>
-                    <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/10">
-                      <span className="w-7 h-7 rounded-xl bg-[#E36845] text-white flex items-center justify-center shrink-0 font-black">📍</span>
-                      <span>Comércios físicos e atendimentos 100% online</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          {/* Proximity / Community Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4FA6A6]/20 border border-[#4FA6A6]/40 shadow-xs mb-5 animate-in fade-in backdrop-blur-md">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E36845] animate-pulse" />
+            <span className="text-xs font-black text-[#0E3B43] uppercase tracking-wider">
+              Vitrine digital inteligente do seu bairro
+            </span>
           </div>
+
+          {/* Main Headline */}
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-4xl mx-auto leading-tight mb-4 drop-shadow-2xs">
+            {platformSettings.hero_title ? (
+              platformSettings.hero_title
+            ) : (
+              <>Descubra o melhor <span className="text-[#E36845]">perto de você.</span></>
+            )}
+          </h1>
+
+          {/* Subtext */}
+          <p className="text-sm sm:text-lg text-[#0E3B43]/85 font-medium max-w-xl mx-auto mb-8 leading-relaxed">
+            {platformSettings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.'}
+          </p>
+
+          {/* Dual Search Bar */}
+          <SearchBar />
         </div>
       </section>
 
