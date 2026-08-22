@@ -829,7 +829,7 @@ class VitrinizaStore {
     this.saveToStorage();
     this.notifyListeners();
     if (supabase) {
-      supabase.from('events').upsert(newEvt).then();
+      void supabase.from('events').upsert(newEvt);
     }
     return newEvt;
   }
@@ -843,7 +843,7 @@ class VitrinizaStore {
     this.saveToStorage();
     this.notifyListeners();
     if (supabase) {
-      supabase.from('events').update(updates).eq('id', id).then();
+      void supabase.from('events').update(updates).eq('id', id);
     }
     return this.events[idx];
   }
@@ -854,7 +854,7 @@ class VitrinizaStore {
     this.saveToStorage();
     this.notifyListeners();
     if (supabase) {
-      supabase.from('events').delete().eq('id', id).then();
+      void supabase.from('events').delete().eq('id', id);
     }
   }
 

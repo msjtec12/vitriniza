@@ -373,6 +373,87 @@ export default function MasterAdminPage() {
     }
   };
 
+  // Edit Business Modal State
+  const [isEditBizModalOpen, setIsEditBizModalOpen] = useState(false);
+  const [editingBizId, setEditingBizId] = useState<string | null>(null);
+  const [editBizCepMsg, setEditBizCepMsg] = useState<string | null>(null);
+  const [editBizForm, setEditBizForm] = useState({
+    name: '',
+    category_id: '',
+    neighborhood_id: '',
+    address: '',
+    number: '',
+    postal_code: '',
+    phone: '',
+    whatsapp: '',
+    short_description: '',
+    description: '',
+    logo_url: '',
+    cover_url: '',
+    instagram: '',
+    website: '',
+    plan_id: 'free' as PlanTier,
+    is_active: true,
+    is_verified: false,
+    is_featured: false,
+  });
+
+  const handleOpenEditBizModal = (b: Business) => {
+    setEditingBizId(b.id);
+    setEditBizCepMsg(null);
+    setEditBizForm({
+      name: b.name,
+      category_id: b.category_id,
+      neighborhood_id: b.neighborhood_id,
+      address: b.address,
+      number: b.number || '',
+      postal_code: b.postal_code || '08410-000',
+      phone: b.phone || '',
+      whatsapp: b.whatsapp,
+      short_description: b.short_description || '',
+      description: b.description || '',
+      logo_url: b.logo_url || '',
+      cover_url: b.cover_url || '',
+      instagram: b.instagram || '',
+      website: b.website || '',
+      plan_id: b.plan_id,
+      is_active: b.is_active,
+      is_verified: b.is_verified,
+      is_featured: b.is_featured,
+    });
+    setIsEditBizModalOpen(true);
+  };
+
+  const handleSaveEditBiz = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBizId || !editBizForm.name || !editBizForm.address) return;
+
+    store.updateBusiness(editingBizId, {
+      name: editBizForm.name,
+      category_id: editBizForm.category_id,
+      neighborhood_id: editBizForm.neighborhood_id,
+      address: editBizForm.address,
+      number: editBizForm.number,
+      postal_code: editBizForm.postal_code,
+      phone: editBizForm.phone,
+      whatsapp: editBizForm.whatsapp,
+      short_description: editBizForm.short_description,
+      description: editBizForm.description || editBizForm.short_description,
+      logo_url: editBizForm.logo_url,
+      cover_url: editBizForm.cover_url,
+      instagram: editBizForm.instagram,
+      website: editBizForm.website,
+      plan_id: editBizForm.plan_id,
+      is_active: editBizForm.is_active,
+      is_verified: editBizForm.is_verified,
+      is_featured: editBizForm.is_featured,
+    });
+
+    refreshData();
+    setIsEditBizModalOpen(false);
+    setEditingBizId(null);
+  };
+
   const [lastCreatedBiz, setLastCreatedBiz] = useState<Business | null>(null);
 
   const handleCreateBusiness = (e: React.FormEvent) => {
@@ -783,6 +864,15 @@ export default function MasterAdminPage() {
 
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditBizModal(b)}
+                              className="px-2.5 py-1 rounded-lg bg-[#4FA6A6]/20 hover:bg-[#4FA6A6] text-[#0E3B43] hover:text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              title="Editar todos os dados cadastrais desta empresa"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Editar</span>
+                            </button>
                             <a
                               href={buildWhatsAppUrl(
                                 b.whatsapp,
@@ -1660,6 +1750,244 @@ export default function MasterAdminPage() {
                   className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
                 >
                   {editingEventId ? 'Salvar Alterações' : 'Publicar Evento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT BUSINESS MODAL (FOR MASTER ADMIN) */}
+      {isEditBizModalOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto cursor-pointer"
+          onClick={() => setIsEditBizModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 card-shadow space-y-6 my-8 cursor-default max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[#E8E4DA] pb-4">
+              <div>
+                <h3 className="text-lg font-black text-[#0E3B43]">Editar Perfil do Estabelecimento</h3>
+                <p className="text-xs text-[#537379]">Atualize todos os dados cadastrais da empresa no portal.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditBizModalOpen(false)}
+                className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditBiz} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBizForm.name}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Categoria *</label>
+                  <select
+                    value={editBizForm.category_id}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, category_id: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro *</label>
+                  <select
+                    value={editBizForm.neighborhood_id}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, neighborhood_id: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
+                  >
+                    {neighborhoods.map((n) => (
+                      <option key={n.id} value={n.id}>{n.name} (São Paulo)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP (ViaCEP)</label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={editBizForm.postal_code}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, postal_code: e.target.value })}
+                      placeholder="08410-000"
+                      className="w-full pl-3.5 pr-20 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setEditBizCepMsg('Buscando...');
+                        const res = await fetchAddressByCep(editBizForm.postal_code);
+                        if (res) {
+                          setEditBizForm((prev) => ({
+                            ...prev,
+                            address: res.logradouro || prev.address,
+                            postal_code: res.cep || prev.postal_code,
+                          }));
+                          setEditBizCepMsg(`✓ ${res.bairro || 'Endereço localizado'}`);
+                        } else {
+                          setEditBizCepMsg('❌ CEP não encontrado');
+                        }
+                      }}
+                      className="absolute right-1.5 px-3 py-1.5 rounded-lg bg-[#4FA6A6] text-white text-[11px] font-bold cursor-pointer hover:bg-[#3d8c8c]"
+                    >
+                      🔍 Buscar
+                    </button>
+                  </div>
+                  {editBizCepMsg && (
+                    <span className="text-[10px] font-bold text-[#4FA6A6] mt-1 block">{editBizCepMsg}</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua/Av) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBizForm.address}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, address: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Número</label>
+                  <input
+                    type="text"
+                    value={editBizForm.number}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, number: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBizForm.whatsapp}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, whatsapp: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Plano Atual</label>
+                  <select
+                    value={editBizForm.plan_id}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, plan_id: e.target.value as PlanTier })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
+                  >
+                    <option value="free">Gratuito (R$ 0)</option>
+                    <option value="semanal">Semanal (R$ 19,90)</option>
+                    <option value="mensal">Mensal (R$ 49,90)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (@usuario)</label>
+                  <input
+                    type="text"
+                    value={editBizForm.instagram}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, instagram: e.target.value })}
+                    placeholder="@sualoja"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Breve Descrição do Negócio</label>
+                  <textarea
+                    rows={2}
+                    value={editBizForm.short_description}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, short_description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">URL do Logo / Foto Principal</label>
+                  <input
+                    type="text"
+                    value={editBizForm.logo_url}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, logo_url: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">URL da Capa do Perfil</label>
+                  <input
+                    type="text"
+                    value={editBizForm.cover_url}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, cover_url: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-2">
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editBizForm.is_active}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, is_active: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#4FA6A6]"
+                    />
+                    <span>Loja Ativa na Plataforma</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editBizForm.is_featured}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, is_featured: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#E36845]"
+                    />
+                    <span>★ Selo Destaque</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editBizForm.is_verified}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, is_verified: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#4FA6A6]"
+                    />
+                    <span>✓ Selo Verificado</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E8E4DA]">
+                <button
+                  type="button"
+                  onClick={() => setIsEditBizModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-stone-100 text-stone-600 text-xs font-bold hover:bg-stone-200 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  Salvar Alterações
                 </button>
               </div>
             </form>
