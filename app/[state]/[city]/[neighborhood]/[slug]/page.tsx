@@ -130,14 +130,22 @@ export default function BusinessShowcasePage() {
 
       {/* Hero Cover & Header */}
       <div className="relative">
-        <div className="h-48 sm:h-72 md:h-80 w-full overflow-hidden bg-[#0E3B43] relative">
+        <div className="relative w-full min-h-[220px] sm:min-h-[320px] md:min-h-[380px] max-h-[460px] bg-[#0E3B43] flex items-center justify-center overflow-hidden">
+          {/* Blurred background layer to fill widescreen aspect ratios smoothly */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={business.cover_url}
             alt={business.name}
-            className="w-full h-full object-cover opacity-85"
+            className="absolute inset-0 w-full h-full object-cover blur-lg opacity-40 scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/90 via-black/30 to-transparent" />
+          {/* Crisp foreground layer preserving 100% of original banner graphics, phone numbers & text */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={business.cover_url}
+            alt={business.name}
+            className="relative z-10 max-h-[220px] sm:max-h-[320px] md:max-h-[380px] w-full object-contain mx-auto shadow-2xl"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/80 via-transparent to-transparent pointer-events-none z-15" />
         </div>
 
         {/* Header Profile Content */}

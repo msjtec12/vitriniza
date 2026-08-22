@@ -21,7 +21,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
-  const [neighborhood, setNeighborhood] = useState(initialNeighborhood || 'guaianases');
+  const [neighborhood, setNeighborhood] = useState(initialNeighborhood || '');
   const [isLocating, setIsLocating] = useState(false);
 
   const neighborhoods = store.getNeighborhoods();
