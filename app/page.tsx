@@ -222,33 +222,32 @@ export default function HomePage() {
           <img
             src={platformSettings.hero_bg_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80'}
             alt="Comércio local do bairro"
-            className="w-full h-full object-cover object-center opacity-40 saturate-120"
+            className="w-full h-full object-cover object-center opacity-80 saturate-125"
           />
-          {/* Subtle Off-White Ambient Gradient Overlay for high text contrast */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#F8F6F0]/90 via-[#F8F6F0]/82 to-[#F8F6F0]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/50 via-transparent to-[#F8F6F0]/70" />
+          {/* Subtle Off-White Ambient Gradient Overlay preserving full image visibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/50 to-[#F8F6F0]" />
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           {/* Proximity / Community Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4FA6A6]/20 border border-[#4FA6A6]/40 shadow-xs mb-5 animate-in fade-in backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 px-4.5 py-1.5 rounded-full bg-[#0E3B43] text-white border border-[#4FA6A6]/40 shadow-lg mb-5 animate-in fade-in backdrop-blur-md">
             <span className="w-2.5 h-2.5 rounded-full bg-[#E36845] animate-pulse" />
-            <span className="text-xs font-black text-[#0E3B43] uppercase tracking-wider">
+            <span className="text-xs font-black uppercase tracking-wider">
               Vitrine digital inteligente do seu bairro
             </span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-4xl mx-auto leading-tight mb-4 drop-shadow-2xs">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-4xl mx-auto leading-tight mb-4 drop-shadow-md">
             {platformSettings.hero_title ? (
               platformSettings.hero_title
             ) : (
-              <>Descubra o melhor <span className="text-[#E36845]">perto de você.</span></>
+              <>Descubra o melhor <span className="text-[#E36845] drop-shadow-sm">perto de você.</span></>
             )}
           </h1>
 
           {/* Subtext */}
-          <p className="text-sm sm:text-lg text-[#0E3B43]/85 font-medium max-w-xl mx-auto mb-8 leading-relaxed">
+          <p className="text-sm sm:text-lg text-[#0E3B43] font-bold max-w-xl mx-auto mb-8 leading-relaxed drop-shadow-xs bg-white/70 backdrop-blur-xs py-2 px-5 rounded-2xl border border-white/50 inline-block shadow-sm">
             {platformSettings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.'}
           </p>
 
