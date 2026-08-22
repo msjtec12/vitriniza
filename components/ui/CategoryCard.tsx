@@ -19,6 +19,7 @@ import {
   ShieldPlus,
   Briefcase,
   Store,
+  Search,
 } from 'lucide-react';
 import { Category } from '@/types';
 import { cn } from '@/lib/utils';
@@ -127,6 +128,12 @@ const categoryVisuals: Record<string, CategoryVisual> = {
     bgGradient: 'from-teal-500/20 via-emerald-500/10 to-teal-500/5',
     iconColor: 'text-teal-600',
     badgeBorder: 'border-teal-500/30',
+  },
+  'investigacao-detetive': {
+    icon: Search,
+    bgGradient: 'from-slate-700/20 via-zinc-800/10 to-slate-700/5',
+    iconColor: 'text-[#0E3B43]',
+    badgeBorder: 'border-slate-700/30',
   },
 };
 

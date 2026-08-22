@@ -259,6 +259,16 @@ export const mockCategories: Category[] = [
     order_index: 16,
     active: true,
   },
+  {
+    id: 'cat-investigacao',
+    name: 'Investigação & Detetive Particular',
+    slug: 'investigacao-detetive',
+    icon: 'Search',
+    description: 'Investigadores particulares, detetives profissionais, localização de pessoas, inteligência e perícia digital',
+    image_url: 'https://images.unsplash.com/photo-1453728013993-6d66e9c9123a?w=600&auto=format&fit=crop&q=80',
+    order_index: 17,
+    active: true,
+  },
 ];
 
 export const mockPlans: Record<string, PlanConfig> = {
