@@ -429,10 +429,19 @@ export default function MasterAdminPage() {
   const handleOpenEditBizModal = (b: Business) => {
     setEditingBizId(b.id);
     setEditBizCepMsg(null);
+
+    let neighId = b.neighborhood_id || b.neighborhood?.id || 'neigh-guaianases';
+    if (b.neighborhood?.name) {
+      const ensured = store.ensureNeighborhood(b.neighborhood.name);
+      neighId = ensured.id;
+    }
+
+    setNeighborhoods(store.getNeighborhoods());
+
     setEditBizForm({
       name: b.name,
       category_id: b.category_id,
-      neighborhood_id: b.neighborhood_id,
+      neighborhood_id: neighId,
       address: b.address,
       number: b.number || '',
       postal_code: b.postal_code || '08410-000',
@@ -1879,12 +1888,15 @@ export default function MasterAdminPage() {
                         setEditBizCepMsg('Buscando...');
                         const res = await fetchAddressByCep(editBizForm.postal_code);
                         if (res) {
+                          const matchedNeigh = store.ensureNeighborhood(res.bairro || 'São Paulo');
+                          setNeighborhoods(store.getNeighborhoods());
                           setEditBizForm((prev) => ({
                             ...prev,
                             address: res.logradouro || prev.address,
                             postal_code: res.cep || prev.postal_code,
+                            neighborhood_id: matchedNeigh.id,
                           }));
-                          setEditBizCepMsg(`✓ ${res.bairro || 'Endereço localizado'}`);
+                          setEditBizCepMsg(`✓ Bairro auto-cadastrado: ${res.bairro || 'Endereço localizado'}`);
                         } else {
                           setEditBizCepMsg('❌ CEP não encontrado');
                         }

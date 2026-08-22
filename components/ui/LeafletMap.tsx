@@ -10,15 +10,17 @@ interface LeafletMapProps {
   selectedBusinessId?: string;
   radiusKm?: number;
   height?: string;
+  addressQuery?: string;
 }
 
 export const LeafletMap: React.FC<LeafletMapProps> = ({
   businesses,
   center = [-23.5424, -46.4178], // Default to Guaianases SP
-  zoom = 14,
+  zoom = 15,
   selectedBusinessId,
   radiusKm,
   height = '420px',
+  addressQuery,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -124,8 +126,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     };
   }, [businesses, center, zoom, selectedBusinessId, radiusKm]);
 
-  const mapCenterLat = center[0] || -23.5424;
-  const mapCenterLng = center[1] || -46.4178;
+  const queryParam = addressQuery
+    ? encodeURIComponent(addressQuery)
+    : `${center[0] || -23.5424},${center[1] || -46.4178}`;
 
   return (
     <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-[#4FA6A6]/30 shadow-sm bg-stone-100" style={{ height }}>
@@ -139,7 +142,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           scrolling="no"
           marginHeight={0}
           marginWidth={0}
-          src={`https://maps.google.com/maps?q=${mapCenterLat},${mapCenterLng}&z=${zoom}&output=embed`}
+          src={`https://maps.google.com/maps?q=${queryParam}&z=${zoom}&output=embed`}
           className="w-full h-full border-0 pointer-events-auto opacity-95"
         />
       </div>
