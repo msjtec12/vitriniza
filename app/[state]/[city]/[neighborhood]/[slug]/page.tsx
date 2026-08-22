@@ -132,18 +132,20 @@ export default function BusinessShowcasePage() {
       <div className="relative">
         {/* Cover Background Header */}
         <div className="h-44 sm:h-56 md:h-64 w-full overflow-hidden bg-gradient-to-r from-[#0E3B43] via-[#154E58] to-[#0E3B43] relative">
-          {business.cover_url ? (
+          {business.cover_url && !business.cover_url.includes('photo-1513104890138-7c749659a591') ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={business.cover_url}
                 alt={business.name}
-                className="w-full h-full object-cover opacity-30"
+                className="w-full h-full object-cover opacity-35"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43] via-[#0E3B43]/40 to-transparent" />
             </>
           ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(#4FA6A6_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0E3B43] via-[#154E58] to-[#0E3B43] flex items-center justify-center">
+              <div className="absolute inset-0 bg-[radial-gradient(#4FA6A6_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
+            </div>
           )}
         </div>
 
@@ -152,12 +154,16 @@ export default function BusinessShowcasePage() {
           <div className="relative -mt-16 sm:-mt-20 bg-white rounded-3xl p-5 sm:p-7 border border-[#4FA6A6]/20 card-shadow flex flex-col md:flex-row md:items-center justify-between gap-6">
             {/* Logo & Main Info */}
             <div className="flex items-start sm:items-center gap-4 sm:gap-6">
-              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-white shrink-0">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-[#0E3B43] shrink-0 p-2 flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={business.logo_url}
+                  src={
+                    business.logo_url && !business.logo_url.includes('photo-1513104890138-7c749659a591')
+                      ? business.logo_url
+                      : '/logo.png'
+                  }
                   alt={business.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
 

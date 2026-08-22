@@ -75,12 +75,22 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
   return (
     <div className="group relative flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-[#4FA6A6]/20 hover:border-[#E36845]/50 overflow-hidden card-shadow card-shadow-hover transition-all duration-300">
       {/* Cover Image Container */}
-      <Link href={businessUrl} className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100 block">
+      <Link href={businessUrl} className="relative aspect-[16/10] w-full overflow-hidden bg-[#0E3B43] block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={business.cover_url || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80'}
+          src={
+            (!business.cover_url || business.cover_url.includes('photo-1513104890138-7c749659a591'))
+              ? (business.category?.slug === 'alimentacao' || business.category_id === 'cat-alimentacao'
+                  ? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80'
+                  : '/logo.png')
+              : business.cover_url
+          }
           alt={business.name}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={
+            (!business.cover_url || business.cover_url.includes('photo-1513104890138-7c749659a591')) && business.category?.slug !== 'alimentacao' && business.category_id !== 'cat-alimentacao'
+              ? "h-full w-full object-contain p-6 bg-gradient-to-br from-[#0E3B43] to-[#154E58] transition-transform duration-500 group-hover:scale-105"
+              : "h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          }
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/85 via-transparent to-black/20" />
