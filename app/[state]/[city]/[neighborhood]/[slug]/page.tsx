@@ -130,30 +130,29 @@ export default function BusinessShowcasePage() {
 
       {/* Hero Cover & Header */}
       <div className="relative">
-        <div className="relative w-full min-h-[220px] sm:min-h-[320px] md:min-h-[380px] max-h-[460px] bg-[#0E3B43] flex items-center justify-center overflow-hidden">
-          {/* Blurred background layer to fill widescreen aspect ratios smoothly */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={business.cover_url}
-            alt={business.name}
-            className="absolute inset-0 w-full h-full object-cover blur-lg opacity-40 scale-105"
-          />
-          {/* Crisp foreground layer preserving 100% of original banner graphics, phone numbers & text */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={business.cover_url}
-            alt={business.name}
-            className="relative z-10 max-h-[220px] sm:max-h-[320px] md:max-h-[380px] w-full object-contain mx-auto shadow-2xl"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/80 via-transparent to-transparent pointer-events-none z-15" />
+        {/* Cover Background Header */}
+        <div className="h-44 sm:h-56 md:h-64 w-full overflow-hidden bg-gradient-to-r from-[#0E3B43] via-[#154E58] to-[#0E3B43] relative">
+          {business.cover_url ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={business.cover_url}
+                alt={business.name}
+                className="w-full h-full object-cover opacity-30"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43] via-[#0E3B43]/40 to-transparent" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(#4FA6A6_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
+          )}
         </div>
 
         {/* Header Profile Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative -mt-16 sm:-mt-20 bg-white rounded-3xl p-5 sm:p-7 border border-[#4FA6A6]/20 card-shadow flex flex-col md:flex-row md:items-center justify-between gap-6">
             {/* Logo & Main Info */}
-            <div className="flex items-start sm:items-center gap-4 sm:gap-5">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-white shadow-lg bg-white shrink-0">
+            <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-white shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={business.logo_url}
@@ -164,28 +163,28 @@ export default function BusinessShowcasePage() {
 
               <div>
                 {/* Badges */}
-                <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-[#F8F6F0] text-[#0E3B43] border border-[#E8E4DA]">
-                    {business.category?.name}
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-[#4FA6A6]/15 text-[#0E3B43] border border-[#4FA6A6]/30 uppercase tracking-wider">
+                    {business.category?.name || 'Profissional / Empresa'}
                   </span>
                   {business.is_featured && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-[#E36845] text-white shadow-2xs">
-                      <Sparkles className="w-3 h-3 fill-current" /> Destaque
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-[#E36845] text-white shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5 fill-current" /> Destaque
                     </span>
                   )}
                   {business.is_verified && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#4FA6A6]/15 text-[#0E3B43] border border-[#4FA6A6]/30">
-                      <ShieldCheck className="w-3.5 h-3.5 fill-[#4FA6A6]/20 text-[#4FA6A6]" /> Verificado
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#0E3B43] text-white shadow-2xs">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#4FA6A6]" /> Verificado ✓
                     </span>
                   )}
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-black text-[#0E3B43] tracking-tight leading-tight mb-1">
+                <h1 className="text-2xl sm:text-3xl font-black text-[#0E3B43] tracking-tight leading-tight">
                   {business.name}
                 </h1>
 
                 {/* Rating & Location */}
-                <div className="flex items-center gap-3 text-xs text-[#537379] flex-wrap">
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-[#537379] flex-wrap mt-1.5 font-medium">
                   <div className="flex items-center gap-1 font-black text-[#0E3B43]">
                     <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                     <span>{business.rating.toFixed(1)}</span>
@@ -194,36 +193,36 @@ export default function BusinessShowcasePage() {
                   <span>•</span>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md',
-                      openStatus.isOpen ? 'bg-[#4FA6A6]/15 text-[#0E3B43]' : 'bg-stone-100 text-stone-600'
+                      'inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded-md text-xs',
+                      openStatus.isOpen ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-stone-100 text-stone-600'
                     )}
                   >
-                    <Clock className="w-3 h-3 text-[#4FA6A6]" /> {openStatus.text}
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" /> {openStatus.text}
                   </span>
                   <span>•</span>
-                  <span className="text-[#0E3B43] font-bold">{business.neighborhood?.name} - SP</span>
+                  <span className="text-[#0E3B43] font-bold">📍 {business.neighborhood?.name || 'Guaianases'} - SP</span>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions (WhatsApp, Share, Favorite) */}
-            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleWhatsAppClick}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-black shadow-lg transition-all active:scale-95"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-white text-sm font-black shadow-lg shadow-[#25D366]/20 transition-all active:scale-95 cursor-pointer"
               >
                 <MessageCircle className="w-5 h-5 fill-current" />
-                <span>Chamar no WhatsApp</span>
+                <span>Conversar no WhatsApp</span>
               </a>
 
               <button
                 type="button"
                 onClick={() => setIsShareOpen(true)}
                 title="Compartilhar vitrine ou baixar QR Code"
-                className="p-3 rounded-2xl bg-[#F8F6F0] hover:bg-white border border-[#E8E4DA] text-[#0E3B43] transition-all shadow-2xs"
+                className="p-3.5 rounded-2xl bg-[#F8F6F0] hover:bg-white border border-[#E8E4DA] text-[#0E3B43] transition-all shadow-2xs cursor-pointer"
               >
                 <Share2 className="w-5 h-5" />
               </button>
@@ -233,7 +232,7 @@ export default function BusinessShowcasePage() {
                 onClick={toggleFavorite}
                 title={isFavorite ? 'Remover dos favoritos' : 'Favoritar'}
                 className={cn(
-                  'p-3 rounded-2xl border transition-all shadow-2xs',
+                  'p-3.5 rounded-2xl border transition-all shadow-2xs cursor-pointer',
                   isFavorite
                     ? 'bg-[#E36845] text-white border-[#E36845] shadow-xs'
                     : 'bg-[#F8F6F0] hover:bg-white border-[#E8E4DA] text-[#0E3B43]'
@@ -249,11 +248,32 @@ export default function BusinessShowcasePage() {
       {/* Main Grid: Left Side Tabs & Catalog / Right Side Business Details */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column (8 cols): Description, Tabs (Products, Promotions, Gallery, Reviews) */}
+          {/* Left Column (8 cols): Presentation Banner, Description, Tabs */}
           <div className="lg:col-span-8 space-y-6">
+            {/* Official Graphic Presentation Card */}
+            {business.cover_url && (
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#4FA6A6]/20 card-shadow space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-xs uppercase tracking-wider text-[#0E3B43] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#E36845]" />
+                    <span>Cartão & Apresentação Oficial</span>
+                  </h3>
+                  <span className="text-[11px] font-bold text-[#537379]">Vitrine Digital</span>
+                </div>
+                <div className="rounded-2xl overflow-hidden border border-[#E8E4DA] bg-stone-50 shadow-xs cursor-pointer" onClick={() => setLightboxImg(business.cover_url)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={business.cover_url}
+                    alt={`Cartão Profissional - ${business.name}`}
+                    className="w-full h-auto object-contain mx-auto max-h-[460px] hover:scale-[1.01] transition-transform"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Business Description */}
             <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow">
-              <h2 className="font-black text-base text-[#0E3B43] mb-2">Sobre o Estabelecimento</h2>
+              <h2 className="font-black text-base text-[#0E3B43] mb-2">Sobre o Estabelecimento / Profissional</h2>
               <p className="text-sm text-[#0E3B43]/85 leading-relaxed whitespace-pre-line">
                 {business.description || business.short_description || "Comércio local cadastrado na Vitriniza. Clique no botão de WhatsApp acima para consultar produtos, cardápio, horários de atendimento e falar diretamente com nossa equipe!"}
               </p>
