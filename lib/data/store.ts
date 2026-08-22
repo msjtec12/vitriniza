@@ -203,37 +203,40 @@ class VitrinizaStore {
       }
 
       // 2. Fetch Cloud Businesses
+      const hasLocalBiz = localStorage.getItem(STORAGE_KEYS.BUSINESSES) !== null;
       const { data: cloudBusinesses, error: errBiz } = await supabase
         .from('businesses')
         .select('*');
 
       if (!errBiz && Array.isArray(cloudBusinesses)) {
-        if (cloudBusinesses.length > 0) {
-          // Cloud has data -> Cloud is source of truth
+        if (!hasLocalBiz && cloudBusinesses.length > 0) {
           this.businesses = cloudBusinesses as Business[];
-        } else if (cloudBusinesses.length === 0) {
-          // Cloud DB tables exist but are empty -> Auto-seed Cloud with default businesses
+        } else if (cloudBusinesses.length === 0 && this.businesses.length > 0) {
           console.log('[VitrinizaStore] Cloud database empty. Auto-populating Supabase...');
           await this.pushAllToSupabase();
         }
       }
 
       // 3. Fetch Cloud Products
-      const { data: cloudProducts, error: errProd } = await supabase
-        .from('products')
-        .select('*');
-
-      if (!errProd && Array.isArray(cloudProducts) && cloudProducts.length > 0) {
-        this.products = cloudProducts as Product[];
+      const hasLocalProds = localStorage.getItem(STORAGE_KEYS.PRODUCTS) !== null;
+      if (!hasLocalProds) {
+        const { data: cloudProducts, error: errProd } = await supabase
+          .from('products')
+          .select('*');
+        if (!errProd && Array.isArray(cloudProducts) && cloudProducts.length > 0) {
+          this.products = cloudProducts as Product[];
+        }
       }
 
       // 4. Fetch Cloud Promotions
-      const { data: cloudPromos, error: errPromo } = await supabase
-        .from('promotions')
-        .select('*');
-
-      if (!errPromo && Array.isArray(cloudPromos) && cloudPromos.length > 0) {
-        this.promotions = cloudPromos as Promotion[];
+      const hasLocalPromos = localStorage.getItem(STORAGE_KEYS.PROMOTIONS) !== null;
+      if (!hasLocalPromos) {
+        const { data: cloudPromos, error: errPromo } = await supabase
+          .from('promotions')
+          .select('*');
+        if (!errPromo && Array.isArray(cloudPromos) && cloudPromos.length > 0) {
+          this.promotions = cloudPromos as Promotion[];
+        }
       }
 
       // 5. Fetch Cloud Claims
@@ -246,12 +249,16 @@ class VitrinizaStore {
       }
 
       // 6. Fetch Cloud Events
-      const { data: cloudEvents, error: errEvents } = await supabase
-        .from('events')
-        .select('*');
-
-      if (!errEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
-        this.events = cloudEvents as LocalEvent[];
+      const hasLocalEvents = localStorage.getItem(STORAGE_KEYS.EVENTS) !== null;
+      if (!hasLocalEvents) {
+        const { data: cloudEvents, error: errEvents } = await supabase
+          .from('events')
+          .select('*');
+        if (!errEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
+          this.events = cloudEvents as LocalEvent[];
+        }
+      } else if (this.events.length > 0) {
+        await supabase.from('events').upsert(this.events);
       }
 
       this.isCloudSynced = true;
