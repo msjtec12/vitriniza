@@ -364,31 +364,52 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Single Row Offers Carousel Container with Subtle Smooth Glide */}
-        <div
-          ref={promoScrollRef}
-          onMouseEnter={() => setIsPromoHovered(true)}
-          onMouseLeave={() => {
-            setIsPromoHovered(false);
-            handlePromoMouseUpOrLeave();
-          }}
-          onMouseDown={handlePromoMouseDown}
-          onMouseMove={handlePromoMouseMove}
-          onMouseUp={handlePromoMouseUpOrLeave}
-          className={cn(
-            'flex gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4 pt-1 cursor-grab transition-all',
-            isPromoDragging && 'cursor-grabbing select-none'
-          )}
-        >
-          {promotions.map((promo) => (
-            <div
-              key={promo.id}
-              className="w-[280px] sm:w-[320px] md:w-[350px] shrink-0 snap-start select-none"
-            >
-              <PromotionCard promotion={promo} />
+        {/* Single Row Offers Carousel Container */}
+        {promotions.length > 0 ? (
+          <div
+            ref={promoScrollRef}
+            onMouseEnter={() => setIsPromoHovered(true)}
+            onMouseLeave={() => {
+              setIsPromoHovered(false);
+              handlePromoMouseUpOrLeave();
+            }}
+            onMouseDown={handlePromoMouseDown}
+            onMouseMove={handlePromoMouseMove}
+            onMouseUp={handlePromoMouseUpOrLeave}
+            className={cn(
+              'flex gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4 pt-1 cursor-grab transition-all',
+              isPromoDragging && 'cursor-grabbing select-none'
+            )}
+          >
+            {promotions.map((promo) => (
+              <div
+                key={promo.id}
+                className="w-[280px] sm:w-[320px] md:w-[350px] shrink-0 snap-start select-none"
+              >
+                <PromotionCard promotion={promo} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 text-center space-y-3 card-shadow">
+            <div className="w-12 h-12 rounded-2xl bg-[#E36845]/15 text-[#E36845] mx-auto flex items-center justify-center">
+              <Flame className="w-6 h-6" />
             </div>
-          ))}
-        </div>
+            <div>
+              <h3 className="font-black text-sm text-[#0E3B43]">Nenhuma Oferta Publicada no Momento</h3>
+              <p className="text-xs text-[#537379] max-w-md mx-auto mt-1">
+                Comerciantes: publiquem ofertas e cupons promocionais para destacar seus produtos para os clientes da região!
+              </p>
+            </div>
+            <Link
+              href="/painel"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-xs transition-all active:scale-95"
+            >
+              <span>Publicar Oferta no Painel do Lojista</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* 4. NEGÓCIOS EM DESTAQUE */}
