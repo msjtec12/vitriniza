@@ -532,8 +532,11 @@ class VitrinizaStore {
       if (storedPromos !== null) {
         const parsed = JSON.parse(storedPromos);
         if (Array.isArray(parsed)) {
-          this.promotions = parsed;
+          const fakePromoIds = new Set(['promo-1', 'promo-2', 'promo-3', 'promo-4', 'promo-5', 'promo-6', 'promo-7', 'promo-8', 'promo-9']);
+          this.promotions = parsed.filter((p: any) => p && !fakePromoIds.has(p.id));
         }
+      } else {
+        this.promotions = [];
       }
 
       const storedClaims = localStorage.getItem(STORAGE_KEYS.CLAIMS);
@@ -803,7 +806,8 @@ class VitrinizaStore {
 
   public getPromotions(): Promotion[] {
     this.ensureHydrated();
-    return this.promotions.filter((p) => p.is_active);
+    const fakePromoIds = new Set(['promo-1', 'promo-2', 'promo-3', 'promo-4', 'promo-5', 'promo-6', 'promo-7', 'promo-8', 'promo-9']);
+    return this.promotions.filter((p) => p.is_active && !fakePromoIds.has(p.id));
   }
 
   public getCities(): City[] {
