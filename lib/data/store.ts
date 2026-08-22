@@ -245,6 +245,15 @@ class VitrinizaStore {
         this.claimRequests = cloudClaims as ClaimRequest[];
       }
 
+      // 6. Fetch Cloud Events
+      const { data: cloudEvents, error: errEvents } = await supabase
+        .from('events')
+        .select('*');
+
+      if (!errEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
+        this.events = cloudEvents as LocalEvent[];
+      }
+
       this.isCloudSynced = true;
       this.attachRelationships();
       this.saveToStorage();
@@ -344,6 +353,9 @@ class VitrinizaStore {
       }
       if (this.promotions.length > 0) {
         await supabase.from('promotions').upsert(this.promotions);
+      }
+      if (this.events.length > 0) {
+        await supabase.from('events').upsert(this.events);
       }
 
       this.isCloudSynced = true;

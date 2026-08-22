@@ -1079,8 +1079,14 @@ export default function MerchantPanelPage() {
 
       {/* PRODUCT MODAL */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setIsProductModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-black text-lg text-[#0E3B43]">Adicionar Novo Produto</h3>
               <button
@@ -1200,8 +1206,14 @@ export default function MerchantPanelPage() {
 
       {/* PROMOTION MODAL */}
       {isPromoModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setIsPromoModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
                 <Flame className="w-5 h-5 text-[#E36845]" />

@@ -63,7 +63,7 @@ export default function HomePage() {
     setFeaturedBusinesses(store.getFeaturedBusinesses());
     setPromotions(store.getPromotions());
     setArticles(store.getArticles().slice(0, 3));
-    setEvents(store.getEvents().slice(0, 2));
+    setEvents(store.getEvents());
     setPlatformSettings(store.getPlatformSettings());
 
     const defaultLat = -23.5424;

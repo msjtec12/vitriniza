@@ -55,8 +55,12 @@ export function getBusinessWhatsAppMessage(
 }
 
 export function formatDate(dateString: string): string {
+  if (!dateString) return '';
   try {
     const d = new Date(dateString);
+    if (isNaN(d.getTime())) {
+      return dateString;
+    }
     return d.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'short',
