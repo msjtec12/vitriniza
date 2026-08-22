@@ -417,17 +417,11 @@ export default function MerchantPanelPage() {
             </button>
           </form>
 
-          <div className="pt-2 border-t border-[#E8E4DA] space-y-2 text-center text-xs">
+          <div className="pt-2 border-t border-[#E8E4DA] text-center text-xs">
             <p className="text-[#537379]">
               Ainda não tem vitrine?{' '}
               <Link href="/para-empresas" className="text-[#E36845] font-bold hover:underline">
                 Cadastrar negócio grátis
-              </Link>
-            </p>
-            <p className="text-[#537379]">
-              Recebeu link de convite?{' '}
-              <Link href="/reivindicar" className="text-[#0E3B43] font-bold hover:underline">
-                Ativar e reivindicar loja
               </Link>
             </p>
           </div>

@@ -85,12 +85,6 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/reivindicar" className="hover:text-[#F49C6B] flex items-center gap-1.5 transition-colors">
-                  <Store className="w-3.5 h-3.5 text-[#4FA6A6]" />
-                  <span>Ativar / Reivindicar Loja</span>
-                </Link>
-              </li>
-              <li>
                 <Link href="/descobrir" className="hover:text-[#F49C6B] transition-colors">
                   Histórias & Conteúdo Local
                 </Link>
