@@ -210,39 +210,71 @@ class VitrinizaStore {
       }
 
       // 2. Fetch Cloud Businesses
-      const hasLocalBiz = localStorage.getItem(STORAGE_KEYS.BUSINESSES) !== null;
       const { data: cloudBusinesses, error: errBiz } = await supabase
         .from('businesses')
         .select('*');
 
-      if (!errBiz && Array.isArray(cloudBusinesses)) {
-        if (!hasLocalBiz && cloudBusinesses.length > 0) {
-          this.businesses = cloudBusinesses as Business[];
-        } else if (cloudBusinesses.length === 0 && this.businesses.length > 0) {
-          console.log('[VitrinizaStore] Cloud database empty. Auto-populating Supabase...');
-          await this.pushAllToSupabase();
+      if (!errBiz && Array.isArray(cloudBusinesses) && cloudBusinesses.length > 0) {
+        const cloudMap = new Map(cloudBusinesses.map((b) => [b.id, b]));
+        
+        this.businesses = this.businesses.map((localBiz) => {
+          const cloudBiz = cloudMap.get(localBiz.id);
+          if (cloudBiz) {
+            return {
+              ...localBiz,
+              ...cloudBiz,
+              category: localBiz.category,
+              neighborhood: localBiz.neighborhood,
+              city: localBiz.city,
+            };
+          }
+          return localBiz;
+        });
+
+        const localIds = new Set(this.businesses.map((b) => b.id));
+        for (const cloudBiz of cloudBusinesses) {
+          if (!localIds.has(cloudBiz.id)) {
+            this.businesses.push(cloudBiz as Business);
+          }
         }
+      } else if (!errBiz && cloudBusinesses?.length === 0 && this.businesses.length > 0) {
+        console.log('[VitrinizaStore] Cloud database empty. Auto-populating Supabase...');
+        await this.pushAllToSupabase();
       }
 
       // 3. Fetch Cloud Products
-      const hasLocalProds = localStorage.getItem(STORAGE_KEYS.PRODUCTS) !== null;
-      if (!hasLocalProds) {
-        const { data: cloudProducts, error: errProd } = await supabase
-          .from('products')
-          .select('*');
-        if (!errProd && Array.isArray(cloudProducts) && cloudProducts.length > 0) {
-          this.products = cloudProducts as Product[];
+      const { data: cloudProducts, error: errProd } = await supabase
+        .from('products')
+        .select('*');
+      if (!errProd && Array.isArray(cloudProducts) && cloudProducts.length > 0) {
+        const cloudProdMap = new Map(cloudProducts.map((p) => [p.id, p]));
+        this.products = this.products.map((localProd) => {
+          const cloudProd = cloudProdMap.get(localProd.id);
+          return cloudProd ? { ...localProd, ...cloudProd } : localProd;
+        });
+        const localProdIds = new Set(this.products.map((p) => p.id));
+        for (const cloudProd of cloudProducts) {
+          if (!localProdIds.has(cloudProd.id)) {
+            this.products.push(cloudProd as Product);
+          }
         }
       }
 
       // 4. Fetch Cloud Promotions
-      const hasLocalPromos = localStorage.getItem(STORAGE_KEYS.PROMOTIONS) !== null;
-      if (!hasLocalPromos) {
-        const { data: cloudPromos, error: errPromo } = await supabase
-          .from('promotions')
-          .select('*');
-        if (!errPromo && Array.isArray(cloudPromos) && cloudPromos.length > 0) {
-          this.promotions = cloudPromos as Promotion[];
+      const { data: cloudPromos, error: errPromo } = await supabase
+        .from('promotions')
+        .select('*');
+      if (!errPromo && Array.isArray(cloudPromos) && cloudPromos.length > 0) {
+        const cloudPromoMap = new Map(cloudPromos.map((p) => [p.id, p]));
+        this.promotions = this.promotions.map((localPromo) => {
+          const cloudPromo = cloudPromoMap.get(localPromo.id);
+          return cloudPromo ? { ...localPromo, ...cloudPromo } : localPromo;
+        });
+        const localPromoIds = new Set(this.promotions.map((p) => p.id));
+        for (const cloudPromo of cloudPromos) {
+          if (!localPromoIds.has(cloudPromo.id)) {
+            this.promotions.push(cloudPromo as Promotion);
+          }
         }
       }
 
@@ -250,22 +282,30 @@ class VitrinizaStore {
       const { data: cloudClaims, error: errClaims } = await supabase
         .from('claim_requests')
         .select('*');
-
       if (!errClaims && Array.isArray(cloudClaims) && cloudClaims.length > 0) {
         this.claimRequests = cloudClaims as ClaimRequest[];
       }
 
       // 6. Fetch Cloud Events
-      const hasLocalEvents = localStorage.getItem(STORAGE_KEYS.EVENTS) !== null;
-      if (!hasLocalEvents) {
+      try {
         const { data: cloudEvents, error: errEvents } = await supabase
           .from('events')
           .select('*');
         if (!errEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
-          this.events = cloudEvents as LocalEvent[];
+          const cloudEventMap = new Map(cloudEvents.map((e) => [e.id, e]));
+          this.events = this.events.map((localEvt) => {
+            const cloudEvt = cloudEventMap.get(localEvt.id);
+            return cloudEvt ? { ...localEvt, ...cloudEvt } : localEvt;
+          });
+          const localEvtIds = new Set(this.events.map((e) => e.id));
+          for (const cloudEvt of cloudEvents) {
+            if (!localEvtIds.has(cloudEvt.id)) {
+              this.events.push(cloudEvt as LocalEvent);
+            }
+          }
         }
-      } else if (this.events.length > 0) {
-        await supabase.from('events').upsert(this.events);
+      } catch (evtErr) {
+        console.warn('[VitrinizaStore] Events cloud sync warning:', evtErr);
       }
 
       this.isCloudSynced = true;

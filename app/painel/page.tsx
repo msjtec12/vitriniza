@@ -499,6 +499,18 @@ export default function MerchantPanelPage() {
             </Link>
 
             <button
+              onClick={async () => {
+                await store.ensureCloudSynced(true);
+                loadActiveBusiness();
+                alert('✓ Dados e fotos sincronizados com a nuvem!');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4FA6A6]/15 hover:bg-[#4FA6A6]/25 text-[#0E3B43] text-xs font-bold border border-[#4FA6A6]/30 transition-all cursor-pointer"
+              title="Sincronizar alterações da nuvem"
+            >
+              <span>🔄 Sincronizar</span>
+            </button>
+
+            <button
               onClick={handleLogout}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-600 hover:text-red-500 text-xs font-bold transition-colors cursor-pointer"
             >
