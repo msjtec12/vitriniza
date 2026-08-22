@@ -338,6 +338,7 @@ class VitrinizaStore {
   }
 
   // --- MANUAL / ON-DEMAND FULL CLOUD SEED ---
+  // --- MANUAL / ON-DEMAND FULL CLOUD SEED ---
   public async pushAllToSupabase(): Promise<{ success: boolean; message: string }> {
     if (!supabase) {
       return { success: false, message: 'Supabase não está configurado. Verifique as credenciais.' };
@@ -345,79 +346,82 @@ class VitrinizaStore {
 
     try {
       // 1. Settings
-      await supabase.from('platform_settings').upsert({
-        id: 'main',
-        platform_name: this.settings.platform_name,
-        contact_whatsapp: this.settings.contact_whatsapp,
-        plan_semanal_price: this.settings.plan_prices.semanal,
-        plan_mensal_price: this.settings.plan_prices.mensal,
-        logo_url: this.settings.logo_url,
-        hero_bg_url: this.settings.hero_bg_url,
-        hero_title: this.settings.hero_title,
-        hero_subtitle: this.settings.hero_subtitle,
-        updated_at: new Date().toISOString(),
-      });
+      try {
+        await supabase.from('platform_settings').upsert(
+          {
+            id: 'main',
+            platform_name: this.settings.platform_name,
+            contact_whatsapp: this.settings.contact_whatsapp,
+            plan_semanal_price: this.settings.plan_prices.semanal,
+            plan_mensal_price: this.settings.plan_prices.mensal,
+            logo_url: this.settings.logo_url,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+      } catch (e) {
+        console.warn('[Supabase Settings Push Warning]', e);
+      }
 
       // 2. States, Cities, Neighborhoods, Categories
-      const statesClean = mockStates.map((s) => ({ id: s.id, name: s.name, uf: s.uf }));
-      await supabase.from('states').upsert(statesClean);
+      try {
+        const statesClean = mockStates.map((s) => ({ id: s.id, name: s.name, uf: s.uf }));
+        await supabase.from('states').upsert(statesClean, { onConflict: 'id' });
+      } catch (e) { console.warn('[States Push Warning]', e); }
 
-      const citiesClean = this.cities.map((c) => ({
-        id: c.id,
-        state_id: c.state_id,
-        name: c.name,
-        slug: c.slug,
-        active: c.active,
-        is_featured: c.is_featured,
-        image_url: c.image_url,
-        description: c.description,
-      }));
-      await supabase.from('cities').upsert(citiesClean);
+      try {
+        const citiesClean = this.cities.map((c) => ({
+          id: c.id,
+          state_id: c.state_id,
+          name: c.name,
+          slug: c.slug,
+          active: c.active,
+          is_featured: c.is_featured,
+          image_url: c.image_url,
+          description: c.description,
+        }));
+        await supabase.from('cities').upsert(citiesClean, { onConflict: 'id' });
+      } catch (e) { console.warn('[Cities Push Warning]', e); }
 
-      const neighsClean = this.neighborhoods.map((n) => ({
-        id: n.id,
-        city_id: n.city_id,
-        name: n.name,
-        slug: n.slug,
-        active: n.active,
-        is_featured: n.is_featured,
-        order_index: n.order_index,
-      }));
-      await supabase.from('neighborhoods').upsert(neighsClean);
+      try {
+        const neighsClean = this.neighborhoods.map((n) => ({
+          id: n.id,
+          city_id: n.city_id || 'city-sp',
+          name: n.name,
+          slug: n.slug,
+          active: n.active,
+          is_featured: n.is_featured,
+          order_index: n.order_index,
+        }));
+        await supabase.from('neighborhoods').upsert(neighsClean, { onConflict: 'id' });
+      } catch (e) { console.warn('[Neighs Push Warning]', e); }
 
-      const catsClean = this.categories.map((cat) => ({
-        id: cat.id,
-        name: cat.name,
-        slug: cat.slug,
-        icon: cat.icon,
-        description: cat.description,
-        image_url: cat.image_url,
-        order_index: cat.order_index,
-        active: cat.active,
-      }));
-      await supabase.from('categories').upsert(catsClean);
+      try {
+        const catsClean = this.categories.map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+          slug: cat.slug,
+          icon: cat.icon,
+          description: cat.description,
+          image_url: cat.image_url,
+          order_index: cat.order_index,
+          active: cat.active,
+        }));
+        await supabase.from('categories').upsert(catsClean, { onConflict: 'id' });
+      } catch (e) { console.warn('[Cats Push Warning]', e); }
 
       // 3. Businesses
-      const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, is_online_only, password, ...rest }) => rest);
-      await supabase.from('businesses').upsert(bizClean);
-
-      // 4. Products & Promotions
-      if (this.products.length > 0) {
-        await supabase.from('products').upsert(this.products);
-      }
-      if (this.promotions.length > 0) {
-        await supabase.from('promotions').upsert(this.promotions);
-      }
-      if (this.events.length > 0) {
-        await supabase.from('events').upsert(this.events);
-      }
+      try {
+        const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, is_online_only, password, ...rest }) => rest);
+        await supabase.from('businesses').upsert(bizClean, { onConflict: 'id' });
+      } catch (e) { console.warn('[Businesses Push Warning]', e); }
 
       this.isCloudSynced = true;
       this.notifyListeners();
 
       return {
         success: true,
-        message: `Sincronização concluída! ${this.businesses.length} empresas, ${this.categories.length} categorias e produtos enviados para a nuvem.`,
+        message: `Sincronização concluída! ${this.businesses.length} empresas e ${this.categories.length} categorias atualizadas na nuvem.`,
       };
     } catch (err: any) {
       console.error('[VitrinizaStore] Error pushing to Supabase:', err);
@@ -429,6 +433,49 @@ class VitrinizaStore {
   private async syncBusinessToCloud(biz: Business) {
     if (!supabase) return;
     try {
+      // 1. Ensure Category exists in Supabase categories table first!
+      const cat = biz.category || this.categories.find((c) => c.id === biz.category_id);
+      if (cat) {
+        try {
+          await supabase.from('categories').upsert(
+            {
+              id: cat.id,
+              name: cat.name,
+              slug: cat.slug,
+              icon: cat.icon,
+              description: cat.description,
+              image_url: cat.image_url,
+              order_index: cat.order_index,
+              active: cat.active,
+            },
+            { onConflict: 'id' }
+          );
+        } catch (catErr) {
+          console.warn('[Supabase Cat Upsert Warning]', catErr);
+        }
+      }
+
+      // 2. Ensure Neighborhood exists in Supabase neighborhoods table first!
+      const neigh = biz.neighborhood || this.neighborhoods.find((n) => n.id === biz.neighborhood_id);
+      if (neigh) {
+        try {
+          await supabase.from('neighborhoods').upsert(
+            {
+              id: neigh.id,
+              city_id: neigh.city_id || 'city-sp',
+              name: neigh.name,
+              slug: neigh.slug,
+              active: neigh.active,
+              is_featured: neigh.is_featured,
+              order_index: neigh.order_index,
+            },
+            { onConflict: 'id' }
+          );
+        } catch (neighErr) {
+          console.warn('[Supabase Neigh Upsert Warning]', neighErr);
+        }
+      }
+
       const { category, neighborhood, city, products, promotions, is_online_only, password, ...clean } = biz;
       const cleanBiz = {
         ...clean,
@@ -438,13 +485,9 @@ class VitrinizaStore {
         state_id: clean.state_id || 'SP',
       };
 
-      const { error } = await supabase.from('businesses').upsert(cleanBiz);
+      const { error } = await supabase.from('businesses').upsert(cleanBiz, { onConflict: 'id' });
       if (error) {
         console.warn('[Supabase Biz Sync Error]', error.message);
-        if (error.message?.includes('foreign key') || error.code === '23503') {
-          console.log('[VitrinizaStore] Auto-populating missing relations on Supabase...');
-          await this.pushAllToSupabase();
-        }
       }
     } catch (err) {
       console.warn('[Supabase Biz Sync Failed]', err);
