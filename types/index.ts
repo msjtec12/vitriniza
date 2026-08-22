@@ -178,6 +178,7 @@ export interface Business {
   promotions?: Promotion[];
   distance_km?: number;
   owner_id?: string;
+  password?: string;
   created_at: string;
   updated_at: string;
 }

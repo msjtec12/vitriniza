@@ -112,11 +112,12 @@ function ReivindicarContent() {
           proof_notes: form.notes,
         });
 
-        // Activate ownership & mark verified
+        // Activate ownership & mark verified with password
         store.updateBusiness(business.id, {
           is_verified: true,
           is_active: true,
           plan_status: 'active',
+          password: form.password,
         });
       }
 

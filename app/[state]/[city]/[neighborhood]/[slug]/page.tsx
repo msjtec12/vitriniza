@@ -272,9 +272,17 @@ export default function BusinessShowcasePage() {
             )}
 
             {/* Business Description */}
-            <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow">
-              <h2 className="font-black text-base text-[#0E3B43] mb-2">Sobre o Estabelecimento / Profissional</h2>
-              <p className="text-sm text-[#0E3B43]/85 leading-relaxed whitespace-pre-line">
+            <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow space-y-3">
+              <h2 className="font-black text-base text-[#0E3B43]">Sobre o Estabelecimento / Profissional</h2>
+
+              {business.short_description && business.description && business.short_description !== business.description && (
+                <p className="text-xs font-bold text-[#0E3B43] bg-[#4FA6A6]/10 p-3.5 rounded-xl border border-[#4FA6A6]/20 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#E36845] shrink-0" />
+                  <span>{business.short_description}</span>
+                </p>
+              )}
+
+              <p className="text-sm text-[#0E3B43]/90 leading-relaxed whitespace-pre-line">
                 {business.description || business.short_description || "Comércio local cadastrado na Vitriniza. Clique no botão de WhatsApp acima para consultar produtos, cardápio, horários de atendimento e falar diretamente com nossa equipe!"}
               </p>
 
