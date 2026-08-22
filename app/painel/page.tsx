@@ -301,7 +301,17 @@ export default function MerchantPanelPage() {
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     if (!business) return;
-    store.updateBusiness(business.id, profileForm);
+
+    const finalDescription = profileForm.description || profileForm.short_description || 'Comércio local cadastrado na Vitriniza com produtos e atendimento de qualidade no bairro.';
+    const finalShortDescription = profileForm.short_description || profileForm.description || 'Comércio local com atendimento de qualidade no bairro.';
+
+    const payload = {
+      ...profileForm,
+      description: finalDescription,
+      short_description: finalShortDescription,
+    };
+
+    store.updateBusiness(business.id, payload);
     setBusiness(store.getBusinessById(business.id) || business);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);

@@ -247,7 +247,7 @@ export default function BusinessShowcasePage() {
             <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow">
               <h2 className="font-black text-base text-[#0E3B43] mb-2">Sobre o Estabelecimento</h2>
               <p className="text-sm text-[#0E3B43]/85 leading-relaxed whitespace-pre-line">
-                {business.description || business.short_description}
+                {business.description || business.short_description || "Comércio local cadastrado na Vitriniza. Clique no botão de WhatsApp acima para consultar produtos, cardápio, horários de atendimento e falar diretamente com nossa equipe!"}
               </p>
 
               {/* Service Features Badges */}
