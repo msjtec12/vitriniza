@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Footer } from '@/components/layout/Footer';
+import { PwaInstallPrompt } from '@/components/ui/PwaInstallPrompt';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://vitriniza.com.br'),
@@ -73,6 +74,7 @@ export default function RootLayout({
         <main className="flex-1 pb-mobile-nav lg:pb-0">{children}</main>
         <Footer />
         <BottomNav />
+        <PwaInstallPrompt />
       </body>
     </html>
   );

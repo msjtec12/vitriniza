@@ -13,9 +13,11 @@ import {
   Building2,
   ChevronDown,
   UserCheck,
+  Smartphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { store } from '@/lib/data/store';
+import { triggerPwaInstall } from '@/components/ui/PwaInstallPrompt';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -162,6 +164,17 @@ export const Navbar: React.FC = () => {
             <span className="hidden sm:inline">Área do Lojista</span>
             <span className="sm:hidden">Entrar</span>
           </Link>
+
+          {/* Baixar App PWA Button */}
+          <button
+            type="button"
+            onClick={() => triggerPwaInstall()}
+            title="Instalar aplicativo no celular ou computador"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-black shadow-xs transition-all cursor-pointer active:scale-95 border border-[#4FA6A6]/30"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-[#E36845]" />
+            <span className="hidden md:inline">Baixar App</span>
+          </button>
         </div>
       </div>
     </header>

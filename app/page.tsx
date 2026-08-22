@@ -23,6 +23,7 @@ import { BusinessCard } from '@/components/ui/BusinessCard';
 import { BusinessFeaturedCard } from '@/components/ui/BusinessFeaturedCard';
 import { PromotionCard } from '@/components/ui/PromotionCard';
 import { LeafletMap } from '@/components/ui/LeafletMap';
+import { PwaAppDownloadCard } from '@/components/ui/PwaAppDownloadCard';
 import { cn, formatDate } from '@/lib/utils';
 
 export default function HomePage() {
@@ -678,6 +679,11 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* 7.5 PWA APP DOWNLOAD SECTION */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <PwaAppDownloadCard />
+      </section>
 
       {/* 8. MERCHANT CALL TO ACTION BANNER (Solid Azul-Petroleo com CTA Laranja Coral) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

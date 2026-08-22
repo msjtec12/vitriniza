@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Store, MapPin, Sparkles, UserCheck } from 'lucide-react';
+import { Store, MapPin, Sparkles, UserCheck, Smartphone } from 'lucide-react';
 import { store } from '@/lib/data/store';
+import { triggerPwaInstall } from '@/components/ui/PwaInstallPrompt';
 
 export const Footer: React.FC = () => {
   const categories = store.getCategories().slice(0, 8);
@@ -83,6 +84,16 @@ export const Footer: React.FC = () => {
                   <UserCheck className="w-3.5 h-3.5 text-[#4FA6A6]" />
                   <span>Área do Comerciante (Login)</span>
                 </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => triggerPwaInstall()}
+                  className="hover:text-[#F49C6B] flex items-center gap-1.5 transition-colors cursor-pointer text-[#E36845] font-bold"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Baixar Aplicativo (App)</span>
+                </button>
               </li>
               <li>
                 <Link href="/descobrir" className="hover:text-[#F49C6B] transition-colors">
