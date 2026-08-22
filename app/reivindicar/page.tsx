@@ -217,40 +217,38 @@ function ReivindicarContent() {
           /* FORM STATE */
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
             {/* Target Business Box */}
+            {/* Target Business Box (Locked & Exclusive to the Specific Business) */}
             <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA]">
-              <label className="block text-xs font-bold text-[#0E3B43] mb-1.5 flex items-center gap-1.5">
-                <Store className="w-3.5 h-3.5 text-[#E36845]" />
-                <span>Estabelecimento a ser ativado:</span>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Store className="w-4 h-4 text-[#E36845]" />
+                  <span>Estabelecimento a ser ativado:</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-md bg-[#4FA6A6]/20 text-[#0E3B43] text-[10px] font-black uppercase">
+                  🔒 Convite Exclusivo
+                </span>
               </label>
 
-              {businessesList.length > 0 && !token ? (
-                <select
-                  value={selectedBizId}
-                  onChange={(e) => handleSelectBusiness(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none"
-                >
-                  {businessesList.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} — {b.neighborhood?.name} ({b.category?.name})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-[#E8E4DA]">
-                  {business?.logo_url && (
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-stone-100 shrink-0">
+              {business ? (
+                <div className="flex items-center gap-3.5 bg-white p-3.5 rounded-xl border border-[#E8E4DA] shadow-2xs">
+                  {business.logo_url && (
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#E8E4DA]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={business.logo_url} alt={business.name} className="w-full h-full object-cover" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-black text-sm text-[#0E3B43] truncate">{business?.name || 'Comércio Local'}</h3>
-                    <div className="flex items-center gap-2 text-[11px] text-[#537379]">
-                      <span className="text-[#4FA6A6] font-bold">{business?.category?.name}</span>
+                    <h3 className="font-black text-sm text-[#0E3B43] truncate">{business.name}</h3>
+                    <div className="flex items-center gap-2 text-xs text-[#537379] mt-0.5">
+                      <span className="text-[#4FA6A6] font-bold">{business.category?.name || 'Comércio Local'}</span>
                       <span>•</span>
-                      <span>{business?.neighborhood?.name}</span>
+                      <span>{business.neighborhood?.name || 'Guaianases'}</span>
                     </div>
                   </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 text-center">
+                  ⚠️ Nenhum comércio específico selecionado. Por favor, utilize o link de convite oficial enviado pelo <strong>Admin Master</strong> via WhatsApp.
                 </div>
               )}
             </div>
