@@ -423,6 +423,7 @@ export default function MasterAdminPage() {
     is_active: true,
     is_verified: false,
     is_featured: false,
+    is_online_only: false,
   });
 
   const handleOpenEditBizModal = (b: Business) => {
@@ -444,6 +445,7 @@ export default function MasterAdminPage() {
       instagram: b.instagram || '',
       website: b.website || '',
       password: b.password || '123456',
+      is_online_only: b.is_online_only || false,
       plan_id: b.plan_id,
       is_active: b.is_active,
       is_verified: b.is_verified,
@@ -472,6 +474,7 @@ export default function MasterAdminPage() {
       instagram: editBizForm.instagram,
       website: editBizForm.website,
       password: editBizForm.password,
+      is_online_only: editBizForm.is_online_only,
       plan_id: editBizForm.plan_id,
       is_active: editBizForm.is_active,
       is_verified: editBizForm.is_verified,
@@ -2011,6 +2014,16 @@ export default function MasterAdminPage() {
                       className="w-4 h-4 rounded text-[#4FA6A6]"
                     />
                     <span>✓ Selo Verificado</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editBizForm.is_online_only}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, is_online_only: e.target.checked })}
+                      className="w-4 h-4 rounded text-[#4FA6A6]"
+                    />
+                    <span>🌐 Atendimento 100% Online / Remoto</span>
                   </label>
                 </div>
               </div>

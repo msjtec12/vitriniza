@@ -170,6 +170,7 @@ export interface Business {
   delivery_available: boolean;
   takeaway_available: boolean;
   dine_in_available: boolean;
+  is_online_only?: boolean;
   rating: number;
   reviews_count: number;
   hours?: BusinessHour[];

@@ -476,42 +476,69 @@ export default function BusinessShowcasePage() {
 
           {/* Right Column (4 cols): Address & Leaflet Map, Contact, Opening Hours, Payment, Claim */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Location & Map Card */}
-            <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow space-y-4">
-              <h3 className="font-black text-base text-[#0E3B43] flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#E36845]" />
-                <span>Localização & Endereço</span>
-              </h3>
-
-              <p className="text-xs text-[#0E3B43]/85 leading-relaxed">
-                {business.address}, {business.number}
-                {business.complement && ` (${business.complement})`} - {business.neighborhood?.name}, {business.city?.name} - SP
-                <br />
-                <span className="text-[#537379]">CEP: {business.postal_code}</span>
-              </p>
-
-              {/* Leaflet Map Embed */}
-              <div className="h-44 rounded-2xl overflow-hidden border border-[#E8E4DA]">
-                <LeafletMap
-                  businesses={[business]}
-                  center={[business.latitude, business.longitude]}
-                  zoom={15}
-                  height="100%"
-                />
+            {/* Location & Map Card or Online Service Card */}
+            {business.is_online_only ? (
+              <div className="bg-white rounded-3xl p-6 border-2 border-[#4FA6A6]/30 card-shadow space-y-4 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#4FA6A6]/15 text-[#0E3B43] mx-auto flex items-center justify-center">
+                  <Globe className="w-7 h-7 text-[#0E3B43]" />
+                </div>
+                <div>
+                  <span className="px-3 py-1 rounded-full bg-[#4FA6A6]/20 text-[#0E3B43] font-black text-[11px] uppercase tracking-wider">
+                    🌐 Atendimento 100% Online & Remoto
+                  </span>
+                  <h3 className="font-black text-base text-[#0E3B43] mt-2.5">Sem Endereço Físico Necessário</h3>
+                  <p className="text-xs text-[#537379] mt-1.5 leading-relaxed">
+                    Este profissional atende de forma digital (WhatsApp, Reunião Online, E-mail e Entrega) em toda a região de <strong>{business.neighborhood?.name || 'São Paulo'}</strong> e Brasil.
+                  </p>
+                </div>
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleWhatsAppClick}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 fill-current" />
+                  <span>Solicitar Orçamento no WhatsApp</span>
+                </a>
               </div>
+            ) : (
+              <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow space-y-4">
+                <h3 className="font-black text-base text-[#0E3B43] flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#E36845]" />
+                  <span>Localização & Endereço</span>
+                </h3>
 
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  `${business.name} ${business.address} ${business.number} Guaianases SP`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => store.logAnalyticsEvent(business.id, 'map_click')}
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#4FA6A6]/30 transition-all"
-              >
-                <span>Como chegar (Abrir no GPS)</span>
-              </a>
-            </div>
+                <p className="text-xs text-[#0E3B43]/85 leading-relaxed">
+                  {business.address}, {business.number}
+                  {business.complement && ` (${business.complement})`} - {business.neighborhood?.name}, {business.city?.name} - SP
+                  <br />
+                  <span className="text-[#537379]">CEP: {business.postal_code}</span>
+                </p>
+
+                {/* Leaflet Map Embed */}
+                <div className="h-44 rounded-2xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
+                  <LeafletMap
+                    businesses={[business]}
+                    center={[business.latitude, business.longitude]}
+                    zoom={15}
+                    height="100%"
+                  />
+                </div>
+
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    `${business.name} ${business.address} ${business.number} Guaianases SP`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => store.logAnalyticsEvent(business.id, 'map_click')}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#4FA6A6]/30 transition-all"
+                >
+                  <span>Como chegar (Abrir no GPS)</span>
+                </a>
+              </div>
+            )}
 
             {/* Direct Contacts */}
             <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow space-y-3">

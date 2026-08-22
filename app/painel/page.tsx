@@ -158,6 +158,7 @@ export default function MerchantPanelPage() {
     delivery_available: false,
     takeaway_available: false,
     dine_in_available: false,
+    is_online_only: false,
   });
 
   // Product modal
@@ -242,6 +243,7 @@ export default function MerchantPanelPage() {
         delivery_available: target.delivery_available,
         takeaway_available: target.takeaway_available,
         dine_in_available: target.dine_in_available,
+        is_online_only: target.is_online_only || false,
       });
     } else {
       setIsAuthenticated(false);
@@ -924,6 +926,15 @@ export default function MerchantPanelPage() {
                           placeholder="Ex: Rua Salvador Gianetti, 500 - Guaianases"
                           className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
                         />
+                        <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer p-3 bg-white rounded-xl border border-[#E8E4DA] mt-3">
+                          <input
+                            type="checkbox"
+                            checked={profileForm.is_online_only}
+                            onChange={(e) => setProfileForm({ ...profileForm, is_online_only: e.target.checked })}
+                            className="w-4 h-4 rounded text-[#E36845]"
+                          />
+                          <span>🌐 Atendimento 100% Online / Remoto (Não possuo endereço físico público)</span>
+                        </label>
                       </div>
                     </div>
 

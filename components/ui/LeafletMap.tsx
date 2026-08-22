@@ -28,6 +28,15 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
     let isMounted = true;
 
+    // Dynamically inject Leaflet CSS if missing
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
     // Load Leaflet dynamically on the client
     import('leaflet').then((L) => {
       if (!isMounted || !mapContainerRef.current) return;
@@ -54,6 +63,13 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map);
+
+      // Force size recalculation to prevent blank tiles
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 250);
 
       // Custom marker icon in Laranja Coral (#E36845)
       const customIcon = L.divIcon({
