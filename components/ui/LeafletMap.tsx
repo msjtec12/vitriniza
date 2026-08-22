@@ -124,15 +124,28 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     };
   }, [businesses, center, zoom, selectedBusinessId, radiusKm]);
 
+  const mapCenterLat = center[0] || -23.5424;
+  const mapCenterLng = center[1] || -46.4178;
+
   return (
-    <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-[#4FA6A6]/30 shadow-sm">
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossOrigin=""
-      />
-      <div ref={mapContainerRef} style={{ height, width: '100%' }} />
+    <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-[#4FA6A6]/30 shadow-sm bg-stone-100" style={{ height }}>
+      {/* Instant Interactive Map Embed Fallback */}
+      <div className="absolute inset-0 z-0">
+        <iframe
+          title="Mapa de Localização"
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          scrolling="no"
+          marginHeight={0}
+          marginWidth={0}
+          src={`https://maps.google.com/maps?q=${mapCenterLat},${mapCenterLng}&z=${zoom}&output=embed`}
+          className="w-full h-full border-0 pointer-events-auto opacity-95"
+        />
+      </div>
+
+      {/* Leaflet Dynamic Layer */}
+      <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }} className="relative z-10 opacity-90 pointer-events-none" />
     </div>
   );
 };

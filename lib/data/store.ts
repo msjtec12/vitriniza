@@ -614,7 +614,25 @@ class VitrinizaStore {
   private attachRelationships() {
     this.businesses = this.businesses.map((biz) => {
       const category = this.categories.find((c) => c.id === biz.category_id || c.slug === biz.category_id);
-      const neighborhood = this.neighborhoods.find((n) => n.id === biz.neighborhood_id || n.slug === biz.neighborhood_id);
+      
+      let neighborhood = this.neighborhoods.find(
+        (n) => n.id === biz.neighborhood_id || n.slug === biz.neighborhood_id || n.name.toLowerCase() === biz.neighborhood_id?.toLowerCase()
+      );
+
+      if (!neighborhood && biz.neighborhood_id) {
+        const cleanName = biz.neighborhood_id.replace(/^neigh-/, '').replace(/-/g, ' ');
+        const capName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        neighborhood = {
+          id: biz.neighborhood_id,
+          city_id: 'city-sp',
+          name: capName,
+          slug: biz.neighborhood_id.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          active: true,
+          is_featured: true,
+          order_index: 99,
+        };
+      }
+
       const city = this.cities.find((c) => c.id === biz.city_id || c.slug === biz.city_id);
       const bizProducts = this.products.filter((p) => p.business_id === biz.id);
       const bizPromotions = this.promotions.filter((p) => p.business_id === biz.id);
@@ -820,6 +838,38 @@ class VitrinizaStore {
       return this.neighborhoods.filter((n) => n.active && (n.city_id === cityId || n.city?.slug === cityId));
     }
     return this.neighborhoods.filter((n) => n.active);
+  }
+
+  public ensureNeighborhood(bairroName: string, cityId: string = 'city-sp'): Neighborhood {
+    this.ensureHydrated();
+    if (!bairroName) return this.neighborhoods[0];
+
+    const cleanName = bairroName.trim();
+    const slug = cleanName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
+    let found = this.neighborhoods.find(
+      (n) => n.slug === slug || n.id === `neigh-${slug}` || n.name.toLowerCase().trim() === cleanName.toLowerCase()
+    );
+
+    if (!found) {
+      found = {
+        id: `neigh-${slug}`,
+        city_id: cityId,
+        name: cleanName,
+        slug,
+        active: true,
+        is_featured: true,
+        order_index: this.neighborhoods.length + 1,
+      };
+      this.neighborhoods.push(found);
+      this.saveToStorage();
+    }
+    return found;
   }
 
   public getArticles(): Article[] {

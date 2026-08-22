@@ -127,13 +127,15 @@ export default function MerchantPanelPage() {
     const res = await fetchAddressByCep(cleanCep);
     setCepLoading(false);
     if (res) {
+      const matchedNeigh = store.ensureNeighborhood(res.bairro || 'São Paulo');
       setProfileForm((prev) => ({
         ...prev,
         address: `${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
         postal_code: res.cep,
+        neighborhood_id: matchedNeigh.id,
       }));
       setCepMsg({
-        text: `✓ Endereço verificado pelo CEP: ${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
+        text: `✓ CEP Localizado: ${res.logradouro}, Bairro ${res.bairro} (${res.localidade} - ${res.uf})`,
         success: true,
       });
     } else {
@@ -153,6 +155,7 @@ export default function MerchantPanelPage() {
     address: '',
     number: '',
     postal_code: '',
+    neighborhood_id: '',
     logo_url: '',
     cover_url: '',
     delivery_available: false,
@@ -238,6 +241,7 @@ export default function MerchantPanelPage() {
         address: target.address,
         number: target.number,
         postal_code: target.postal_code,
+        neighborhood_id: target.neighborhood_id || target.neighborhood?.id || 'neigh-guaianases',
         logo_url: target.logo_url || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200&auto=format&fit=crop&q=80',
         cover_url: target.cover_url || 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1200&auto=format&fit=crop&q=80',
         delivery_available: target.delivery_available,

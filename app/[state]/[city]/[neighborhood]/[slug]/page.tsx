@@ -552,14 +552,14 @@ export default function BusinessShowcasePage() {
               <h3 className="font-black text-base text-[#0E3B43] mb-2">Canais de Atendimento</h3>
 
               <a
-                href={`tel:${business.phone}`}
+                href={`tel:${business.phone || business.whatsapp}`}
                 onClick={() => store.logAnalyticsEvent(business.id, 'phone_click')}
                 className="flex items-center gap-3 p-3 rounded-2xl bg-[#F8F6F0] hover:bg-white border border-[#E8E4DA] transition-colors text-xs text-[#0E3B43]"
               >
                 <Phone className="w-4 h-4 text-[#4FA6A6]" />
                 <div className="flex flex-col">
                   <span className="text-[10px] text-[#537379] uppercase font-bold">Telefone Fixo / Celular</span>
-                  <span className="font-black text-sm">{formatPhone(business.phone)}</span>
+                  <span className="font-black text-sm">{formatPhone(business.phone || business.whatsapp)}</span>
                 </div>
               </a>
 
