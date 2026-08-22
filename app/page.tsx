@@ -524,62 +524,62 @@ export default function HomePage() {
         </div>
       </section>
 
-
-
       {/* 7. EVENTOS LOCAIS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#E36845]" />
-              <h2 className="text-xl sm:text-2xl font-black text-[#0E3B43] tracking-tight">
-                Eventos no Bairro
-              </h2>
+      {events.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#E36845]" />
+                <h2 className="text-xl sm:text-2xl font-black text-[#0E3B43] tracking-tight">
+                  Eventos no Bairro
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-[#537379]">
+                Feiras gastronômicas, bazares comunitários e encontros culturais
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-[#537379]">
-              Feiras gastronômicas, bazares comunitários e encontros culturais
-            </p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {events.map((evt) => (
-            <div
-              key={evt.id}
-              className="flex flex-col sm:flex-row bg-white rounded-3xl border border-[#4FA6A6]/20 overflow-hidden card-shadow p-4 sm:p-5 gap-4"
-            >
-              <div className="relative sm:w-2/5 aspect-[16/10] sm:aspect-auto rounded-2xl overflow-hidden bg-stone-100 shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={evt.image_url}
-                  alt={evt.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {events.map((evt) => (
+              <div
+                key={evt.id}
+                className="flex flex-col sm:flex-row bg-white rounded-3xl border border-[#4FA6A6]/20 overflow-hidden card-shadow p-4 sm:p-5 gap-4"
+              >
+                <div className="relative sm:w-2/5 aspect-[16/10] sm:aspect-auto rounded-2xl overflow-hidden bg-stone-100 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={evt.image_url}
+                    alt={evt.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
 
-              <div className="flex flex-col justify-between flex-1">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#4FA6A6]/15 text-[#0E3B43] text-[11px] font-bold mb-2">
-                    <Calendar className="w-3 h-3 text-[#E36845]" />
-                    <span>{formatDate(evt.event_date)} • {evt.event_time}</span>
+                <div className="flex flex-col justify-between flex-1">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#4FA6A6]/15 text-[#0E3B43] text-[11px] font-bold mb-2">
+                      <Calendar className="w-3 h-3 text-[#E36845]" />
+                      <span>{formatDate(evt.event_date)} • {evt.event_time}</span>
+                    </div>
+                    <h3 className="font-black text-base text-[#0E3B43] mb-1.5 leading-snug">
+                      {evt.title}
+                    </h3>
+                    <p className="text-xs text-[#537379] line-clamp-2 mb-2 leading-relaxed">
+                      {evt.description}
+                    </p>
                   </div>
-                  <h3 className="font-black text-base text-[#0E3B43] mb-1.5 leading-snug">
-                    {evt.title}
-                  </h3>
-                  <p className="text-xs text-[#537379] line-clamp-2 mb-2 leading-relaxed">
-                    {evt.description}
-                  </p>
-                </div>
 
-                <div className="text-[11px] text-[#0E3B43] font-bold flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-[#E36845]" />
-                  <span>{evt.location_name}</span>
+                  <div className="text-[11px] text-[#0E3B43] font-bold flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-[#E36845]" />
+                    <span>{evt.location_name}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 8. MERCHANT CALL TO ACTION BANNER (Solid Azul-Petroleo com CTA Laranja Coral) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

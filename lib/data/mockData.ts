@@ -1744,42 +1744,7 @@ export const mockArticles: Article[] = [
 ];
 
 // LOCAL EVENTS
-export const mockEvents: LocalEvent[] = [
-  {
-    id: 'evt-1',
-    title: 'Feira Gastronômica & Cultural de Guaianases',
-    slug: 'feira-gastronomica-guaianases-2026',
-    description: 'Mais de 25 barracas com comidas típicas, doces artesanais, música ao vivo e espaço kids para toda a família.',
-    location_name: 'Praça de Eventos Guaianases',
-    address: 'Estrada de Poá, s/n (em frente à praça)',
-    neighborhood_name: 'Guaianases',
-    city_name: 'São Paulo',
-    event_date: '2026-09-12',
-    event_time: '11:00 às 21:00',
-    image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
-    whatsapp_contact: '11987654321',
-    organizer_name: 'Associação dos Comerciantes Locais',
-    is_active: true,
-    created_at: '2026-02-01T12:00:00Z',
-  },
-  {
-    id: 'evt-2',
-    title: 'Bazar Comunitário de Artesanato & Plantas',
-    slug: 'bazar-comunitario-artesanato',
-    description: 'Exposição de peças manuais, mudas de plantas ornamentais, oficinas gratuitas de crochê e troca de livros.',
-    location_name: 'Centro Cultural Guaianases',
-    address: 'Rua Salvador Gianetti, 350',
-    neighborhood_name: 'Guaianases',
-    city_name: 'São Paulo',
-    event_date: '2026-09-20',
-    event_time: '09:00 às 17:00',
-    image_url: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&auto=format&fit=crop&q=80',
-    whatsapp_contact: '11977665544',
-    organizer_name: 'Coletivo Mãos do Bairro',
-    is_active: true,
-    created_at: '2026-02-02T12:00:00Z',
-  },
-];
+export const mockEvents: LocalEvent[] = [];
 
 // AD BANNERS
 export const mockBanners: Banner[] = [

@@ -26,6 +26,7 @@ function ReivindicarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token') || '';
+  const bizParam = searchParams.get('biz') || searchParams.get('slug') || '';
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [businessesList, setBusinessesList] = useState<Business[]>([]);
@@ -45,14 +46,18 @@ function ReivindicarContent() {
     const allBusinesses = store.getBusinesses();
     setBusinessesList(allBusinesses);
 
-    // Try finding business from token
-    if (token) {
+    let foundBiz: Business | undefined;
+
+    if (bizParam) {
+      foundBiz = allBusinesses.find(
+        (b) => b.id === bizParam || b.slug === bizParam || b.id.includes(bizParam)
+      );
+    }
+
+    if (!foundBiz && token) {
       // Pattern: claim_[biz_id]_[timestamp]
       const parts = token.split('_');
-      let foundBiz: Business | undefined;
-
       if (parts.length >= 2) {
-        // e.g. claim_biz-16_123 or claim_biz_16_123
         const potentialId = parts.slice(1, parts.length - 1).join('_');
         foundBiz = allBusinesses.find(
           (b) =>
@@ -62,25 +67,21 @@ function ReivindicarContent() {
             b.id.replace(/-/g, '_') === potentialId
         );
       }
-
-      if (!foundBiz) {
-        // Find most recent business created or first without owner
-        foundBiz = allBusinesses[0];
-      }
-
-      if (foundBiz) {
-        setBusiness(foundBiz);
-        setSelectedBizId(foundBiz.id);
-        setForm((prev) => ({
-          ...prev,
-          whatsapp: foundBiz?.whatsapp || prev.whatsapp,
-        }));
-      }
-    } else if (allBusinesses.length > 0) {
-      setBusiness(allBusinesses[0]);
-      setSelectedBizId(allBusinesses[0].id);
     }
-  }, [token]);
+
+    if (!foundBiz && allBusinesses.length > 0) {
+      foundBiz = allBusinesses[0];
+    }
+
+    if (foundBiz) {
+      setBusiness(foundBiz);
+      setSelectedBizId(foundBiz.id);
+      setForm((prev) => ({
+        ...prev,
+        whatsapp: foundBiz?.whatsapp || prev.whatsapp,
+      }));
+    }
+  }, [token, bizParam]);
 
   const handleSelectBusiness = (bizId: string) => {
     setSelectedBizId(bizId);

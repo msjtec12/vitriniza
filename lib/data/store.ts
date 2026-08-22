@@ -137,6 +137,13 @@ class VitrinizaStore {
     this.loadFromStorage();
     this.attachRelationships();
     if (this.isBrowser()) {
+      window.addEventListener('storage', (event) => {
+        if (event.key && Object.values(STORAGE_KEYS).includes(event.key)) {
+          this.loadFromStorage();
+          this.attachRelationships();
+          this.notifyListeners();
+        }
+      });
       this.ensureCloudSynced();
     }
   }

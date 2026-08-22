@@ -36,7 +36,8 @@ import {
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier, LocalEvent } from '@/types';
-import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr } from '@/lib/utils';
+import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr, buildWhatsAppUrl } from '@/lib/utils';
+import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 
 export default function MasterAdminPage() {
   // Helper for reading image files from local disk/device
@@ -372,6 +373,8 @@ export default function MasterAdminPage() {
     }
   };
 
+  const [lastCreatedBiz, setLastCreatedBiz] = useState<Business | null>(null);
+
   const handleCreateBusiness = (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.name || !createForm.address) return;
@@ -402,8 +405,9 @@ export default function MasterAdminPage() {
     });
 
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vitriniza.vercel.app';
-    const invite = `${origin}/reivindicar?token=claim_${newBiz.id}_${Date.now()}`;
+    const invite = `${origin}/reivindicar?slug=${newBiz.slug}`;
     setCreatedInviteLink(invite);
+    setLastCreatedBiz(newBiz);
     refreshData();
   };
 
@@ -779,6 +783,19 @@ export default function MasterAdminPage() {
 
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <a
+                              href={buildWhatsAppUrl(
+                                b.whatsapp,
+                                `Olá! Sua vitrine digital "${b.name}" foi cadastrada no Portal Vitriniza (${b.neighborhood?.name || 'Guaianases'}). Acesse o link oficial para confirmar seus dados, criar sua senha e assumir o controle do seu painel: https://vitriniza.vercel.app/reivindicar?slug=${b.slug}`
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Enviar link de ativação por WhatsApp ao proprietário"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                            >
+                              <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
+                              <span>Convite WhatsApp</span>
+                            </a>
                             <Link
                               href={`/${b.state_id.toLowerCase()}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`}
                               target="_blank"
@@ -814,28 +831,42 @@ export default function MasterAdminPage() {
             </div>
 
             {createdInviteLink && (
-              <div className="p-4 bg-[#4FA6A6]/15 rounded-2xl border border-[#4FA6A6]/30 space-y-2">
+              <div className="p-4 bg-[#4FA6A6]/15 rounded-2xl border border-[#4FA6A6]/30 space-y-3">
                 <div className="flex items-center gap-2 font-bold text-xs text-[#0E3B43]">
                   <CheckCircle2 className="w-4 h-4 text-[#4FA6A6]" />
-                  <span>Comércio cadastrado com sucesso! Link de posse gerado:</span>
+                  <span>Comércio cadastrado com sucesso! Envie o link de posse ao proprietário:</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <input
                     type="text"
                     readOnly
                     value={createdInviteLink}
                     className="flex-1 px-3 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdInviteLink);
-                      alert('Link de convite copiado!');
-                    }}
-                    className="px-4 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copiar</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdInviteLink);
+                        alert('Link de convite copiado!');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer shrink-0"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copiar Link</span>
+                    </button>
+                    <a
+                      href={buildWhatsAppUrl(
+                        lastCreatedBiz?.whatsapp || createForm.whatsapp || '11999998888',
+                        `Olá! Sua vitrine digital "${lastCreatedBiz?.name || 'sua empresa'}" foi cadastrada no Portal Vitriniza. Acesse o link oficial para confirmar seus dados, criar sua senha e assumir o controle do seu painel: ${createdInviteLink}`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+                    >
+                      <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
+                      <span>Enviar no WhatsApp</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
@@ -985,6 +1016,18 @@ export default function MasterAdminPage() {
 
                     {c.status === 'pending' && (
                       <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={buildWhatsAppUrl(
+                            c.requester_phone,
+                            `Olá ${c.requester_name}! Recebemos sua solicitação para assumir a vitrine "${c.business_name || 'sua empresa'}" no Portal Vitriniza. Acesse o link oficial para concluir sua confirmação: https://vitriniza.vercel.app/reivindicar?slug=${c.business_id}`
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                        >
+                          <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
+                          <span>WhatsApp</span>
+                        </a>
                         <button
                           type="button"
                           onClick={() => handleResolveClaim(c.id, true)}
