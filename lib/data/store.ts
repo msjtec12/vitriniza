@@ -398,7 +398,7 @@ class VitrinizaStore {
       await supabase.from('categories').upsert(catsClean);
 
       // 3. Businesses
-      const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, ...rest }) => rest);
+      const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, is_online_only, password, ...rest }) => rest);
       await supabase.from('businesses').upsert(bizClean);
 
       // 4. Products & Promotions
@@ -420,7 +420,8 @@ class VitrinizaStore {
         message: `Sincronização concluída! ${this.businesses.length} empresas, ${this.categories.length} categorias e produtos enviados para a nuvem.`,
       };
     } catch (err: any) {
-      return { success: false, message: `Erro ao enviar para o Supabase: ${err?.message || 'Falha na conexão'}` };
+      console.error('[VitrinizaStore] Error pushing to Supabase:', err);
+      return { success: false, message: `Erro ao enviar dados para a nuvem: ${err.message || String(err)}` };
     }
   }
 
@@ -428,7 +429,7 @@ class VitrinizaStore {
   private async syncBusinessToCloud(biz: Business) {
     if (!supabase) return;
     try {
-      const { category, neighborhood, city, products, promotions, ...clean } = biz;
+      const { category, neighborhood, city, products, promotions, is_online_only, password, ...clean } = biz;
       const cleanBiz = {
         ...clean,
         category_id: clean.category_id || 'cat-alimentacao',
