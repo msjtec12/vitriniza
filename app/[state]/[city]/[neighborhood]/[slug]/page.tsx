@@ -287,23 +287,30 @@ export default function BusinessShowcasePage() {
               </p>
 
               {/* Service Features Badges */}
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#E8E4DA] flex-wrap text-xs text-[#0E3B43] font-bold">
-                {business.delivery_available && (
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8F6F0] border border-[#4FA6A6]/30">
-                    <Bike className="w-4 h-4 text-[#E36845]" /> Faz Delivery
-                  </span>
-                )}
-                {business.takeaway_available && (
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8F6F0] border border-[#4FA6A6]/30">
-                    <ShoppingBag className="w-4 h-4 text-[#4FA6A6]" /> Aceita Retirada no Balcão
-                  </span>
-                )}
-                {business.dine_in_available && (
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8F6F0] border border-[#4FA6A6]/30">
-                    <Utensils className="w-4 h-4 text-[#4FA6A6]" /> Atendimento Presencial
-                  </span>
-                )}
-              </div>
+              {(business.delivery_available || business.takeaway_available || business.dine_in_available || business.is_online_only) && (
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#E8E4DA] flex-wrap text-xs text-[#0E3B43] font-bold">
+                  {business.is_online_only && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4FA6A6]/15 text-[#0E3B43] border border-[#4FA6A6]/30">
+                      <Globe className="w-4 h-4 text-[#0E3B43]" /> Atendimento 100% Online & Remoto
+                    </span>
+                  )}
+                  {business.dine_in_available && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8F6F0] border border-[#4FA6A6]/30">
+                      <Building className="w-4 h-4 text-[#4FA6A6]" /> Atendimento Presencial no Local
+                    </span>
+                  )}
+                  {business.delivery_available && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8F6F0] border border-[#4FA6A6]/30">
+                      <Bike className="w-4 h-4 text-[#E36845]" /> Faz Delivery / Envio em Domicílio
+                    </span>
+                  )}
+                  {business.takeaway_available && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F8F6F0] border border-[#4FA6A6]/30">
+                      <ShoppingBag className="w-4 h-4 text-[#4FA6A6]" /> Aceita Retirada no Local
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Navigation Tabs */}

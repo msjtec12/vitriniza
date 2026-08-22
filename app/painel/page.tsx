@@ -926,14 +926,53 @@ export default function MerchantPanelPage() {
                           placeholder="Ex: Rua Salvador Gianetti, 500 - Guaianases"
                           className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
                         />
-                        <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer p-3 bg-white rounded-xl border border-[#E8E4DA] mt-3">
+                      </div>
+                    </div>
+
+                    {/* Modalidades de Atendimento */}
+                    <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                      <label className="block text-xs font-black text-[#0E3B43] uppercase tracking-wider">
+                        ⚙️ Modalidades de Atendimento & Serviços (Selecione conforme seu negócio)
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={profileForm.dine_in_available}
+                            onChange={(e) => setProfileForm({ ...profileForm, dine_in_available: e.target.checked })}
+                            className="w-4 h-4 rounded text-[#4FA6A6]"
+                          />
+                          <span>🏢 Atendimento Presencial no Local</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
                           <input
                             type="checkbox"
                             checked={profileForm.is_online_only}
                             onChange={(e) => setProfileForm({ ...profileForm, is_online_only: e.target.checked })}
+                            className="w-4 h-4 rounded text-[#4FA6A6]"
+                          />
+                          <span>🌐 Atendimento 100% Online & Remoto</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={profileForm.delivery_available}
+                            onChange={(e) => setProfileForm({ ...profileForm, delivery_available: e.target.checked })}
                             className="w-4 h-4 rounded text-[#E36845]"
                           />
-                          <span>🌐 Atendimento 100% Online / Remoto (Não possuo endereço físico público)</span>
+                          <span>🚀 Faz Delivery / Envio em Domicílio</span>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={profileForm.takeaway_available}
+                            onChange={(e) => setProfileForm({ ...profileForm, takeaway_available: e.target.checked })}
+                            className="w-4 h-4 rounded text-[#4FA6A6]"
+                          />
+                          <span>📦 Aceita Retirada no Balcão / Local</span>
                         </label>
                       </div>
                     </div>
