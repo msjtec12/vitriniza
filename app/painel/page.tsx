@@ -50,21 +50,49 @@ import { formatCurrency, formatPhone, cn, fetchAddressByCep } from '@/lib/utils'
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
 
 export default function MerchantPanelPage() {
-  // Helper for reading image files from local disk/device
+  // High-performance image compressor & reader for instant multi-device cloud sync
   const handleImageFileUpload = (file: File, callback: (dataUrl: string) => void) => {
     if (!file || !file.type.startsWith('image/')) {
       alert('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).');
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      alert('A imagem é muito grande. Escolha um arquivo de até 8MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      alert('A imagem é muito grande. Escolha um arquivo de até 15MB.');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      if (e.target?.result) {
-        callback(e.target.result as string);
-      }
+      const rawDataUrl = e.target?.result as string;
+      if (!rawDataUrl) return;
+
+      // Create an image object to compress via HTML5 Canvas
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxWidth = 1000;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Compress to lightweight 75% quality JPEG (~60KB) for instant cloud sync
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          callback(compressedDataUrl);
+        } else {
+          callback(rawDataUrl);
+        }
+      };
+      img.onerror = () => callback(rawDataUrl);
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };
