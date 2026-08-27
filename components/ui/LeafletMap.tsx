@@ -126,9 +126,24 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     };
   }, [businesses, center, zoom, selectedBusinessId, radiusKm]);
 
-  const queryParam = addressQuery
-    ? encodeURIComponent(addressQuery)
-    : `${center[0] || -23.5424},${center[1] || -46.4178}`;
+  if (addressQuery) {
+    const queryParam = encodeURIComponent(addressQuery);
+    return (
+      <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-[#4FA6A6]/30 shadow-sm bg-stone-100" style={{ height }}>
+        <iframe
+          title="Mapa de Localização do Estabelecimento"
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          scrolling="no"
+          marginHeight={0}
+          marginWidth={0}
+          src={`https://maps.google.com/maps?q=${queryParam}&z=${zoom}&output=embed`}
+          className="w-full h-full border-0 pointer-events-auto opacity-100"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-[#4FA6A6]/30 shadow-sm bg-stone-100" style={{ height }}>
@@ -142,7 +157,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           scrolling="no"
           marginHeight={0}
           marginWidth={0}
-          src={`https://maps.google.com/maps?q=${queryParam}&z=${zoom}&output=embed`}
+          src={`https://maps.google.com/maps?q=${center[0] || -23.5424},${center[1] || -46.4178}&z=${zoom}&output=embed`}
           className="w-full h-full border-0 pointer-events-auto opacity-95"
         />
       </div>

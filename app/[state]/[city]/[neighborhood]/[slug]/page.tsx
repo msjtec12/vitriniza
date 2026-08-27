@@ -529,19 +529,20 @@ export default function BusinessShowcasePage() {
                   <span className="text-[#537379]">CEP: {business.postal_code}</span>
                 </p>
 
-                {/* Leaflet Map Embed */}
-                <div className="h-44 rounded-2xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
+                {/* Map Embed */}
+                <div className="h-48 rounded-2xl overflow-hidden border border-[#E8E4DA] bg-stone-100 shadow-inner">
                   <LeafletMap
                     businesses={[business]}
                     center={[business.latitude, business.longitude]}
-                    zoom={15}
+                    addressQuery={`${business.address}, ${business.number || ''}, ${business.neighborhood?.name || ''}, ${business.city?.name || 'São Paulo'} - SP, CEP ${business.postal_code || ''}`}
+                    zoom={16}
                     height="100%"
                   />
                 </div>
 
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    `${business.name} ${business.address} ${business.number} Guaianases SP`
+                    `${business.name} ${business.address} ${business.number} ${business.neighborhood?.name || ''} ${business.city?.name || 'São Paulo'} SP`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

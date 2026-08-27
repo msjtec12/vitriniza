@@ -876,11 +876,33 @@ class VitrinizaStore {
     return this.cities.filter((c) => c.active);
   }
 
-  public getNeighborhoods(cityId?: string): Neighborhood[] {
+  public getNeighborhoods(cityId?: string, includeEmpty: boolean = false): Neighborhood[] {
+    this.ensureHydrated();
+    let result = this.neighborhoods.filter((n) => n.active);
+
     if (cityId) {
-      return this.neighborhoods.filter((n) => n.active && (n.city_id === cityId || n.city?.slug === cityId));
+      result = result.filter((n) => n.city_id === cityId || n.city?.slug === cityId);
     }
-    return this.neighborhoods.filter((n) => n.active);
+
+    if (!includeEmpty) {
+      const activeBizNeighs = new Set<string>();
+      this.businesses.forEach((b) => {
+        if (b.is_active) {
+          if (b.neighborhood_id) activeBizNeighs.add(b.neighborhood_id);
+          if (b.neighborhood?.id) activeBizNeighs.add(b.neighborhood.id);
+          if (b.neighborhood?.slug) activeBizNeighs.add(b.neighborhood.slug);
+          if (b.neighborhood?.name) activeBizNeighs.add(b.neighborhood.name.toLowerCase().trim());
+        }
+      });
+      const filtered = result.filter((n) =>
+        activeBizNeighs.has(n.id) ||
+        activeBizNeighs.has(n.slug) ||
+        activeBizNeighs.has(n.name.toLowerCase().trim())
+      );
+      if (filtered.length > 0) return filtered;
+    }
+
+    return result;
   }
 
   public ensureNeighborhood(bairroName: string, cityId: string = 'city-sp'): Neighborhood {
