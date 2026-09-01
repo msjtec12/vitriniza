@@ -63,30 +63,24 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
-  // Client hydration for dynamic/localStorage businesses
+  // Client hydration & reactive store sync for dynamic businesses (e.g. Konnexy)
   useEffect(() => {
-    if (!business && slug) {
-      store.ensureCloudSynced().then(() => {
-        const found = store.getBusinessBySlug(slug);
-        if (found) {
-          setBusiness(found);
-          setReviews(store.getReviews(found.id));
-        }
-        setIsHydrating(false);
-      });
+    if (!slug) return;
 
-      const unsub = store.subscribe(() => {
-        const found = store.getBusinessBySlug(slug);
-        if (found) {
-          setBusiness(found);
-          setReviews(store.getReviews(found.id));
-        }
-      });
-      return () => unsub();
-    } else {
+    const syncCurrentBusiness = () => {
+      const found = store.getBusinessBySlug(slug);
+      if (found) {
+        setBusiness(found);
+        setReviews(store.getReviews(found.id));
+      }
       setIsHydrating(false);
-    }
-  }, [business, slug]);
+    };
+
+    syncCurrentBusiness();
+    store.ensureCloudSynced().then(syncCurrentBusiness);
+    const unsub = store.subscribe(syncCurrentBusiness);
+    return () => unsub();
+  }, [slug]);
 
   useEffect(() => {
     if (business) {

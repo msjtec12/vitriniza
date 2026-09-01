@@ -19,8 +19,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!business) {
     return {
-      title: 'Negócio não encontrado | Vitriniza',
-      description: 'O comércio ou profissional procurado não foi encontrado na Vitriniza.',
+      title: `${resolvedParams.slug} | Vitriniza`,
+      description: 'Conheça os produtos, serviços e ofertas deste estabelecimento na Vitriniza.',
     };
   }
 
