@@ -25,7 +25,7 @@ import {
   Navigation,
   X,
   Maximize2,
-  CheckCircle2,
+  Store,
 } from 'lucide-react';
 import { InstagramIcon, WhatsAppSolidIcon } from '@/components/ui/Icons';
 import { store } from '@/lib/data/store';
@@ -41,18 +41,21 @@ import { ReviewModal } from '@/components/ui/ReviewModal';
 import { buildWhatsAppUrl, getBusinessWhatsAppMessage, formatPhone, cn } from '@/lib/utils';
 
 interface BusinessShowcaseClientProps {
-  initialBusiness: Business;
-  initialReviews: Review[];
+  initialBusiness?: Business | null;
+  initialReviews?: Review[];
+  slug?: string;
 }
 
 export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
   initialBusiness,
-  initialReviews,
+  initialReviews = [],
+  slug,
 }) => {
-  const [business, setBusiness] = useState<Business>(initialBusiness);
+  const [business, setBusiness] = useState<Business | null>(initialBusiness || null);
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
   const [activeTab, setActiveTab] = useState<'products' | 'promotions' | 'gallery' | 'reviews'>('products');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(!initialBusiness);
 
   // Modals
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -60,15 +63,78 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
+  // Client hydration for dynamic/localStorage businesses
   useEffect(() => {
-    store.logAnalyticsEvent(business.id, 'business_view');
-    try {
-      const favs = JSON.parse(localStorage.getItem('vitriniza_favorites') || '[]');
-      setIsFavorite(favs.includes(business.id));
-    } catch {
-      // ignore
+    if (!business && slug) {
+      store.ensureCloudSynced().then(() => {
+        const found = store.getBusinessBySlug(slug);
+        if (found) {
+          setBusiness(found);
+          setReviews(store.getReviews(found.id));
+        }
+        setIsHydrating(false);
+      });
+
+      const unsub = store.subscribe(() => {
+        const found = store.getBusinessBySlug(slug);
+        if (found) {
+          setBusiness(found);
+          setReviews(store.getReviews(found.id));
+        }
+      });
+      return () => unsub();
+    } else {
+      setIsHydrating(false);
     }
-  }, [business.id]);
+  }, [business, slug]);
+
+  useEffect(() => {
+    if (business) {
+      store.logAnalyticsEvent(business.id, 'business_view');
+      try {
+        const favs = JSON.parse(localStorage.getItem('vitriniza_favorites') || '[]');
+        setIsFavorite(favs.includes(business.id));
+      } catch {
+        // ignore
+      }
+    }
+  }, [business?.id]);
+
+  if (!business) {
+    if (isHydrating) {
+      return (
+        <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-4">
+          <div className="text-center space-y-2">
+            <div className="w-10 h-10 border-3 border-[#0E3B43] border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs font-bold text-[#537379]">Carregando vitrine...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-[#4FA6A6]/20 card-shadow text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-[#0E3B43] text-white flex items-center justify-center mx-auto shadow-md">
+            <Store className="w-8 h-8 text-[#4FA6A6]" />
+          </div>
+          <h3 className="font-black text-xl text-[#0E3B43]">Vitrine não encontrada</h3>
+          <p className="text-xs text-[#537379] leading-relaxed">
+            O comércio ou profissional procurado não está cadastrado ou pode ter alterado seu link na Vitriniza.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/sp/sao-paulo/guaianases"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+            >
+              <span>Explorar Guaianases</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const openStatus = store.isBusinessOpenNow(business.hours);
   const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;

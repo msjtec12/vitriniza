@@ -71,38 +71,38 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
   const resolvedParams = await params;
   const business = store.getBusinessBySlug(resolvedParams.slug);
 
-  if (!business) {
-    notFound();
-  }
-
-  const reviews = store.getReviews(business.id);
-  const neighborhoodName = business.neighborhood?.name || 'Guaianases';
-  const cityName = business.city?.name || 'São Paulo';
-  const pageUrl = `https://vitriniza.vercel.app/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const reviews = business ? store.getReviews(business.id) : [];
+  const neighborhoodName = business?.neighborhood?.name || 'Guaianases';
+  const cityName = business?.city?.name || 'São Paulo';
+  const pageUrl = business
+    ? `https://vitriniza.vercel.app/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`
+    : `https://vitriniza.vercel.app/sp/sao-paulo/guaianases/${resolvedParams.slug}`;
 
   // Structured Data Schema.org (LocalBusiness & BreadcrumbList)
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: business.name,
-    description: business.description || business.short_description,
-    image: business.cover_url || business.logo_url,
-    telephone: business.phone || business.whatsapp,
-    url: pageUrl,
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: `${business.address || ''}, ${business.number || ''}`,
-      addressLocality: neighborhoodName,
-      addressRegion: 'SP',
-      postalCode: business.postal_code || '08400-000',
-      addressCountry: 'BR',
-    },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: business.latitude || -23.5424,
-      longitude: business.longitude || -46.4178,
-    },
-  };
+  const jsonLd = business
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        name: business.name,
+        description: business.description || business.short_description,
+        image: business.cover_url || business.logo_url,
+        telephone: business.phone || business.whatsapp,
+        url: pageUrl,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: `${business.address || ''}, ${business.number || ''}`,
+          addressLocality: neighborhoodName,
+          addressRegion: 'SP',
+          postalCode: business.postal_code || '08400-000',
+          addressCountry: 'BR',
+        },
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: business.latitude || -23.5424,
+          longitude: business.longitude || -46.4178,
+        },
+      }
+    : null;
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -124,12 +124,12 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
         '@type': 'ListItem',
         position: 3,
         name: neighborhoodName,
-        item: `https://vitriniza.vercel.app/sp/sao-paulo/${business.neighborhood?.slug || 'guaianases'}`,
+        item: `https://vitriniza.vercel.app/sp/sao-paulo/${business?.neighborhood?.slug || 'guaianases'}`,
       },
       {
         '@type': 'ListItem',
         position: 4,
-        name: business.name,
+        name: business?.name || resolvedParams.slug,
         item: pageUrl,
       },
     ],
@@ -137,15 +137,21 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <BusinessShowcaseClient initialBusiness={business} initialReviews={reviews} />
+      <BusinessShowcaseClient
+        initialBusiness={business || null}
+        initialReviews={reviews}
+        slug={resolvedParams.slug}
+      />
     </>
   );
 }
