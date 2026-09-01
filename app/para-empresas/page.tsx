@@ -97,11 +97,11 @@ export default function ParaEmpresasPage() {
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-3xl mx-auto leading-tight mb-6">
-            Faça seu negócio ser encontrado por quem está <span className="text-[#E36845]">perto de você.</span>
+            Seu negócio merece ser encontrado <span className="text-[#E36845]">no bairro.</span>
           </h1>
 
-          <p className="text-sm sm:text-lg text-[#537379] max-w-2xl mx-auto mb-8 leading-relaxed">
-            Crie sua vitrine digital na <strong>Vitriniza</strong> e alcance centenas de moradores do seu bairro que procuram seus produtos e serviços todos os dias.
+          <p className="text-sm sm:text-lg text-[#537379] max-w-2xl mx-auto mb-8 leading-relaxed font-medium">
+            Crie sua vitrine digital na <strong>Vitriniza</strong> e mostre seus produtos, serviços, localização, ofertas e WhatsApp para moradores que procuram produtos e serviços na sua região.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -121,6 +121,31 @@ export default function ParaEmpresasPage() {
               <MessageCircle className="w-5 h-5 text-[#25D366]" />
               <span>Falar com Admin no WhatsApp</span>
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Founder Campaign Banner */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-r from-[#0E3B43] via-[#154E58] to-[#0E3B43] text-white p-8 sm:p-12 rounded-3xl shadow-2xl border border-[#4FA6A6]/40 relative overflow-hidden">
+          <div className="max-w-3xl space-y-4 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-black uppercase tracking-wider">
+              <span>🎖️ Campanha de Lançamento em Guaianases</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black">
+              Seja um Negócio Fundador da Vitriniza Guaianases
+            </h2>
+            <p className="text-xs sm:text-base text-white/90 leading-relaxed font-medium">
+              Estamos selecionando os primeiros negócios que farão parte do lançamento oficial da Vitriniza em Guaianases. Os participantes recebem o selo especial <strong>Negócio Fundador</strong> e destaque prioritário na plataforma.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 text-xs font-bold text-amber-200">
+              <div>✓ Presença na plataforma</div>
+              <div>✓ Vitrine digital</div>
+              <div>✓ WhatsApp direto</div>
+              <div>✓ Produtos e serviços</div>
+              <div>✓ Lançamento do bairro</div>
+              <div>✓ Selo Negócio Fundador</div>
+            </div>
           </div>
         </div>
       </section>
@@ -194,7 +219,7 @@ export default function ParaEmpresasPage() {
               href="#cadastrar"
               className="w-full py-3.5 rounded-xl bg-[#F8F6F0] hover:bg-stone-200 border border-[#E8E4DA] text-[#0E3B43] text-xs font-bold text-center block transition-all"
             >
-              Escolher Grátis
+              Começar grátis
             </a>
           </div>
 
@@ -234,7 +259,7 @@ export default function ParaEmpresasPage() {
               href="#cadastrar"
               className="w-full py-3.5 rounded-xl bg-[#F8F6F0] hover:bg-[#E36845] hover:text-white border border-[#4FA6A6]/30 text-[#0E3B43] text-xs font-bold text-center block transition-all"
             >
-              Escolher Semanal
+              Destacar meu negócio
             </a>
           </div>
 
@@ -279,7 +304,7 @@ export default function ParaEmpresasPage() {
               href="#cadastrar"
               className="w-full py-4 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black text-center block transition-all shadow-lg active:scale-95"
             >
-              Escolher Plano Mensal
+              Assinar plano completo
             </a>
           </div>
         </div>

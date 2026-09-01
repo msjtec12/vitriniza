@@ -2,5 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /master
 Disallow: /painel
+Disallow: /reivindicar
+Disallow: /api/
 
-Sitemap: https://vitriniza.com.br/sitemap.xml
+Sitemap: https://vitriniza.vercel.app/sitemap.xml

@@ -165,7 +165,10 @@ export interface Business {
   plan_expires_at?: string;
   is_featured: boolean;
   is_verified: boolean;
+  is_founder?: boolean;
+  founded_at?: string;
   is_active: boolean;
+  status?: 'pending' | 'active' | 'paused' | 'rejected' | 'suspended';
   payment_methods: string[];
   delivery_available: boolean;
   takeaway_available: boolean;
@@ -182,6 +185,17 @@ export interface Business {
   password?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface BusinessRecommendation {
+  id: string;
+  business_name: string;
+  category?: string;
+  contact_info?: string;
+  recommended_by?: string;
+  neighborhood_name?: string;
+  status: 'pending' | 'contacted' | 'approved' | 'dismissed';
+  created_at: string;
 }
 
 export interface ClaimRequest {

@@ -17,6 +17,7 @@ import {
   BusinessHour,
   PlanTier,
   PlanLimits,
+  BusinessRecommendation,
 } from '@/types';
 import {
   mockStates,
@@ -950,6 +951,44 @@ class VitrinizaStore {
     return this.events;
   }
 
+  public recommendBusiness(data: Omit<BusinessRecommendation, 'id' | 'created_at' | 'status'>): BusinessRecommendation {
+    this.ensureHydrated();
+    const rec: BusinessRecommendation = {
+      id: `rec-${Date.now()}`,
+      business_name: data.business_name,
+      category: data.category,
+      contact_info: data.contact_info,
+      recommended_by: data.recommended_by,
+      neighborhood_name: data.neighborhood_name || 'Guaianases',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    let recs: BusinessRecommendation[] = [];
+    try {
+      recs = JSON.parse(localStorage.getItem('vitriniza_recommendations') || '[]');
+    } catch {}
+    recs.unshift(rec);
+    try {
+      localStorage.setItem('vitriniza_recommendations', JSON.stringify(recs));
+    } catch {}
+    return rec;
+  }
+
+  public getRecommendations(): BusinessRecommendation[] {
+    this.ensureHydrated();
+    try {
+      return JSON.parse(localStorage.getItem('vitriniza_recommendations') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  public getFounderBusinesses(): Business[] {
+    this.ensureHydrated();
+    return this.businesses.filter((b) => b.is_active && (b.is_founder || b.plan_id === 'mensal' || b.plan_id === 'premium'));
+  }
+
   public getEvents(): LocalEvent[] {
     this.ensureHydrated();
     return this.events.filter((e) => e.is_active);
@@ -1364,12 +1403,18 @@ class VitrinizaStore {
     const bizEvents = this.analyticsEvents.filter((e) => e.business_id === businessId);
     const viewsCount = bizEvents.filter((e) => e.event_type === 'business_view').length;
     const whatsappClicks = bizEvents.filter((e) => e.event_type === 'whatsapp_click').length;
+    const mapClicks = bizEvents.filter((e) => e.event_type === 'map_click').length;
+    const shareClicks = bizEvents.filter((e) => e.event_type === 'share_click').length;
+    const offerViews = bizEvents.filter((e) => e.event_type === 'promotion_view').length;
 
     return {
       productsCount: biz?.products?.length || 0,
       promotionsCount: biz?.promotions?.length || 0,
       viewsCount,
       whatsappClicks,
+      mapClicks,
+      shareClicks,
+      offerViews,
       rating: biz?.rating || 5.0,
       reviewsCount: biz?.reviews_count || 0,
     };

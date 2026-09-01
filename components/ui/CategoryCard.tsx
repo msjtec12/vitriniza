@@ -211,10 +211,16 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
         <span className="text-xs sm:text-sm font-black text-[#0E3B43] group-hover:text-[#E36845] line-clamp-1 transition-colors">
           {category.name}
         </span>
-        {category.description && (
-          <span className="text-[11px] text-[#537379] line-clamp-1 mt-0.5 font-medium">
-            {category.description}
+        {count !== undefined && count > 0 ? (
+          <span className="text-[11px] font-bold text-[#E36845] mt-0.5">
+            {count} {count === 1 ? 'lugar' : 'lugares'}
           </span>
+        ) : (
+          category.description && (
+            <span className="text-[11px] text-[#537379] line-clamp-1 mt-0.5 font-medium">
+              {category.description}
+            </span>
+          )
         )}
       </Link>
     );
@@ -237,10 +243,16 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
       <span className="text-xs sm:text-sm font-black text-[#0E3B43] group-hover:text-[#E36845] line-clamp-1 transition-colors">
         {category.name}
       </span>
-      {category.description && (
-        <span className="text-[11px] text-[#537379] line-clamp-1 mt-0.5 font-medium hidden sm:block">
-          {category.description}
+      {count !== undefined && count > 0 ? (
+        <span className="text-[11px] font-bold text-[#E36845] mt-0.5">
+          {count} {count === 1 ? 'lugar' : 'lugares'}
         </span>
+      ) : (
+        category.description && (
+          <span className="text-[11px] text-[#537379] line-clamp-1 mt-0.5 font-medium hidden sm:block">
+            {category.description}
+          </span>
+        )
       )}
     </Link>
   );

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Download, Sparkles, QrCode, Store } from 'lucide-react';
+import { Download, Sparkles, QrCode, Store, Copy, Check, Share2, MessageSquare, Radio } from 'lucide-react';
+import { WhatsAppSolidIcon } from '@/components/ui/Icons';
+import { buildWhatsAppUrl } from '@/lib/utils';
 
 interface StoreQRCodeProps {
   businessName: string;
@@ -13,7 +15,8 @@ interface StoreQRCodeProps {
   categoryName?: string;
   size?: number;
   showDownloadBtn?: boolean;
-  variant?: 'compact' | 'display_card';
+  variant?: 'compact' | 'display_card' | 'full_hub';
+  onToast?: (message: string, type: 'success' | 'info' | 'error') => void;
 }
 
 export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
@@ -25,12 +28,47 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
   size = 180,
   showDownloadBtn = true,
   variant = 'compact',
+  onToast,
 }) => {
   const qrWrapperRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   const fullUrl = typeof window !== 'undefined'
     ? `${window.location.origin}${businessUrl}`
-    : `https://vitriniza.com.br${businessUrl}`;
+    : `https://vitriniza.vercel.app${businessUrl}`;
+
+  const handleCopyLink = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+      if (onToast) onToast('Link copiado com sucesso!', 'success');
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: `${businessName} na Vitriniza`,
+        text: `Conheça ${businessName} em ${neighborhoodName}! Veja nossos produtos e entre em contato direto:`,
+        url: fullUrl,
+      }).catch(() => {});
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const handleDownloadOnlyQR = () => {
+    if (!qrWrapperRef.current) return;
+    const canvas = qrWrapperRef.current.querySelector('canvas');
+    if (!canvas) return;
+
+    const link = document.createElement('a');
+    link.download = `qrcode-${businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    if (onToast) onToast('QR Code baixado com sucesso!', 'success');
+  };
 
   const handleDownloadPNG = () => {
     if (!qrWrapperRef.current) return;
@@ -42,7 +80,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
     const ctx = printCanvas.getContext('2d');
     if (!ctx) return;
 
-    // High-resolution export: 800 x 1100 px (3:4 ratio for printing)
+    // High-resolution export: 800 x 1050 px (3:4 ratio for printing)
     const w = 800;
     const h = 1050;
     printCanvas.width = w;
@@ -102,7 +140,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
     ctx.fillText('📱 APONTE A CÂMERA DO CELULAR', w / 2, 905);
 
     ctx.font = '600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText('Acesse nosso catálogo, ofertas e peça pelo WhatsApp', w / 2, 938);
+    ctx.fillText('Conheça nossa vitrine, produtos e faça seu pedido', w / 2, 938);
 
     // 6. Trigger Download
     const pngUrl = printCanvas.toDataURL('image/png');
@@ -112,11 +150,19 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
+
+    if (onToast) onToast('Placa de balcão baixada para impressão!', 'success');
+  };
+
+  const handleRequestPhysicalStand = () => {
+    const text = `Olá! Sou do comércio *${businessName}* em Guaianases e gostaria de solicitar a *Placa Física de Balcão* da Vitriniza para o meu estabelecimento.`;
+    const whatsappUrl = `https://wa.me/5511999999999?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   if (variant === 'display_card') {
     return (
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border-2 border-[#4FA6A6]/30 card-shadow text-center flex flex-col items-center justify-between space-y-4">
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#4FA6A6]/20 card-shadow text-center flex flex-col items-center justify-between space-y-4">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-xs font-bold text-[#0E3B43] mb-2">
             <Sparkles className="w-3.5 h-3.5 text-[#E36845]" />
@@ -131,7 +177,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
           <QRCodeCanvas
             value={fullUrl}
             size={size}
-            level="H" // High error correction to allow logo
+            level="H"
             marginSize={2}
             fgColor="#0E3B43"
             bgColor="#FFFFFF"
@@ -144,71 +190,163 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
                     height: Math.floor(size * 0.24),
                     width: Math.floor(size * 0.24),
                     opacity: 1,
-                    excavate: true, // Cutout background behind the logo
+                    excavate: true,
                   }
                 : undefined
             }
           />
         </div>
 
-        <p className="text-xs text-[#537379] max-w-xs leading-relaxed">
-          Imprima e coloque no balcão, nas mesas ou na vitrine para os clientes abrirem seu cardápio e promoções no celular.
+        <p className="text-xs text-[#537379] max-w-xs leading-relaxed font-medium">
+          Imprima e coloque no balcão, nas mesas ou na vitrine para os clientes abrirem seu catálogo no celular.
         </p>
 
         {showDownloadBtn && (
-          <button
-            type="button"
-            onClick={handleDownloadPNG}
-            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95"
-          >
-            <Download className="w-4 h-4" />
-            <span>Baixar Display de Balcão para Impressão (PNG)</span>
-          </button>
+          <div className="w-full space-y-2">
+            <button
+              type="button"
+              onClick={handleDownloadPNG}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Baixar Display para Impressão (PNG)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadOnlyQR}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#E8E4DA] hover:bg-[#F8F6F0] text-[#0E3B43] text-xs font-bold transition-all cursor-pointer"
+            >
+              <QrCode className="w-3.5 h-3.5 text-[#4FA6A6]" />
+              <span>Baixar Apenas QR Code (PNG)</span>
+            </button>
+          </div>
         )}
       </div>
     );
   }
 
+  // Full disclosure center (for the QR Code & Divulgação tab in dashboard)
   return (
-    <div className="flex flex-col items-center text-center space-y-3">
-      <div ref={qrWrapperRef} className="p-3 bg-white rounded-2xl border border-[#E8E4DA] shadow-xs inline-block">
-        <QRCodeCanvas
-          value={fullUrl}
-          size={size}
-          level="H"
-          marginSize={2}
-          fgColor="#0E3B43"
-          bgColor="#FFFFFF"
-          imageSettings={
-            businessLogoUrl
-              ? {
-                  src: businessLogoUrl,
-                  x: undefined,
-                  y: undefined,
-                  height: Math.floor(size * 0.24),
-                  width: Math.floor(size * 0.24),
-                  opacity: 1,
-                  excavate: true,
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {/* Left: Interactive Printable Stand Preview */}
+        <div className="md:col-span-5 flex flex-col items-center">
+          <div className="w-full max-w-[280px] bg-[#F8F6F0] border-2 border-[#E8E4DA] rounded-3xl p-5 text-center shadow-lg space-y-3 relative">
+            <div className="bg-[#0E3B43] text-white py-2 px-3 rounded-xl space-y-0.5">
+              <span className="font-black text-xs tracking-wider">VITRINIZA</span>
+              <p className="text-[9px] text-[#4FA6A6] font-bold">O COMÉRCIO PERTO DE VOCÊ</p>
+            </div>
+
+            <div>
+              <h4 className="font-black text-sm text-[#0E3B43] truncate">{businessName}</h4>
+              <p className="text-[10px] text-[#537379]">{neighborhoodName} - SP</p>
+            </div>
+
+            <div ref={qrWrapperRef} className="p-3 bg-white rounded-2xl border border-[#E8E4DA] shadow-xs inline-block">
+              <QRCodeCanvas
+                value={fullUrl}
+                size={160}
+                level="H"
+                marginSize={2}
+                fgColor="#0E3B43"
+                bgColor="#FFFFFF"
+                imageSettings={
+                  businessLogoUrl
+                    ? {
+                        src: businessLogoUrl,
+                        x: undefined,
+                        y: undefined,
+                        height: 38,
+                        width: 38,
+                        opacity: 1,
+                        excavate: true,
+                      }
+                    : undefined
                 }
-              : undefined
-          }
-        />
+              />
+            </div>
+
+            <div className="bg-[#E36845] text-white py-1.5 px-3 rounded-xl">
+              <span className="font-black text-[10px] block">📱 APONTE A CÂMERA DO CELULAR</span>
+              <span className="text-[8px] opacity-90">Acesse nossa vitrine e faça seu pedido</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Actions and Disclosure Tools */}
+        <div className="md:col-span-7 space-y-4">
+          <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-2">
+            <label className="block text-xs font-bold text-[#0E3B43]">Link Público da Sua Vitrine</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={fullUrl}
+                className="flex-1 px-3 py-2.5 rounded-xl bg-white border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none font-medium truncate select-all"
+              />
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-3.5 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? 'Copiado!' : 'Copiar'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadPNG}
+              className="py-3 px-4 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Baixar Placa para Impressão</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadOnlyQR}
+              className="py-3 px-4 rounded-2xl bg-white hover:bg-[#F8F6F0] border border-[#4FA6A6]/40 text-[#0E3B43] text-xs font-bold shadow-2xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <QrCode className="w-4 h-4 text-[#4FA6A6]" />
+              <span>Baixar Apenas QR Code</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="py-2.5 px-4 rounded-xl bg-white hover:bg-stone-50 border border-[#E8E4DA] text-[#0E3B43] text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5 text-[#E36845]" />
+              <span>Compartilhar Link</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRequestPhysicalStand}
+              className="py-2.5 px-4 rounded-xl bg-white hover:bg-stone-50 border border-[#E8E4DA] text-[#0E3B43] text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Solicitar Placa Física</span>
+            </button>
+          </div>
+
+          {/* NFC Preparation Banner */}
+          <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 flex items-center gap-3 text-xs text-[#537379]">
+            <div className="w-8 h-8 rounded-xl bg-[#4FA6A6]/15 flex items-center justify-center shrink-0">
+              <Radio className="w-4 h-4 text-[#0E3B43]" />
+            </div>
+            <div>
+              <span className="font-bold text-[#0E3B43] block">Aproximação por NFC (Em breve)</span>
+              <span className="text-[11px]">Placas inteligentes de balcão com chip de aproximação direta para celular.</span>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <span className="text-[11px] text-[#537379] font-semibold">
-        Aponte a câmera para abrir a vitrine
-      </span>
-
-      {showDownloadBtn && (
-        <button
-          type="button"
-          onClick={handleDownloadPNG}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F8F6F0] border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] transition-all shadow-2xs"
-        >
-          <Download className="w-3.5 h-3.5 text-[#E36845]" />
-          <span>Baixar Display com Logo (PNG)</span>
-        </button>
-      )}
     </div>
   );
 };

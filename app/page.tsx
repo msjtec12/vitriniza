@@ -24,16 +24,19 @@ import { BusinessFeaturedCard } from '@/components/ui/BusinessFeaturedCard';
 import { PromotionCard } from '@/components/ui/PromotionCard';
 import { LeafletMap } from '@/components/ui/LeafletMap';
 import { PwaAppDownloadCard } from '@/components/ui/PwaAppDownloadCard';
+import { RecommendBusinessModal } from '@/components/ui/RecommendBusinessModal';
 import { cn, formatDate } from '@/lib/utils';
 
 export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
+  const [founderBusinesses, setFounderBusinesses] = useState<Business[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [events, setEvents] = useState<LocalEvent[]>([]);
+  const [isRecommendOpen, setIsRecommendOpen] = useState(false);
 
   // Carousel Refs & States
   const categoryScrollRef = useRef<HTMLDivElement>(null);
@@ -64,6 +67,7 @@ export default function HomePage() {
   const refreshPageData = () => {
     setCategories(store.getCategories());
     setFeaturedBusinesses(store.getFeaturedBusinesses());
+    setFounderBusinesses(store.getFounderBusinesses());
     setAllBusinesses(store.getBusinesses());
     setPromotions(store.getPromotions());
     setArticles(store.getArticles().slice(0, 3));
@@ -234,38 +238,52 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-2 px-4.5 py-1.5 rounded-full bg-[#0E3B43] text-white border border-[#4FA6A6]/40 shadow-lg mb-5 animate-in fade-in backdrop-blur-md">
             <span className="w-2.5 h-2.5 rounded-full bg-[#E36845] animate-pulse" />
             <span className="text-xs font-black uppercase tracking-wider">
-              Vitrine digital inteligente do seu bairro
+              Vitriniza • Descoberta Local
             </span>
           </div>
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-4xl mx-auto leading-tight mb-4 drop-shadow-md">
-            {platformSettings.hero_title ? (
-              platformSettings.hero_title
-            ) : (
-              <>Descubra o melhor <span className="text-[#E36845] drop-shadow-sm">perto de você.</span></>
-            )}
+            Guaianases está ganhando uma <span className="text-[#E36845] drop-shadow-sm">nova vitrine.</span>
           </h1>
 
           {/* Subtext */}
           <p className="text-sm sm:text-lg text-[#0E3B43] font-bold max-w-xl mx-auto mb-8 leading-relaxed drop-shadow-xs bg-white/70 backdrop-blur-xs py-2 px-5 rounded-2xl border border-white/50 inline-block shadow-sm">
-            {platformSettings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.'}
+            Descubra comércios, serviços, profissionais e ofertas do seu bairro em poucos cliques.
           </p>
 
           {/* Dual Search Bar */}
           <SearchBar />
+
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+            <Link
+              href="/sp/sao-paulo/guaianases"
+              className="px-6 py-3 rounded-2xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-black shadow-md flex items-center gap-2 transition-all active:scale-95"
+            >
+              <span>Explorar Guaianases</span>
+              <ArrowRight className="w-4 h-4 text-[#E36845]" />
+            </Link>
+
+            <Link
+              href="/para-empresas"
+              className="px-6 py-3 rounded-2xl bg-white hover:bg-stone-50 text-[#0E3B43] border border-[#4FA6A6]/40 text-xs font-bold shadow-sm transition-all"
+            >
+              Cadastre seu negócio
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* 2. CATEGORIAS POPULARES (CARROSSEL EM UMA ÚNICA FILEIRA) */}
+      {/* 2. CATEGORIAS (O QUE VOCÊ ESTÁ PROCURANDO?) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4 mb-4">
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-[#0E3B43] tracking-tight">
-              Categorias Populares
+              O que você está procurando?
             </h2>
             <p className="text-xs sm:text-sm text-[#537379]">
-              O que você precisa hoje no seu bairro?
+              Encontre lojas, prestadores de serviço e profissionais em Guaianases
             </p>
           </div>
 
@@ -312,13 +330,19 @@ export default function HomePage() {
             isCatDragging && 'cursor-grabbing select-none'
           )}
         >
-          {categories.map((category) => (
-            <CategoryCard
-              key={category.id}
-              category={category}
-              variant="carousel"
-            />
-          ))}
+          {categories.map((category) => {
+            const count = allBusinesses.filter(
+              (b) => b.is_active && (b.category_id === category.id || b.category?.slug === category.slug)
+            ).length;
+            return (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                count={count}
+                variant="carousel"
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -405,18 +429,26 @@ export default function HomePage() {
               <Flame className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-black text-sm text-[#0E3B43]">Nenhuma Oferta Publicada no Momento</h3>
+              <h3 className="font-black text-sm text-[#0E3B43]">Novas ofertas de Guaianases estão chegando.</h3>
               <p className="text-xs text-[#537379] max-w-md mx-auto mt-1">
-                Comerciantes: publiquem ofertas e cupons promocionais para destacar seus produtos para os clientes da região!
+                Conhece um comércio no bairro que tem ótimas ofertas? Indique para a Vitriniza ou publique sua loja!
               </p>
             </div>
-            <Link
-              href="/painel"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-xs transition-all active:scale-95"
-            >
-              <span>Publicar Oferta no Painel do Lojista</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsRecommendOpen(true)}
+                className="px-4 py-2 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                Indicar um Negócio
+              </button>
+              <Link
+                href="/painel"
+                className="px-4 py-2 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold transition-all shadow-xs"
+              >
+                Publicar Oferta no Painel
+              </Link>
+            </div>
           </div>
         )}
       </section>
@@ -724,6 +756,12 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <RecommendBusinessModal
+        isOpen={isRecommendOpen}
+        onClose={() => setIsRecommendOpen(false)}
+        defaultNeighborhood="Guaianases"
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { store } from '@/lib/data/store';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://vitriniza.com.br';
+  const baseUrl = 'https://vitriniza.vercel.app';
   const businesses = store.getBusinesses();
   const neighborhoods = store.getNeighborhoods();
   const categories = store.getCategories();
@@ -17,6 +17,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${baseUrl}/buscar`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/sp/sao-paulo/guaianases`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.9,
@@ -39,7 +45,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   businesses.forEach((b) => {
     routes.push({
       url: `${baseUrl}/${b.state_id.toLowerCase()}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`,
-      lastModified: new Date(b.updated_at),
+      lastModified: new Date(b.updated_at || Date.now()),
       changeFrequency: 'daily',
       priority: 0.9,
     });
@@ -55,11 +61,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     });
   });
 
+  // Category pages
+  categories.forEach((c) => {
+    routes.push({
+      url: `${baseUrl}/buscar?categoria=${c.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    });
+  });
+
   // Articles
   articles.forEach((a) => {
     routes.push({
       url: `${baseUrl}/descobrir/${a.slug}`,
-      lastModified: new Date(a.created_at),
+      lastModified: new Date(a.created_at || Date.now()),
       changeFrequency: 'monthly',
       priority: 0.7,
     });

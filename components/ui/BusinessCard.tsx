@@ -7,6 +7,7 @@ import {
   MapPin,
   Clock,
   Sparkles,
+  Award,
   Heart,
   Bike,
   ShoppingBag,
@@ -98,6 +99,12 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {business.is_founder && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
+                <Award className="w-3 h-3 fill-current" />
+                Fundador
+              </span>
+            )}
             {business.is_featured && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#E36845] text-white shadow-sm">
                 <Sparkles className="w-3 h-3 fill-current" />

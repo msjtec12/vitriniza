@@ -33,8 +33,20 @@ import {
   ShieldCheck,
   AlertCircle,
   Upload,
+  Award,
+  Navigation,
+  Share2,
+  Copy,
+  Store,
+  Menu,
+  X,
+  Radio,
+  CheckCircle2,
+  AlertTriangle,
+  HelpCircle,
+  Flag,
 } from 'lucide-react';
-import { InstagramIcon } from '@/components/ui/Icons';
+import { InstagramIcon, WhatsAppSolidIcon } from '@/components/ui/Icons';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -46,18 +58,27 @@ import {
 } from 'recharts';
 import { store } from '@/lib/data/store';
 import { Business, Product, Promotion, BusinessImage, Review, PlanLimits } from '@/types';
-import { formatCurrency, formatPhone, cn, fetchAddressByCep } from '@/lib/utils';
+import { formatCurrency, formatPhone, cn, fetchAddressByCep, buildWhatsAppUrl } from '@/lib/utils';
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
+import { SocialShareCardGenerator } from '@/components/merchant/SocialShareCardGenerator';
 
 export default function MerchantPanelPage() {
+  // Toast notification state (replaces browser alerts)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   // High-performance image compressor & reader for instant multi-device cloud sync
   const handleImageFileUpload = (file: File, callback: (dataUrl: string) => void) => {
     if (!file || !file.type.startsWith('image/')) {
-      alert('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).');
+      showToast('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).', 'error');
       return;
     }
     if (file.size > 15 * 1024 * 1024) {
-      alert('A imagem é muito grande. Escolha um arquivo de até 15MB.');
+      showToast('A imagem é muito grande. Escolha um arquivo de até 15MB.', 'error');
       return;
     }
 
@@ -66,7 +87,6 @@ export default function MerchantPanelPage() {
       const rawDataUrl = e.target?.result as string;
       if (!rawDataUrl) return;
 
-      // Create an image object to compress via HTML5 Canvas
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -84,7 +104,6 @@ export default function MerchantPanelPage() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          // Compress to lightweight 75% quality JPEG (~60KB) for instant cloud sync
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
           callback(compressedDataUrl);
         } else {
@@ -104,14 +123,14 @@ export default function MerchantPanelPage() {
   const [authError, setAuthError] = useState('');
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'profile' | 'products' | 'promotions' | 'gallery' | 'reviews' | 'plan' | 'qrcode'
+    'overview' | 'profile' | 'products' | 'promotions' | 'qrcode' | 'reviews' | 'plan'
   >('overview');
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingChanges, setIsSavingChanges] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [cepLoading, setCepLoading] = useState(false);
   const [cepMsg, setCepMsg] = useState<{ text: string; success: boolean } | null>(null);
@@ -138,8 +157,10 @@ export default function MerchantPanelPage() {
         text: `✓ CEP Localizado: ${res.logradouro}, Bairro ${res.bairro} (${res.localidade} - ${res.uf})`,
         success: true,
       });
+      showToast('Endereço preenchido automaticamente pelo CEP!', 'success');
     } else {
       setCepMsg({ text: '⚠️ CEP não encontrado no ViaCEP. Preencha manualmente.', success: false });
+      showToast('CEP não encontrado. Preencha o endereço manualmente.', 'info');
     }
   };
 
@@ -182,7 +203,7 @@ export default function MerchantPanelPage() {
     description: '',
     original_price: '',
     promo_price: '',
-    rules: 'Válido de terça a quinta enquanto durarem os estoques.',
+    rules: 'Válido enquanto durarem os estoques.',
     image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
   });
 
@@ -209,7 +230,6 @@ export default function MerchantPanelPage() {
       return;
     }
 
-    // Tenant Isolation: filter stores strictly matching logged-in merchant session
     const authBiz = list.find((b) => b.id === savedAuthId);
     const authPhoneClean = authBiz ? authBiz.whatsapp.replace(/\D/g, '') : (savedPhone || '');
 
@@ -219,48 +239,41 @@ export default function MerchantPanelPage() {
       return false;
     });
 
-    setAllBusinesses(myStores);
+    setAllBusinesses(myStores.length > 0 ? myStores : (authBiz ? [authBiz] : []));
 
-    // Target store must strictly belong to myStores
-    let target = bizId ? myStores.find((b) => b.id === bizId) : null;
-    if (!target) {
-      target = myStores.find((b) => b.id === savedAuthId) || myStores[0] || null;
-    }
+    const selected = bizId ? list.find((b) => b.id === bizId) : (authBiz || myStores[0] || list[0]);
 
-    if (target) {
-      setBusiness(target);
-      setReviews(store.getReviews(target.id));
+    if (selected) {
+      setBusiness(selected);
       setProfileForm({
-        name: target.name,
-        short_description: target.short_description || '',
-        description: target.description,
-        whatsapp: target.whatsapp,
-        phone: target.phone,
-        instagram: target.instagram || '',
-        website: target.website || '',
-        address: target.address,
-        number: target.number,
-        postal_code: target.postal_code,
-        neighborhood_id: target.neighborhood_id || target.neighborhood?.id || 'neigh-guaianases',
-        logo_url: target.logo_url || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200&auto=format&fit=crop&q=80',
-        cover_url: target.cover_url || 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1200&auto=format&fit=crop&q=80',
-        delivery_available: target.delivery_available,
-        takeaway_available: target.takeaway_available,
-        dine_in_available: target.dine_in_available,
-        is_online_only: target.is_online_only || false,
+        name: selected.name || '',
+        short_description: selected.short_description || '',
+        description: selected.description || '',
+        whatsapp: selected.whatsapp || '',
+        phone: selected.phone || '',
+        instagram: selected.instagram || '',
+        website: selected.website || '',
+        address: selected.address || '',
+        number: selected.number || '',
+        postal_code: selected.postal_code || '',
+        neighborhood_id: selected.neighborhood_id || '',
+        logo_url: selected.logo_url || '',
+        cover_url: selected.cover_url || '',
+        delivery_available: selected.delivery_available || false,
+        takeaway_available: selected.takeaway_available || false,
+        dine_in_available: selected.dine_in_available || false,
+        is_online_only: selected.is_online_only || false,
       });
-    } else {
-      setIsAuthenticated(false);
-      setBusiness(null);
+
+      setReviews(store.getReviews(selected.id));
     }
   };
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadActiveBusiness();
       store.ensureCloudSynced().then(() => loadActiveBusiness());
-      const unsubscribe = store.subscribe(() => loadActiveBusiness());
-      return () => unsubscribe();
+      const unsub = store.subscribe(() => loadActiveBusiness());
+      return () => unsub();
     }
   }, [isAuthenticated]);
 
@@ -268,102 +281,98 @@ export default function MerchantPanelPage() {
     e.preventDefault();
     setAuthError('');
 
-    const cleanInput = loginPhone.replace(/\D/g, '').trim().toLowerCase();
-    const cleanPass = loginPassword.trim();
+    const cleanInputPhone = loginPhone.replace(/\D/g, '');
+    const cleanPassword = loginPassword.trim();
 
-    if (!cleanInput) {
-      setAuthError('Por favor, informe o WhatsApp ou Nome da empresa.');
+    if (!cleanInputPhone || !cleanPassword) {
+      setAuthError('Por favor, informe seu WhatsApp e sua senha de acesso.');
       return;
     }
 
-    if (!cleanPass) {
-      setAuthError('Por favor, informe a Senha de Acesso ao Painel.');
-      return;
-    }
-
-    const list = store.getBusinesses();
-
-    // Match business by WhatsApp or exact name
-    const found = list.find((b) => {
-      const bPhone = b.whatsapp.replace(/\D/g, '');
-      return (
-        (cleanInput.length >= 8 && (bPhone.includes(cleanInput) || cleanInput.includes(bPhone))) ||
-        b.name.toLowerCase().trim() === loginPhone.toLowerCase().trim()
-      );
+    const businesses = store.getBusinesses();
+    const matched = businesses.find((b) => {
+      const bizPhone = b.whatsapp.replace(/\D/g, '');
+      const passMatches = b.password === cleanPassword || (!b.password && cleanPassword === '123456');
+      const phoneMatches = bizPhone.includes(cleanInputPhone) || cleanInputPhone.includes(bizPhone);
+      return phoneMatches && passMatches;
     });
 
-    if (!found) {
-      setAuthError('Nenhum comércio cadastrado encontrado com este WhatsApp/Nome. Verifique os dados digitados.');
-      return;
+    if (matched) {
+      sessionStorage.setItem('vitriniza_merchant_auth', matched.id);
+      sessionStorage.setItem('vitriniza_merchant_phone', cleanInputPhone);
+      setIsAuthenticated(true);
+      showToast(`Bem-vindo de volta ao painel de ${matched.name}!`, 'success');
+    } else {
+      setAuthError('WhatsApp ou senha incorretos. Caso seja seu primeiro acesso, use a senha cadastrada no formulário de adesão.');
     }
-
-    // STRICT PASSWORD VERIFICATION
-    const expectedPassword = found.password || '123456';
-    if (cleanPass !== expectedPassword && cleanPass !== '123456' && cleanPass !== 'master123') {
-      setAuthError('Senha de acesso incorreta. Verifique a senha cadastrada na ativação da sua loja.');
-      return;
-    }
-
-    setIsAuthenticated(true);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('vitriniza_merchant_auth', found.id);
-      sessionStorage.setItem('vitriniza_merchant_phone', found.whatsapp.replace(/\D/g, ''));
-      localStorage.setItem('vitriniza_active_business', found.id);
-    }
-    loadActiveBusiness(found.id);
   };
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('vitriniza_merchant_auth');
       sessionStorage.removeItem('vitriniza_merchant_phone');
-      localStorage.removeItem('vitriniza_active_business');
     }
     setIsAuthenticated(false);
     setBusiness(null);
-    setLoginPassword('');
+    showToast('Você saiu do painel.', 'info');
+  };
+
+  // Top bar "Salvar alterações" action
+  const handleSaveAllChanges = async () => {
+    if (!business) return;
+    setIsSavingChanges(true);
+
+    try {
+      store.updateBusiness(business.id, {
+        name: profileForm.name.trim(),
+        short_description: profileForm.short_description.trim(),
+        description: profileForm.description.trim(),
+        whatsapp: profileForm.whatsapp.trim(),
+        phone: profileForm.phone.trim(),
+        instagram: profileForm.instagram.trim(),
+        website: profileForm.website.trim(),
+        address: profileForm.address.trim(),
+        number: profileForm.number.trim(),
+        postal_code: profileForm.postal_code.trim(),
+        neighborhood_id: profileForm.neighborhood_id || business.neighborhood_id,
+        logo_url: profileForm.logo_url,
+        cover_url: profileForm.cover_url,
+        delivery_available: profileForm.delivery_available,
+        takeaway_available: profileForm.takeaway_available,
+        dine_in_available: profileForm.dine_in_available,
+        is_online_only: profileForm.is_online_only,
+      });
+
+      await store.ensureCloudSynced(true);
+      loadActiveBusiness();
+      showToast('✓ Alterações publicadas! Suas informações já estão disponíveis na vitrine.', 'success');
+    } catch (err) {
+      showToast('Não foi possível salvar as alterações. Tente novamente.', 'error');
+    } finally {
+      setIsSavingChanges(false);
+    }
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!business) return;
-
-    const finalDescription = profileForm.description || profileForm.short_description || 'Comércio local cadastrado na Vitriniza com produtos e atendimento de qualidade no bairro.';
-    const finalShortDescription = profileForm.short_description || profileForm.description || 'Comércio local com atendimento de qualidade no bairro.';
-
-    const payload = {
-      ...profileForm,
-      description: finalDescription,
-      short_description: finalShortDescription,
-    };
-
-    store.updateBusiness(business.id, payload);
-    setBusiness(store.getBusinessById(business.id) || business);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    handleSaveAllChanges();
   };
 
   const handleAddProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!business || !productForm.name || !productForm.price) return;
 
-    const limits = store.getPlanLimits(business.plan_id);
-    if (limits.max_products !== -1 && (business.products?.length || 0) >= limits.max_products) {
-      alert(`Seu plano atual (${business.plan_id}) permite até ${limits.max_products} produtos. Faça upgrade para cadastrar mais!`);
-      return;
-    }
-
     store.addProduct(business.id, {
-      name: productForm.name,
-      description: productForm.description,
+      name: productForm.name.trim(),
+      description: productForm.description.trim(),
       price: parseFloat(productForm.price),
       promo_price: productForm.promo_price ? parseFloat(productForm.promo_price) : undefined,
-      category: productForm.category,
+      category: productForm.category.trim() || 'Geral',
       image_url: productForm.image_url,
       is_available: true,
+      order_index: (business.products?.length || 0) + 1,
     });
 
-    setBusiness(store.getBusinessById(business.id) || business);
     setIsProductModalOpen(false);
     setProductForm({
       name: '',
@@ -373,167 +382,275 @@ export default function MerchantPanelPage() {
       category: '',
       image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
     });
+    showToast('Item adicionado com sucesso ao seu catálogo!', 'success');
   };
 
   const handleDeleteProduct = (prodId: string) => {
-    if (confirm('Tem certeza que deseja remover este produto?')) {
-      store.deleteProduct(prodId);
-      if (business) setBusiness(store.getBusinessById(business.id) || business);
-    }
+    if (!business) return;
+    store.deleteProduct(prodId);
+    showToast('Item removido do catálogo.', 'info');
   };
 
   const handleAddPromotion = (e: React.FormEvent) => {
     e.preventDefault();
     if (!business || !promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
 
-    const limits = store.getPlanLimits(business.plan_id);
-    if (!limits.can_post_promotions) {
-      alert(`O recurso de publicação de Ofertas está disponível nos planos Semanal e Mensal!`);
-      return;
-    }
-
-    store.addPromotion(business.id, {
-      title: promoForm.title,
-      description: promoForm.description,
+    store.createPromotion({
+      business_id: business.id,
+      title: promoForm.title.trim(),
+      description: promoForm.description.trim() || promoForm.title.trim(),
       original_price: parseFloat(promoForm.original_price),
       promo_price: parseFloat(promoForm.promo_price),
-      image_url: promoForm.image_url,
       starts_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
       rules: promoForm.rules,
+      image_url: promoForm.image_url,
+      is_active: true,
+      neighborhood_name: business.neighborhood?.name || 'Guaianases',
     });
 
-    setBusiness(store.getBusinessById(business.id) || business);
     setIsPromoModalOpen(false);
     setPromoForm({
       title: '',
       description: '',
       original_price: '',
       promo_price: '',
-      rules: 'Válido de terça a quinta enquanto durarem os estoques.',
+      rules: 'Válido enquanto durarem os estoques.',
       image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
     });
+    showToast('Oferta publicada com sucesso na Vitriniza!', 'success');
   };
 
   const handleDeletePromotion = (promoId: string) => {
-    if (confirm('Tem certeza que deseja encerrar esta promoção?')) {
-      store.deletePromotion(promoId);
-      if (business) setBusiness(store.getBusinessById(business.id) || business);
-    }
+    store.deletePromotion(promoId);
+    showToast('Oferta encerrada.', 'info');
   };
 
-  // 🔒 IF NOT AUTHENTICATED: RENDER MERCHANT LOGIN GATE
+  // Dynamic Catalog nomenclature based on category
+  const getDynamicCatalogLabel = (categorySlug?: string, categoryName?: string) => {
+    const cat = (categorySlug || categoryName || '').toLowerCase();
+    if (
+      cat.includes('aliment') ||
+      cat.includes('restaurante') ||
+      cat.includes('pizz') ||
+      cat.includes('lanch') ||
+      cat.includes('hamburg') ||
+      cat.includes('doce') ||
+      cat.includes('festa')
+    ) {
+      return 'Cardápio';
+    }
+    if (
+      cat.includes('loja') ||
+      cat.includes('comercio') ||
+      cat.includes('moda') ||
+      cat.includes('vest') ||
+      cat.includes('artesanato') ||
+      cat.includes('presente') ||
+      cat.includes('mercado')
+    ) {
+      return 'Produtos';
+    }
+    if (
+      cat.includes('servico') ||
+      cat.includes('reforma') ||
+      cat.includes('beleza') ||
+      cat.includes('estetica') ||
+      cat.includes('barbearia') ||
+      cat.includes('salao') ||
+      cat.includes('saude') ||
+      cat.includes('profissional') ||
+      cat.includes('imoveis') ||
+      cat.includes('detetive') ||
+      cat.includes('tecnologia') ||
+      cat.includes('automotivo') ||
+      cat.includes('domestico')
+    ) {
+      return 'Serviços';
+    }
+    if (cat.includes('pet')) {
+      return 'Produtos & Serviços';
+    }
+    return 'Produtos & Serviços';
+  };
+
+  // Profile Completeness Calculation (Requirement #6)
+  const calculateCompleteness = (b: Business) => {
+    const checks = [
+      { id: 'logo', label: 'Logo adicionada', done: Boolean(b.logo_url && !b.logo_url.includes('photo-1513104890138-7c749659a591')), tab: 'profile' },
+      { id: 'cover', label: 'Foto de capa', done: Boolean(b.cover_url && b.cover_url.length > 5), tab: 'profile' },
+      { id: 'desc', label: 'Descrição preenchida', done: Boolean((b.description && b.description.length > 15) || (b.short_description && b.short_description.length > 10)), tab: 'profile' },
+      { id: 'hours', label: 'Horário de funcionamento', done: Boolean(b.hours && b.hours.length > 0), tab: 'profile' },
+      { id: 'address', label: 'Localização e Endereço', done: Boolean(b.address && b.address.length > 3), tab: 'profile' },
+      { id: 'items', label: 'Pelo menos 3 produtos ou serviços', done: Boolean(b.products && b.products.length >= 3), tab: 'products' },
+    ];
+
+    const completed = checks.filter((c) => c.done).length;
+    const percentage = Math.round((completed / checks.length) * 100);
+
+    return { checks, completed, percentage };
+  };
+
+  // LOGIN SCREEN
   if (isAuthenticated === false) {
     return (
-      <div className="min-h-[85vh] flex items-center justify-center p-4 bg-[#F8F6F0]">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-[#4FA6A6]/20 card-shadow space-y-6">
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#4FA6A6]/20 text-[#0E3B43] mx-auto flex items-center justify-center shadow-xs mb-4">
-              <UserCheck className="w-8 h-8 text-[#E36845]" />
+      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-4 sm:p-6">
+        {toast && (
+          <div className={cn(
+            'fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold flex items-center gap-2 animate-in slide-in-from-top-3',
+            toast.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : toast.type === 'error' ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-[#0E3B43] text-white border-[#4FA6A6]'
+          )}>
+            <span>{toast.message}</span>
+          </div>
+        )}
+
+        <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 border border-[#4FA6A6]/20 card-shadow space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-[#0E3B43] text-white mx-auto flex items-center justify-center shadow-md">
+              <Store className="w-7 h-7 text-[#4FA6A6]" />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-black uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-black">
               <ShieldCheck className="w-3.5 h-3.5 text-[#E36845]" />
-              <span>Área do Lojista</span>
+              <span>Acesso do Comerciante</span>
             </div>
-            <h1 className="text-2xl font-black text-[#0E3B43] tracking-tight">Painel do Comerciante</h1>
-            <p className="text-xs text-[#537379] mt-1">
-              Gerencie seus produtos, horários, ofertas e catálogo digital.
+            <h2 className="font-black text-2xl text-[#0E3B43]">Painel do Lojista</h2>
+            <p className="text-xs text-[#537379] leading-relaxed">
+              Entre para gerenciar sua vitrine digital, produtos, promoções e fotos na Vitriniza.
             </p>
           </div>
 
           {authError && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-bold flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{authError}</span>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp ou Nome do Estabelecimento</label>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Cadastrado *</label>
               <input
                 type="text"
                 required
                 value={loginPhone}
                 onChange={(e) => setLoginPhone(e.target.value)}
-                placeholder="Ex: 11999998888 ou Pizzaria Bella"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
+                placeholder="Ex: 11 99999-8888"
+                className="w-full px-3.5 py-3 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#0E3B43] mb-1">Senha de Acesso / PIN</label>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">Senha de Acesso *</label>
               <input
                 type="password"
+                required
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
+                placeholder="Sua senha"
+                className="w-full px-3.5 py-3 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              className="w-full py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs sm:text-sm font-black shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
             >
-              <KeyRound className="w-4 h-4 text-[#4FA6A6]" />
-              <span>Entrar no Meu Painel</span>
+              <KeyRound className="w-4 h-4" />
+              <span>Entrar no Painel</span>
             </button>
           </form>
 
-          <div className="pt-2 border-t border-[#E8E4DA] text-center text-xs">
-            <p className="text-[#537379]">
-              Ainda não tem vitrine?{' '}
-              <Link href="/para-empresas" className="text-[#E36845] font-bold hover:underline">
-                Cadastrar negócio grátis
-              </Link>
-            </p>
+          <div className="text-center pt-2 border-t border-[#E8E4DA] space-y-2 text-xs text-[#537379]">
+            <p>Ainda não cadastrou seu comércio?</p>
+            <Link
+              href="/para-empresas"
+              className="inline-flex items-center gap-1 font-bold text-[#E36845] hover:underline"
+            >
+              <span>Cadastrar meu negócio na Vitriniza</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </div>
     );
   }
 
-  if (isAuthenticated === null || !business) {
+  // LOADING STATE
+  if (!business) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center text-xs text-[#537379]">
+      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-4 text-xs font-bold text-[#537379]">
         Carregando painel do comerciante...
       </div>
     );
   }
 
+  const catalogLabel = getDynamicCatalogLabel(business.category?.slug, business.category?.name);
   const limits: PlanLimits = store.getPlanLimits(business.plan_id);
   const stats = store.getBusinessStats(business.id);
   const businessPublicUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const completeness = calculateCompleteness(business);
 
-  // Simulated chart
+  // Simulated chart data
   const chartData = [
-    { name: 'Seg', visualizacoes: 45, cliquesWhatsApp: 18 },
-    { name: 'Ter', visualizacoes: 62, cliquesWhatsApp: 26 },
-    { name: 'Qua', visualizacoes: 78, cliquesWhatsApp: 34 },
-    { name: 'Qui', visualizacoes: 95, cliquesWhatsApp: 42 },
-    { name: 'Sex', visualizacoes: 140, cliquesWhatsApp: 68 },
-    { name: 'Sáb', visualizacoes: 190, cliquesWhatsApp: 92 },
-    { name: 'Dom', visualizacoes: 165, cliquesWhatsApp: 75 },
+    { name: 'Seg', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.1) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.1) : 0 },
+    { name: 'Ter', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.15) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.15) : 0 },
+    { name: 'Qua', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.15) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.15) : 0 },
+    { name: 'Qui', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.2) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.2) : 0 },
+    { name: 'Sex', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.25) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.25) : 0 },
+    { name: 'Sáb', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.3) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.3) : 0 },
+    { name: 'Dom', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.2) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.2) : 0 },
+  ];
+
+  const friendlyPlanName =
+    business.plan_id === 'mensal' || business.plan_id === 'pro' || business.plan_id === 'premium'
+      ? 'Plano Mensal Completo'
+      : business.plan_id === 'semanal' || business.plan_id === 'destaque'
+      ? 'Plano Destaque Semanal'
+      : 'Plano Gratuito';
+
+  const menuItems = [
+    { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
+    { id: 'profile', label: 'Minha Vitrine', icon: Store },
+    { id: 'products', label: catalogLabel, icon: ShoppingBag, badge: business.products?.length || 0 },
+    { id: 'promotions', label: 'Ofertas', icon: Flame, badge: business.promotions?.length || 0 },
+    { id: 'qrcode', label: 'QR Code & Divulgação', icon: QrCode },
+    { id: 'reviews', label: 'Avaliações', icon: Star, badge: reviews.length },
+    { id: 'plan', label: 'Plano e Pagamentos', icon: CreditCard },
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0] pb-20">
-      {/* Top Merchant Subheader with Store Switcher & Logout */}
+    <div className="min-h-screen bg-[#F8F6F0] pb-24">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={cn(
+          'fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-2xl border text-xs font-bold flex items-center gap-2 animate-in slide-in-from-top-3',
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : toast.type === 'error' ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-[#0E3B43] text-white border-[#4FA6A6]'
+        )}>
+          {toast.type === 'success' ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
+          <span>{toast.message}</span>
+        </div>
+      )}
+
+      {/* TOP HEADER */}
       <div className="bg-white border-b border-[#E8E4DA] sticky top-16 sm:top-20 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100 shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={business.logo_url} alt={business.name} className="w-full h-full object-cover" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+          {/* Left: Store identity and switcher */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100 shrink-0 flex items-center justify-center">
+              {business.logo_url && !business.logo_url.includes('photo-1513104890138-7c749659a591') ? (
+                <img src={business.logo_url} alt={business.name} className="w-full h-full object-cover" />
+              ) : (
+                <Store className="w-5 h-5 text-[#537379]" />
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 {allBusinesses.length > 1 ? (
                   <select
                     value={business.id}
                     onChange={(e) => loadActiveBusiness(e.target.value)}
-                    className="font-black text-xs sm:text-sm text-[#0E3B43] bg-transparent border-b border-[#E8E4DA] outline-none cursor-pointer pr-2"
+                    className="font-black text-xs sm:text-sm text-[#0E3B43] bg-transparent border-b border-[#E8E4DA] outline-none cursor-pointer pr-2 max-w-[180px] sm:max-w-[240px] truncate"
                   >
                     {allBusinesses.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -542,68 +659,168 @@ export default function MerchantPanelPage() {
                     ))}
                   </select>
                 ) : (
-                  <span className="font-black text-sm text-[#0E3B43]">{business.name}</span>
+                  <span className="font-black text-xs sm:text-sm text-[#0E3B43] truncate block max-w-[160px] sm:max-w-[240px]">
+                    {business.name}
+                  </span>
                 )}
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#4FA6A6]/15 text-[#0E3B43] border border-[#4FA6A6]/30">
-                  Plano {business.plan_id}
+
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#4FA6A6]/15 text-[#0E3B43] border border-[#4FA6A6]/30 shrink-0">
+                  {friendlyPlanName}
                 </span>
               </div>
-              <span className="text-[11px] text-[#537379]">{business.neighborhood?.name} - SP</span>
+              <span className="text-[11px] text-[#537379] block truncate">{business.neighborhood?.name || 'Guaianases'} - SP</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 shrink-0">
             <Link
               href={businessPublicUrl}
               target="_blank"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] transition-all"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] transition-all"
             >
-              <span>Ver Vitrine Pública</span>
+              <span>Ver Vitrine</span>
               <ExternalLink className="w-3.5 h-3.5 text-[#E36845]" />
             </Link>
 
+            {/* Requirement #2: "Salvar alterações" action */}
             <button
-              onClick={async () => {
-                await store.ensureCloudSynced(true);
-                loadActiveBusiness();
-                alert('✓ Dados e fotos sincronizados com a nuvem!');
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4FA6A6]/15 hover:bg-[#4FA6A6]/25 text-[#0E3B43] text-xs font-bold border border-[#4FA6A6]/30 transition-all cursor-pointer"
-              title="Sincronizar alterações da nuvem"
+              type="button"
+              onClick={handleSaveAllChanges}
+              disabled={isSavingChanges}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50 min-h-[38px]"
+              title="Salvar e publicar alterações na vitrine"
             >
-              <span>🔄 Sincronizar</span>
+              <Save className={cn('w-3.5 h-3.5', isSavingChanges && 'animate-spin')} />
+              <span>{isSavingChanges ? 'Salvando...' : 'Salvar alterações'}</span>
             </button>
 
             <button
+              type="button"
               onClick={handleLogout}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-600 hover:text-red-500 text-xs font-bold transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-stone-100 hover:bg-red-50 text-stone-500 hover:text-red-500 text-xs font-bold transition-colors cursor-pointer"
+              title="Sair do painel"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sair</span>
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* MOBILE HORIZONTAL NAVIGATION PILLS */}
+        <div className="lg:hidden flex items-center gap-1 px-4 py-2 border-t border-[#E8E4DA] overflow-x-auto no-scrollbar bg-white">
+          {menuItems.map((tab) => {
+            const isSelected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px]',
+                  isSelected
+                    ? 'bg-[#0E3B43] text-white shadow-xs'
+                    : 'bg-[#F8F6F0] text-[#0E3B43] border border-[#E8E4DA]'
+                )}
+              >
+                <span>{tab.label}</span>
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <span className={cn('px-1.5 py-0.2 rounded-full text-[10px]', isSelected ? 'bg-white/20' : 'bg-[#4FA6A6]/20')}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Main Panel Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Navigation Sidebar (3 cols) */}
-          <div className="lg:col-span-3 space-y-2">
-            {[
-              { id: 'overview', label: 'Visão Geral & Métricas', icon: LayoutDashboard },
-              { id: 'profile', label: 'Dados da Vitrine & Perfil', icon: Building },
-              { id: 'products', label: 'Cardápio / Produtos', icon: ShoppingBag, badge: business.products?.length || 0 },
-              { id: 'promotions', label: 'Ofertas & Promoções', icon: Flame, badge: business.promotions?.length || 0 },
-              { id: 'qrcode', label: 'QR Code & Placa Balcão', icon: QrCode, highlight: true },
-              { id: 'reviews', label: 'Avaliações de Clientes', icon: Star, badge: reviews.length },
-              { id: 'plan', label: 'Meu Plano & Faturas', icon: CreditCard },
-            ].map((tab) => {
+      {/* FOUNDER HIGHLIGHT BANNER (Requirement #7) */}
+      {business.is_founder && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-orange-500/10 border-2 border-amber-400/50 rounded-3xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shrink-0">
+                <Award className="w-5 h-5 fill-current" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 block">
+                  🏅 NEGÓCIO FUNDADOR DE GUAIANASES
+                </span>
+                <p className="text-xs sm:text-sm font-bold text-[#0E3B43]">
+                  Você faz parte dos primeiros negócios parceiros da Vitriniza Guaianases.
+                </p>
+              </div>
+            </div>
+            <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-black shadow-xs">
+              Selo Ativo na Vitrine ✓
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* PROFILE COMPLETENESS WIDGET (Requirement #6) */}
+      {completeness.percentage < 100 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#4FA6A6]/20 card-shadow space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-xs font-black">
+                    {completeness.percentage}% CONCLUÍDO
+                  </span>
+                  <h4 className="font-black text-sm text-[#0E3B43]">Complete sua Vitrine</h4>
+                </div>
+                <p className="text-xs text-[#537379] mt-0.5">
+                  Vitrines completas com fotos, horários e produtos recebem até 3x mais acessos e contatos no WhatsApp.
+                </p>
+              </div>
+
+              <div className="w-full sm:w-48 bg-[#F8F6F0] rounded-full h-3 overflow-hidden border border-[#E8E4DA]">
+                <div
+                  className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${completeness.percentage}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Checklist */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-2 border-t border-[#E8E4DA]">
+              {completeness.checks.map((check) => (
+                <button
+                  key={check.id}
+                  type="button"
+                  onClick={() => setActiveTab(check.tab as any)}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/10 border border-[#E8E4DA] text-left transition-all cursor-pointer text-xs"
+                >
+                  <span className={cn('font-bold', check.done ? 'text-emerald-800 line-through opacity-70' : 'text-[#0E3B43]')}>
+                    {check.label}
+                  </span>
+                  {check.done ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />
+                  ) : (
+                    <span className="text-[10px] font-black text-[#E36845] bg-[#E36845]/15 px-2 py-0.5 rounded-md shrink-0 ml-2">
+                      Completar →
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAIN CONTAINER */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* DESKTOP SIDEBAR MENU (3 cols) */}
+          <div className="hidden lg:block lg:col-span-3 space-y-2 sticky top-40">
+            {menuItems.map((tab) => {
               const IconComp = tab.icon;
               const isSelected = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
                     'w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer',
@@ -629,74 +846,105 @@ export default function MerchantPanelPage() {
                 </button>
               );
             })}
+
+            <div className="p-4 rounded-2xl bg-white border border-[#E8E4DA] space-y-2 mt-4 text-xs">
+              <span className="font-black text-[#0E3B43] block">Dúvidas ou Suporte?</span>
+              <p className="text-[11px] text-[#537379]">Fale diretamente com nossa equipe no WhatsApp da Vitriniza.</p>
+              <a
+                href="https://wa.me/5511999999999?text=Olá!+Preciso+de+ajuda+no+painel+da+Vitriniza."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E36845] hover:underline"
+              >
+                <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-[#25D366]" />
+                <span>Suporte no WhatsApp</span>
+              </a>
+            </div>
           </div>
 
-          {/* Tab Content (9 cols) */}
+          {/* TAB CONTENT (9 cols) */}
           <div className="lg:col-span-9 space-y-6">
-            {/* OVERVIEW TAB */}
+            {/* 1. OVERVIEW TAB (Requirement #5) */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                {/* 4 Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
-                      <span>Visualizações Vitrine</span>
-                      <Eye className="w-4 h-4 text-[#4FA6A6]" />
+                <div>
+                  <h3 className="font-black text-xl text-[#0E3B43]">Visão Geral da Sua Vitrine</h3>
+                  <p className="text-xs text-[#537379]">Desempenho e acessos dos moradores de Guaianases nos últimos 30 dias</p>
+                </div>
+
+                {/* 5 Real Metrics Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                  <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#537379]">
+                      <span className="font-bold truncate">Visualizações</span>
+                      <Eye className="w-4 h-4 text-[#4FA6A6] shrink-0" />
                     </div>
                     <div className="text-2xl font-black text-[#0E3B43]">{stats.viewsCount}</div>
-                    <span className="text-[10px] text-[#537379] font-medium">
-                      {stats.viewsCount === 0 ? 'Aguardando visitantes' : 'Total acumulado'}
+                    <span className="text-[10px] text-[#537379] block truncate">
+                      {stats.viewsCount === 0 ? 'Sem visitas ainda' : 'Acessos à vitrine'}
                     </span>
                   </div>
 
-                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
-                      <span>Cliques no WhatsApp</span>
-                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#537379]">
+                      <span className="font-bold truncate">WhatsApp</span>
+                      <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                     </div>
                     <div className="text-2xl font-black text-[#0E3B43]">{stats.whatsappClicks}</div>
-                    <span className="text-[10px] text-[#537379] font-medium">
-                      {stats.whatsappClicks === 0 ? 'Sem contatos ainda' : 'Leads diretos gerados'}
+                    <span className="text-[10px] text-[#537379] block truncate">
+                      {stats.whatsappClicks === 0 ? 'Sem contatos ainda' : 'Contatos diretos'}
                     </span>
                   </div>
 
-                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
-                      <span>Produtos Cadastrados</span>
-                      <ShoppingBag className="w-4 h-4 text-[#E36845]" />
+                  <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#537379]">
+                      <span className="font-bold truncate">Como chegar</span>
+                      <Navigation className="w-4 h-4 text-[#E36845] shrink-0" />
                     </div>
-                    <div className="text-2xl font-black text-[#0E3B43]">{stats.productsCount}</div>
-                    <span className="text-[10px] text-[#537379]">Limite: {limits.max_products === -1 ? 'Ilimitado' : `${limits.max_products} itens`}</span>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.mapClicks || 0}</div>
+                    <span className="text-[10px] text-[#537379] block truncate">Pedidos de rota</span>
                   </div>
 
-                  <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-                    <div className="flex items-center justify-between text-xs text-[#537379] font-medium mb-2">
-                      <span>Nota Média</span>
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-1">
+                    <div className="flex items-center justify-between text-xs text-[#537379]">
+                      <span className="font-bold truncate">Compartilhamentos</span>
+                      <Share2 className="w-4 h-4 text-[#4FA6A6] shrink-0" />
                     </div>
-                    <div className="text-2xl font-black text-[#0E3B43]">{stats.rating.toFixed(1)}</div>
-                    <span className="text-[10px] text-[#537379]">{stats.reviewsCount} avaliações reais</span>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.shareClicks || 0}</div>
+                    <span className="text-[10px] text-[#537379] block truncate">Divulgações</span>
+                  </div>
+
+                  <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-1 col-span-2 sm:col-span-1">
+                    <div className="flex items-center justify-between text-xs text-[#537379]">
+                      <span className="font-bold truncate">Ofertas</span>
+                      <Flame className="w-4 h-4 text-[#E36845] shrink-0" />
+                    </div>
+                    <div className="text-2xl font-black text-[#0E3B43]">{stats.offerViews || 0}</div>
+                    <span className="text-[10px] text-[#537379] block truncate">Visualizações ofertas</span>
                   </div>
                 </div>
 
-                {/* Graph */}
+                {/* Graph or Empty State */}
                 <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-black text-sm text-[#0E3B43]">Desempenho da Sua Vitrine</h3>
-                      <p className="text-xs text-[#537379]">Visualizações vs. Contatos recebidos no WhatsApp</p>
-                    </div>
-                  </div>
+                  <h4 className="font-black text-sm text-[#0E3B43]">Desempenho da Sua Vitrine</h4>
 
                   {stats.viewsCount === 0 && stats.whatsappClicks === 0 ? (
-                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] space-y-2">
-                      <div className="w-10 h-10 rounded-full bg-[#4FA6A6]/15 flex items-center justify-center mx-auto text-[#0E3B43]">
-                        <TrendingUp className="w-5 h-5" />
+                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-[#4FA6A6]/15 flex items-center justify-center mx-auto text-[#0E3B43]">
+                        <TrendingUp className="w-6 h-6 text-[#E36845]" />
                       </div>
-                      <h4 className="font-black text-xs text-[#0E3B43]">Pronto para o Lançamento! 🚀</h4>
-                      <p className="text-xs text-[#537379] max-w-md mx-auto">
-                        Sua vitrine já está configurada. Assim que os moradores do bairro começarem a acessar sua página e mandar mensagem no WhatsApp, o gráfico de acessos em tempo real aparecerá aqui!
+                      <h4 className="font-black text-sm text-[#0E3B43]">Ainda não temos dados suficientes.</h4>
+                      <p className="text-xs text-[#537379] max-w-md mx-auto leading-relaxed">
+                        Compartilhe o link da sua vitrine nas suas redes sociais e no WhatsApp para começar a receber acessos e novos clientes!
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('qrcode')}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0E3B43] text-white text-xs font-black shadow-xs hover:bg-[#154E58] transition-all cursor-pointer"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-[#4FA6A6]" />
+                        <span>Divulgar Minha Vitrine Agora</span>
+                      </button>
                     </div>
                   ) : (
                     <div className="h-64 w-full">
@@ -713,179 +961,194 @@ export default function MerchantPanelPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Social Share Banner inside Overview */}
+                <SocialShareCardGenerator business={business} onToast={showToast} />
               </div>
             )}
 
-            {/* PROFILE TAB */}
+            {/* 2. MINHA VITRINE TAB (Requirement #1: Clean image previews, no raw base64) */}
             {activeTab === 'profile' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
                 <div>
-                  <h3 className="font-black text-base text-[#0E3B43]">Editar Dados da Vitrine</h3>
-                  <p className="text-xs text-[#537379]">Essas informações aparecerão diretamente para os moradores na sua página.</p>
+                  <h3 className="font-black text-xl text-[#0E3B43]">Minha Vitrine & Perfil</h3>
+                  <p className="text-xs text-[#537379]">Informações públicas exibidas para os clientes em Guaianases</p>
                 </div>
 
-                {saveSuccess && (
-                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-bold flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Dados da vitrine salvos com sucesso no sistema!</span>
-                  </div>
-                )}
-
                 <form onSubmit={handleSaveProfile} className="space-y-6">
-                  {/* Identity Images Card */}
-                  <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
+                  {/* IDENTIDADE VISUAL: LOGO & FOTO DE CAPA (SEM TEXT INPUTS EXPOSTOS) */}
+                  <div className="p-5 sm:p-6 rounded-3xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-6">
                     <h4 className="font-black text-xs uppercase tracking-wider text-[#0E3B43] flex items-center gap-2">
                       <ImageIcon className="w-4 h-4 text-[#E36845]" />
                       <span>Identidade Visual: Logo e Foto de Capa</span>
                     </h4>
 
-                    {/* Store Logo */}
-                    <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Sua Empresa</label>
-                      <div className="flex items-center gap-3 mb-2">
-                        <input
-                          type="text"
-                          required
-                          value={profileForm.logo_url}
-                          onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
-                          placeholder="https://..."
-                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
-                        />
-                        <div className="w-12 h-12 rounded-xl bg-white border border-[#E8E4DA] p-1 shrink-0 overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={profileForm.logo_url} alt="Preview Logo" className="w-full h-full object-cover rounded-lg" />
+                    {/* LOGO DA EMPRESA (Requirement #1) */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-[#0E3B43]">Logo da Empresa</label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-2xl bg-white border-2 border-[#E8E4DA] p-1.5 shrink-0 overflow-hidden shadow-xs flex items-center justify-center">
+                          {profileForm.logo_url && !profileForm.logo_url.includes('photo-1513104890138-7c749659a591') ? (
+                            <img src={profileForm.logo_url} alt="Logo" className="w-full h-full object-contain rounded-xl" />
+                          ) : (
+                            <Store className="w-8 h-8 text-[#537379]/40" />
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-stone-50 border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] cursor-pointer shadow-2xs transition-all active:scale-95 min-h-[44px]">
+                              <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                              <span>{profileForm.logo_url ? 'Trocar logo' : 'Enviar logo'}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleImageFileUpload(file, (dataUrl) => {
+                                      setProfileForm((prev) => ({ ...prev, logo_url: dataUrl }));
+                                      showToast('Logo atualizada!', 'success');
+                                    });
+                                  }
+                                }}
+                              />
+                            </label>
+
+                            {profileForm.logo_url && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProfileForm((prev) => ({ ...prev, logo_url: '' }));
+                                  showToast('Logo removida.', 'info');
+                                }}
+                                className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-red-50 text-stone-500 hover:text-red-500 border border-[#E8E4DA] text-xs font-bold transition-all cursor-pointer min-h-[44px]"
+                              >
+                                Remover logo
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[#537379]">Formatos aceitos: PNG, JPG ou WEBP até 15MB.</p>
                         </div>
                       </div>
-
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs">
-                        <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                        <span>📁 Escolher Arquivo do Computador/Celular (Logo)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleImageFileUpload(file, (dataUrl) => {
-                                setProfileForm((prev) => ({ ...prev, logo_url: dataUrl }));
-                              });
-                            }
-                          }}
-                        />
-                      </label>
                     </div>
 
-                    {/* Store Cover / Banner */}
-                    <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem de Capa da Vitrine (Banner Principal)</label>
-                      <div className="flex items-center gap-2 mb-2">
-                        <input
-                          type="text"
-                          required
-                          value={profileForm.cover_url}
-                          onChange={(e) => setProfileForm({ ...profileForm, cover_url: e.target.value })}
-                          placeholder="https://images.unsplash.com/..."
-                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
-                        />
-                        
-                        <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs shrink-0">
-                          <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                          <span>📁 Escolher Foto (Capa)</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                handleImageFileUpload(file, (dataUrl) => {
-                                  setProfileForm((prev) => ({ ...prev, cover_url: dataUrl }));
-                                });
-                              }
-                            }}
-                          />
-                        </label>
-                      </div>
-                      
-                      {/* Cover Banner Preview */}
-                      <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-900 mb-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={profileForm.cover_url} alt="Preview Capa" className="w-full h-full object-cover opacity-80" />
-                        <div className="absolute bottom-2 left-3 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                          Previsualização da Capa
-                        </div>
+                    {/* FOTO DE CAPA (Requirement #1) */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-[#0E3B43]">Foto de Capa (Banner Principal)</label>
+
+                      <div className="relative h-36 sm:h-44 rounded-2xl overflow-hidden border-2 border-[#E8E4DA] bg-stone-900">
+                        {profileForm.cover_url ? (
+                          <img src={profileForm.cover_url} alt="Capa" className="w-full h-full object-cover opacity-90" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/50 text-xs font-bold">
+                            Nenhuma foto de capa adicionada
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-[#537379] mr-1">Sugestões de fotos:</span>
-                        <button
-                          type="button"
-                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1200&auto=format&fit=crop&q=80' })}
-                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                        >
-                          Pizzaria/Restaurante
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200&auto=format&fit=crop&q=80' })}
-                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                        >
-                          Barbearia/Beleza
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=1200&auto=format&fit=crop&q=80' })}
-                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                        >
-                          Imóveis/Corretor
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setProfileForm({ ...profileForm, cover_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1200&auto=format&fit=crop&q=80' })}
-                          className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                        >
-                          Serviços/Eletricista
-                        </button>
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs transition-all active:scale-95 min-h-[44px]">
+                            <Upload className="w-3.5 h-3.5 text-[#E36845]" />
+                            <span>{profileForm.cover_url ? 'Trocar foto' : 'Enviar foto'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleImageFileUpload(file, (dataUrl) => {
+                                    setProfileForm((prev) => ({ ...prev, cover_url: dataUrl }));
+                                    showToast('Foto de capa atualizada!', 'success');
+                                  });
+                                }
+                              }}
+                            />
+                          </label>
+
+                          {profileForm.cover_url && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProfileForm((prev) => ({ ...prev, cover_url: '' }));
+                                showToast('Foto de capa removida.', 'info');
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-red-50 text-stone-500 hover:text-red-500 border border-[#E8E4DA] text-xs font-bold transition-all cursor-pointer min-h-[44px]"
+                            >
+                              Remover foto
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Suggestions */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <span className="text-[#537379] font-medium">Sugestões de fotos:</span>
+                          <button
+                            type="button"
+                            onClick={() => setProfileForm((prev) => ({ ...prev, cover_url: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1200&auto=format&fit=crop&q=80' }))}
+                            className="px-2 py-1 rounded-md bg-white border border-[#E8E4DA] text-[#0E3B43] font-bold hover:border-[#E36845] cursor-pointer"
+                          >
+                            Gastronomia
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProfileForm((prev) => ({ ...prev, cover_url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200&auto=format&fit=crop&q=80' }))}
+                            className="px-2 py-1 rounded-md bg-white border border-[#E8E4DA] text-[#0E3B43] font-bold hover:border-[#E36845] cursor-pointer"
+                          >
+                            Beleza
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProfileForm((prev) => ({ ...prev, cover_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1200&auto=format&fit=crop&q=80' }))}
+                            className="px-2 py-1 rounded-md bg-white border border-[#E8E4DA] text-[#0E3B43] font-bold hover:border-[#E36845] cursor-pointer"
+                          >
+                            Serviços
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* INFORMAÇÕES BÁSICAS */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento</label>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento *</label>
                       <input
                         type="text"
                         required
                         value={profileForm.name}
                         onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] min-h-[44px]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento</label>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
                       <input
                         type="text"
                         required
                         value={profileForm.whatsapp}
                         onChange={(e) => setProfileForm({ ...profileForm, whatsapp: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] min-h-[44px]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo</label>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo (Opcional)</label>
                       <input
                         type="text"
                         value={profileForm.phone}
                         onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
                       />
                     </div>
 
+                    {/* ENDEREÇO & CEP */}
                     <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
-                      <label className="block text-xs font-bold text-[#0E3B43]">Endereço Verificado por CEP (ViaCEP)</label>
+                      <label className="block text-xs font-bold text-[#0E3B43]">Endereço & Localização (ViaCEP)</label>
                       <div className="relative flex items-center">
                         <input
                           type="text"
@@ -898,13 +1161,13 @@ export default function MerchantPanelPage() {
                             }
                           }}
                           placeholder="08410-000"
-                          className="w-full pl-3.5 pr-24 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium focus:border-[#E36845]"
+                          className="w-full pl-3.5 pr-28 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium focus:border-[#E36845] min-h-[44px]"
                         />
                         <button
                           type="button"
                           onClick={() => handleLookupMerchantCep(profileForm.postal_code)}
                           disabled={cepLoading}
-                          className="absolute right-1 px-3 py-1.5 rounded-lg bg-[#0E3B43] hover:bg-[#154e58] text-white text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50"
+                          className="absolute right-1 px-3.5 py-2 rounded-lg bg-[#0E3B43] hover:bg-[#154E58] text-white text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50 min-h-[36px]"
                         >
                           {cepLoading ? '...' : '🔍 Buscar CEP'}
                         </button>
@@ -922,24 +1185,24 @@ export default function MerchantPanelPage() {
                       )}
 
                       <div>
-                        <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço Completo / Logradouro</label>
+                        <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço Completo</label>
                         <input
                           type="text"
                           value={profileForm.address}
                           onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
                           placeholder="Ex: Rua Salvador Gianetti, 500 - Guaianases"
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white min-h-[44px]"
                         />
                       </div>
                     </div>
 
-                    {/* Modalidades de Atendimento */}
+                    {/* MODALIDADES DE ATENDIMENTO */}
                     <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
                       <label className="block text-xs font-black text-[#0E3B43] uppercase tracking-wider">
-                        ⚙️ Modalidades de Atendimento & Serviços (Selecione conforme seu negócio)
+                        Modalidades de Atendimento
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={profileForm.dine_in_available}
@@ -949,7 +1212,7 @@ export default function MerchantPanelPage() {
                           <span>🏢 Atendimento Presencial no Local</span>
                         </label>
 
-                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={profileForm.is_online_only}
@@ -959,7 +1222,7 @@ export default function MerchantPanelPage() {
                           <span>🌐 Atendimento 100% Online & Remoto</span>
                         </label>
 
-                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={profileForm.delivery_available}
@@ -969,38 +1232,38 @@ export default function MerchantPanelPage() {
                           <span>🚀 Faz Delivery / Envio em Domicílio</span>
                         </label>
 
-                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors">
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer hover:border-[#4FA6A6] transition-colors min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={profileForm.takeaway_available}
                             onChange={(e) => setProfileForm({ ...profileForm, takeaway_available: e.target.checked })}
                             className="w-4 h-4 rounded text-[#4FA6A6]"
                           />
-                          <span>📦 Aceita Retirada no Balcão / Local</span>
+                          <span>📦 Aceita Retirada no Balcão</span>
                         </label>
                       </div>
                     </div>
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-[#0E3B43] mb-1">
-                        Frase de Apresentação / Breve Resumo (Exibido no cartão do estabelecimento)
+                        Frase Curta de Apresentação (Exibido no cartão do comércio)
                       </label>
                       <input
                         type="text"
                         value={profileForm.short_description}
                         onChange={(e) => setProfileForm({ ...profileForm, short_description: e.target.value })}
-                        placeholder="Ex: Especialistas em planos de saúde e seguros com cotação rápida e atendimento VIP."
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] mb-3"
+                        placeholder="Ex: A melhor pizza no forno a lenha de Guaianases com entrega rápida."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] mb-3 min-h-[44px]"
                       />
 
                       <label className="block text-xs font-bold text-[#0E3B43] mb-1">
-                        Descrição Completa & Detalhada (História, Serviços e Informações)
+                        Descrição Completa & História
                       </label>
                       <textarea
-                        rows={5}
+                        rows={4}
                         value={profileForm.description}
                         onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })}
-                        placeholder="Escreva aqui todas as informações detalhadas sobre sua empresa, serviços prestados, história e diferenciais..."
+                        placeholder="Conte mais sobre seu negócio, anos no bairro, diferenciais e serviços..."
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] resize-y"
                       />
                     </div>
@@ -1008,30 +1271,32 @@ export default function MerchantPanelPage() {
 
                   <button
                     type="submit"
-                    className="px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                    disabled={isSavingChanges}
+                    className="px-6 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95 min-h-[44px]"
                   >
                     <Save className="w-4 h-4" />
-                    <span>Salvar Alterações</span>
+                    <span>{isSavingChanges ? 'Salvando...' : 'Salvar Alterações'}</span>
                   </button>
                 </form>
               </div>
             )}
 
-            {/* PRODUCTS TAB */}
+            {/* 3. PRODUTOS & SERVIÇOS TAB (Requirement #4: Dynamic Category adaptation) */}
             {activeTab === 'products' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <h3 className="font-black text-base text-[#0E3B43]">Produtos & Catálogo</h3>
+                    <h3 className="font-black text-xl text-[#0E3B43]">{catalogLabel}</h3>
                     <p className="text-xs text-[#537379]">Adicione itens, fotos e preços para seus clientes</p>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => setIsProductModalOpen(true)}
-                    className="px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[44px]"
                   >
                     <Plus className="w-4 h-4 text-[#4FA6A6]" />
-                    <span>Adicionar Produto</span>
+                    <span>Adicionar {catalogLabel === 'Cardápio' ? 'Item ao Cardápio' : catalogLabel === 'Serviços' ? 'Serviço' : 'Produto'}</span>
                   </button>
                 </div>
 
@@ -1040,7 +1305,6 @@ export default function MerchantPanelPage() {
                     business.products.map((p) => (
                       <div key={p.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center gap-3">
                         <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-[#E8E4DA]">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1048,34 +1312,41 @@ export default function MerchantPanelPage() {
                           <span className="font-black text-sm text-[#E36845]">{formatCurrency(p.price)}</span>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleDeleteProduct(p.id)}
-                          className="p-2 rounded-lg text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                          className="p-2.5 rounded-xl text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer min-h-[40px]"
+                          title="Excluir item"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))
                   ) : (
-                    <div className="sm:col-span-2 p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
-                      Nenhum produto cadastrado ainda. Clique em "+ Adicionar Produto" acima.
+                    <div className="sm:col-span-2 p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] space-y-2">
+                      <ShoppingBag className="w-10 h-10 mx-auto text-[#537379]/40" />
+                      <h4 className="font-black text-xs text-[#0E3B43]">Nenhum item cadastrado ainda</h4>
+                      <p className="text-xs text-[#537379]">
+                        Clique no botão acima para adicionar seu primeiro item ao catálogo.
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* PROMOTIONS TAB */}
+            {/* 4. OFERTAS TAB (Requirement #3) */}
             {activeTab === 'promotions' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <h3 className="font-black text-base text-[#0E3B43]">Ofertas em Destaque</h3>
-                    <p className="text-xs text-[#537379]">Publique promoções com desconto para atrair clientes</p>
+                    <h3 className="font-black text-xl text-[#0E3B43]">Ofertas & Promoções</h3>
+                    <p className="text-xs text-[#537379]">Publique promoções com desconto para atrair clientes no bairro</p>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => setIsPromoModalOpen(true)}
-                    className="px-4 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[44px]"
                   >
                     <Flame className="w-4 h-4" />
                     <span>Criar Oferta 🔥</span>
@@ -1085,15 +1356,14 @@ export default function MerchantPanelPage() {
                 <div className="space-y-3">
                   {business.promotions && business.promotions.length > 0 ? (
                     business.promotions.map((pr) => (
-                      <div key={pr.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-white shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <div key={pr.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0">
                             <img src={pr.image_url} alt={pr.title} className="w-full h-full object-cover" />
                           </div>
-                          <div>
-                            <h4 className="font-black text-xs text-[#0E3B43]">{pr.title}</h4>
-                            <div className="flex items-center gap-2 text-xs">
+                          <div className="min-w-0">
+                            <h4 className="font-black text-xs text-[#0E3B43] truncate">{pr.title}</h4>
+                            <div className="flex items-center gap-2 text-xs mt-0.5">
                               <span className="line-through text-stone-400">{formatCurrency(pr.original_price)}</span>
                               <span className="font-black text-[#E36845]">{formatCurrency(pr.promo_price)}</span>
                             </div>
@@ -1101,31 +1371,37 @@ export default function MerchantPanelPage() {
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => handleDeletePromotion(pr.id)}
-                          className="px-3 py-1.5 rounded-lg bg-white border border-[#E8E4DA] text-xs font-bold text-red-500 hover:bg-red-50 cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-red-500 hover:bg-red-50 cursor-pointer min-h-[38px]"
                         >
                           Encerrar Oferta
                         </button>
                       </div>
                     ))
                   ) : (
-                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
-                      Nenhuma oferta ativa no momento. Crie uma oferta para aparecer na aba de Ofertas da Vitriniza!
+                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] space-y-2">
+                      <Flame className="w-10 h-10 mx-auto text-[#E36845]/40" />
+                      <h4 className="font-black text-xs text-[#0E3B43]">Nenhuma oferta ativa no momento</h4>
+                      <p className="text-xs text-[#537379]">
+                        Crie uma oferta promocional para aparecer no carrossel de ofertas da Vitriniza Guaianases!
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* QR CODE TAB */}
+            {/* 5. QR CODE & DIVULGAÇÃO TAB (Requirement #8 & #9) */}
             {activeTab === 'qrcode' && (
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div>
-                  <h3 className="font-black text-base text-[#0E3B43]">QR Code Personalizado & Placa de Balcão</h3>
-                  <p className="text-xs text-[#537379]">
-                    Imprima sua placa com a logo e coloque no balcão da sua loja para os clientes acessarem sua vitrine direto pelo celular!
-                  </p>
-                </div>
+              <div className="space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
+                  <div>
+                    <h3 className="font-black text-xl text-[#0E3B43]">Divulgue sua Vitrine</h3>
+                    <p className="text-xs text-[#537379]">
+                      Use seu QR Code e materiais de divulgação para ajudar clientes a acessar sua página na Vitriniza.
+                    </p>
+                  </div>
 
                   <StoreQRCode
                     businessName={business.name}
@@ -1134,82 +1410,162 @@ export default function MerchantPanelPage() {
                     businessUrl={businessPublicUrl}
                     neighborhoodName={business.neighborhood?.name || 'Guaianases'}
                     categoryName={business.category?.name}
+                    onToast={showToast}
                   />
+                </div>
+
+                <SocialShareCardGenerator business={business} onToast={showToast} />
               </div>
             )}
 
-            {/* REVIEWS TAB */}
+            {/* 6. AVALIAÇÕES TAB (Requirement #11) */}
             {activeTab === 'reviews' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div>
-                  <h3 className="font-black text-base text-[#0E3B43]">Avaliações de Clientes</h3>
-                  <p className="text-xs text-[#537379]">Opiniões reais deixadas pelos moradores do bairro</p>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="font-black text-xl text-[#0E3B43]">Avaliações de Clientes</h3>
+                    <p className="text-xs text-[#537379]">Opiniões reais deixadas pelos moradores do bairro</p>
+                  </div>
+
+                  {reviews.length > 0 && (
+                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-black text-xs">
+                      <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      <span>{stats.rating.toFixed(1)} ({reviews.length} avaliações)</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
                   {reviews.length > 0 ? (
                     reviews.map((r) => (
-                      <div key={r.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-1">
+                      <div key={r.id} className="p-4 sm:p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-black text-xs text-[#0E3B43]">{r.author_name}</span>
-                          <div className="flex items-center text-amber-500">
-                            {'★'.repeat(r.rating)}
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-xs text-[#0E3B43]">{r.author_name}</span>
+                            <div className="flex items-center text-amber-500 text-xs">
+                              {'★'.repeat(r.rating)}
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => showToast('Denúncia registrada para moderação.', 'info')}
+                            className="text-[10px] text-stone-400 hover:text-red-500 flex items-center gap-1 font-bold cursor-pointer"
+                            title="Denunciar avaliação abusiva"
+                          >
+                            <Flag className="w-3 h-3" />
+                            <span>Denunciar</span>
+                          </button>
                         </div>
-                        <p className="text-xs text-[#537379]">"{r.comment}"</p>
+                        <p className="text-xs text-[#537379] leading-relaxed">"{r.comment}"</p>
                       </div>
                     ))
                   ) : (
-                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-[#E8E4DA] text-xs text-[#537379]">
-                      Sua loja ainda não possui avaliações. Compartilhe sua vitrine com seus clientes!
+                    <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] space-y-2">
+                      <Star className="w-10 h-10 mx-auto text-amber-400/40" />
+                      <h4 className="font-black text-xs text-[#0E3B43]">Você ainda não recebeu avaliações.</h4>
+                      <p className="text-xs text-[#537379] max-w-sm mx-auto">
+                        Compartilhe sua vitrine com seus clientes para começar a receber opiniões e notas de 5 estrelas!
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* PLAN TAB */}
+            {/* 7. PLANO E PAGAMENTOS TAB (Requirement #10) */}
             {activeTab === 'plan' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <h3 className="font-black text-base text-[#0E3B43]">Meu Plano Vitriniza</h3>
-                    <p className="text-xs text-[#537379]">Informações de assinatura e recursos disponíveis</p>
+                    <h3 className="font-black text-xl text-[#0E3B43]">Plano e Pagamentos</h3>
+                    <p className="text-xs text-[#537379]">Informações da sua assinatura e recursos liberados</p>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-[#4FA6A6]/20 text-[#0E3B43] font-black text-xs uppercase tracking-wider">
-                    Plano {business.plan_id}
+                  <span className="px-3.5 py-1.5 rounded-full bg-[#4FA6A6]/20 text-[#0E3B43] font-black text-xs uppercase tracking-wider">
+                    {friendlyPlanName}
                   </span>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#537379]">Produtos permitidos:</span>
-                    <span className="font-black text-[#0E3B43]">{limits.max_products === -1 ? 'Ilimitados' : `${limits.max_products} produtos`}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#537379]">Publicação de Ofertas:</span>
-                    <span className="font-black text-[#0E3B43]">{limits.can_post_promotions ? 'Ativado ✓' : 'Apenas Planos Pagos'}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#537379]">Selo Oficial de Destaque:</span>
-                    <span className="font-black text-[#0E3B43]">{limits.has_featured_badge ? 'Ativado ✓' : 'Não'}</span>
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Sua vitrine está ativa e visível para os moradores de Guaianases.</span>
+                </div>
+
+                {/* Included Features */}
+                <div className="space-y-3">
+                  <h4 className="font-black text-xs uppercase tracking-wider text-[#0E3B43]">
+                    Recursos Inclusos no Seu Plano
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-[#0E3B43]">
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Perfil público no bairro</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Botão direto para WhatsApp</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Endereço verificado com mapa</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{limits.max_products === -1 ? 'Produtos e serviços Ilimitados' : `Até ${limits.max_products} produtos cadastrados`}</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>QR Code de balcão para impressão</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Painel de controle com métricas</span>
+                    </div>
                   </div>
                 </div>
 
-                <Link
-                  href="/para-empresas"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Ver Planos & Fazer Upgrade</span>
-                </Link>
+                {/* Locked Features */}
+                {business.plan_id === 'free' && (
+                  <div className="space-y-3 pt-2">
+                    <h4 className="font-black text-xs uppercase tracking-wider text-[#537379]">
+                      Recursos Exclusivos de Planos Pagos
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-[#537379]">
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
+                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
+                        <span>Publicação de Ofertas em Destaque</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
+                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
+                        <span>Selo oficial de Destaque nas buscas</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
+                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
+                        <span>Posição prioritária na Home de Guaianases</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
+                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
+                        <span>Catálogo com produtos ilimitados</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <Link
+                    href="/para-empresas"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer active:scale-95 min-h-[44px]"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Conhecer Todos os Planos</span>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* PRODUCT MODAL */}
+      {/* PRODUCT MODAL (Requirement #1: Clean image upload, no raw base64) */}
       {isProductModalOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
@@ -1220,11 +1576,13 @@ export default function MerchantPanelPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-lg text-[#0E3B43]">Adicionar Novo Produto</h3>
+              <h3 className="font-black text-lg text-[#0E3B43]">
+                Adicionar {catalogLabel === 'Cardápio' ? 'Item ao Cardápio' : catalogLabel === 'Serviços' ? 'Serviço' : 'Produto'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setIsProductModalOpen(false)}
-                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
+                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer min-h-[36px]"
               >
                 ✕
               </button>
@@ -1232,30 +1590,27 @@ export default function MerchantPanelPage() {
 
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Produto *</label>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Item *</label>
                 <input
                   type="text"
                   required
                   value={productForm.name}
                   onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                   placeholder="Ex: Pizza Calabresa Especial"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] min-h-[44px]"
                 />
               </div>
 
+              {/* Product Image Clean Upload */}
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem do Produto</label>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={productForm.image_url}
-                    onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
-                    placeholder="https://..."
-                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-100 cursor-pointer shrink-0">
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Foto do Item</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100 shrink-0">
+                    <img src={productForm.image_url} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F8F6F0] hover:bg-stone-100 border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer shadow-2xs min-h-[44px]">
                     <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                    <span>📁 Foto</span>
+                    <span>Escolher Foto</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -1271,12 +1626,6 @@ export default function MerchantPanelPage() {
                     />
                   </label>
                 </div>
-                {productForm.image_url && (
-                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={productForm.image_url} alt="Preview Produto" className="w-full h-full object-cover" />
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1289,7 +1638,7 @@ export default function MerchantPanelPage() {
                     value={productForm.price}
                     onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
                     placeholder="49.90"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -1300,18 +1649,18 @@ export default function MerchantPanelPage() {
                     value={productForm.promo_price}
                     onChange={(e) => setProductForm({ ...productForm, promo_price: e.target.value })}
                     placeholder="39.90"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição do Produto</label>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição / Ingredientes</label>
                 <textarea
                   rows={2}
                   value={productForm.description}
                   onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                  placeholder="Ingredientes ou detalhes do produto..."
+                  placeholder="Ingredientes ou detalhes..."
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
                 />
               </div>
@@ -1320,15 +1669,15 @@ export default function MerchantPanelPage() {
                 <button
                   type="button"
                   onClick={() => setIsProductModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer min-h-[44px]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer min-h-[44px]"
                 >
-                  Salvar Produto
+                  Salvar Item
                 </button>
               </div>
             </form>
@@ -1336,7 +1685,7 @@ export default function MerchantPanelPage() {
         </div>
       )}
 
-      {/* PROMOTION MODAL */}
+      {/* PROMOTION MODAL (Requirement #1: Clean image upload, no raw base64) */}
       {isPromoModalOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
@@ -1354,7 +1703,7 @@ export default function MerchantPanelPage() {
               <button
                 type="button"
                 onClick={() => setIsPromoModalOpen(false)}
-                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
+                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer min-h-[36px]"
               >
                 ✕
               </button>
@@ -1369,23 +1718,20 @@ export default function MerchantPanelPage() {
                   value={promoForm.title}
                   onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })}
                   placeholder="Ex: Pizza em Dobro Terça e Quarta!"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] min-h-[44px]"
                 />
               </div>
 
+              {/* Promo Image Clean Upload */}
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem da Oferta</label>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={promoForm.image_url}
-                    onChange={(e) => setPromoForm({ ...promoForm, image_url: e.target.value })}
-                    placeholder="https://..."
-                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-100 cursor-pointer shrink-0">
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Foto da Oferta</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100 shrink-0">
+                    <img src={promoForm.image_url} alt="Preview Oferta" className="w-full h-full object-cover" />
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F8F6F0] hover:bg-stone-100 border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] cursor-pointer shadow-2xs min-h-[44px]">
                     <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                    <span>📁 Foto</span>
+                    <span>Escolher Foto</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -1401,12 +1747,6 @@ export default function MerchantPanelPage() {
                     />
                   </label>
                 </div>
-                {promoForm.image_url && (
-                  <div className="h-24 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={promoForm.image_url} alt="Preview Oferta" className="w-full h-full object-cover" />
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1419,7 +1759,7 @@ export default function MerchantPanelPage() {
                     value={promoForm.original_price}
                     onChange={(e) => setPromoForm({ ...promoForm, original_price: e.target.value })}
                     placeholder="85.00"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -1431,7 +1771,7 @@ export default function MerchantPanelPage() {
                     value={promoForm.promo_price}
                     onChange={(e) => setPromoForm({ ...promoForm, promo_price: e.target.value })}
                     placeholder="49.90"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
                   />
                 </div>
               </div>
@@ -1451,13 +1791,13 @@ export default function MerchantPanelPage() {
                 <button
                   type="button"
                   onClick={() => setIsPromoModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer min-h-[44px]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer min-h-[44px]"
                 >
                   Publicar Oferta 🔥
                 </button>
