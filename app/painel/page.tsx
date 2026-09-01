@@ -1410,6 +1410,7 @@ export default function MerchantPanelPage() {
                     businessUrl={businessPublicUrl}
                     neighborhoodName={business.neighborhood?.name || 'Guaianases'}
                     categoryName={business.category?.name}
+                    variant="full_hub"
                     onToast={showToast}
                   />
                 </div>
