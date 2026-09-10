@@ -33,76 +33,142 @@ import {
   ShieldAlert,
   Upload,
   Calendar,
+  Clock,
+  Flame,
+  Check,
+  X,
+  FileText,
+  UserCheck,
+  RefreshCw,
+  Send,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
-import { Business, Category, City, Neighborhood, ClaimRequest, Banner, PlatformSettings, PlanTier, LocalEvent } from '@/types';
+import {
+  Business,
+  Category,
+  City,
+  Neighborhood,
+  ClaimRequest,
+  Banner,
+  PlatformSettings,
+  PlanTier,
+  LocalEvent,
+  BusinessRequest,
+  Subscription,
+  AuditLog,
+  ListingType,
+  SubscriptionStatus,
+} from '@/types';
 import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr, buildWhatsAppUrl } from '@/lib/utils';
 import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 
 export default function MasterAdminPage() {
-  // High-performance image compressor & reader for instant multi-device cloud sync
-  const handleImageFileUpload = (file: File, callback: (dataUrl: string) => void) => {
-    if (!file || !file.type.startsWith('image/')) {
-      alert('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).');
-      return;
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      alert('A imagem é muito grande. Escolha um arquivo de até 15MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const rawDataUrl = e.target?.result as string;
-      if (!rawDataUrl) return;
-
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxWidth = 1000;
-
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          callback(compressedDataUrl);
-        } else {
-          callback(rawDataUrl);
-        }
-      };
-      img.onerror = () => callback(rawDataUrl);
-      img.src = rawDataUrl;
-    };
-    reader.readAsDataURL(file);
-  };
-
   // SECURITY AUTHENTICATION STATE
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  const [loginAttempts, setLoginAttempts] = useState(0);
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'businesses' | 'create_business' | 'claims' | 'events' | 'regions' | 'categories' | 'banners' | 'settings'
+    | 'dashboard'
+    | 'requests'
+    | 'businesses'
+    | 'subscriptions'
+    | 'create_business'
+    | 'audit'
+    | 'claims'
+    | 'events'
+    | 'regions'
+    | 'categories'
+    | 'banners'
+    | 'settings'
   >('dashboard');
 
   const [stats, setStats] = useState(store.getMasterStats());
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [businessRequests, setBusinessRequests] = useState<BusinessRequest[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [claims, setClaims] = useState<ClaimRequest[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
   const [events, setEvents] = useState<LocalEvent[]>([]);
   const [settings, setSettings] = useState<PlatformSettings>(store.getPlatformSettings());
+
+  // Search & Filters for business table
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterActive, setFilterActive] = useState('');
+
+  // Requests filters
+  const [reqFilterStatus, setReqFilterStatus] = useState<string>('all');
+  const [reqFilterType, setReqFilterType] = useState<string>('all');
+
+  // Manual business form
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    category_id: '1',
+    neighborhood_id: '1',
+    address: '',
+    number: '',
+    postal_code: '08410-000',
+    phone: '1125550000',
+    whatsapp: '11999990000',
+    short_description: '',
+    description: '',
+    listing_type: 'local_free' as ListingType,
+    owner_name: '',
+    owner_email: '',
+  });
+
+  // Modal: Convert to Pro
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [convertingBiz, setConvertingBiz] = useState<Business | null>(null);
+  const [convertForm, setConvertForm] = useState({
+    ownerName: '',
+    email: '',
+    whatsapp: '',
+    price: 49.9,
+    startsAt: new Date().toISOString().split('T')[0],
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  });
+
+  // Modal: Pitch Summary ("Oferecer Pro")
+  const [isPitchModalOpen, setIsPitchModalOpen] = useState(false);
+  const [pitchBiz, setPitchBiz] = useState<Business | null>(null);
+  const [pitchData, setPitchData] = useState<{
+    viewsCount: number;
+    whatsappClicks: number;
+    mapClicks: number;
+    shareClicks: number;
+    pitchText: string;
+  } | null>(null);
+
+  // Modal: Edit Business
+  const [isEditBizModalOpen, setIsEditBizModalOpen] = useState(false);
+  const [editingBizId, setEditingBizId] = useState<string | null>(null);
+  const [editBizCepMsg, setEditBizCepMsg] = useState<string | null>(null);
+  const [editBizForm, setEditBizForm] = useState({
+    name: '',
+    category_id: '',
+    neighborhood_id: '',
+    address: '',
+    number: '',
+    postal_code: '08410-000',
+    phone: '',
+    whatsapp: '',
+    instagram: '',
+    short_description: '',
+    listing_type: 'local_free' as ListingType,
+    plan_id: 'free' as PlanTier,
+    is_active: true,
+    is_featured: false,
+    is_verified: false,
+    is_founder: false,
+    is_online_only: false,
+    logo_url: '',
+    cover_url: '',
+  });
 
   // Events management state
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -126,52 +192,21 @@ export default function MasterAdminPage() {
     is_active: true,
   });
 
-  // Search & Filters for business table
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterPlan, setFilterPlan] = useState('');
-  const [filterActive, setFilterActive] = useState('');
-
-  // Manual business form
-  const [createForm, setCreateForm] = useState({
-    name: '',
-    category_id: '1',
-    neighborhood_id: '1',
-    address: '',
-    number: '',
-    postal_code: '08410-000',
-    phone: '1125550000',
-    whatsapp: '11999990000',
-    short_description: '',
-    description: '',
-    plan_id: 'free' as PlanTier,
-  });
-
-  const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null);
-  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
-  const [cloudSyncMsg, setCloudSyncMsg] = useState<{ text: string; success: boolean } | null>(null);
-
   // Settings form
   const [settingsForm, setSettingsForm] = useState({
-    semanalPrice: settings.plan_prices.semanal || 19.90,
-    mensalPrice: settings.plan_prices.mensal || 49.90,
-    destaquePrice: settings.plan_prices.destaque || 19.90,
-    proPrice: settings.plan_prices.pro || 49.90,
-    premiumPrice: settings.plan_prices.premium || 49.90,
+    proPrice: settings.pro_plan?.price || settings.plan_prices.pro || 49.9,
+    proName: settings.pro_plan?.name || 'Vitriniza Pro',
     contactWhatsApp: settings.contact_whatsapp,
+    contactEmail: settings.contact_email,
     logoUrl: settings.logo_url || '/logo.png',
-    heroBgUrl: settings.hero_bg_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80',
+    heroBgUrl:
+      settings.hero_bg_url ||
+      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80',
     heroTitle: settings.hero_title || 'Descubra o melhor perto de você.',
-    heroSubtitle: settings.hero_subtitle || 'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.',
+    heroSubtitle:
+      settings.hero_subtitle ||
+      'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.',
   });
-
-  const handleSyncToSupabase = async () => {
-    setIsSyncingCloud(true);
-    setCloudSyncMsg(null);
-    const result = await store.pushAllToSupabase();
-    setIsSyncingCloud(false);
-    setCloudSyncMsg({ text: result.message, success: result.success });
-    refreshData();
-  };
 
   // Check existing session
   useEffect(() => {
@@ -185,41 +220,13 @@ export default function MasterAdminPage() {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-
-    // Secure Master Credentials (default: admin@vitriniza.com.br / vitriniza2026! or root admin)
-    const validEmails = ['admin@vitriniza.com.br', 'admin', 'master@vitriniza.com.br'];
-    const validPassword = 'vitriniza2026!';
-
-    if (
-      (validEmails.includes(adminEmail.toLowerCase().trim()) || adminEmail.toLowerCase().includes('admin')) &&
-      (adminPassword === validPassword || adminPassword === 'vitriniza2026')
-    ) {
-      setIsAuthenticated(true);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('vitriniza_master_auth', 'authenticated');
-      }
-      refreshData();
-    } else {
-      setLoginAttempts((prev) => prev + 1);
-      setAuthError('Credenciais mestras inválidas. Verifique seu e-mail e senha de administrador.');
-    }
-  };
-
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('vitriniza_master_auth');
-    }
-    setIsAuthenticated(false);
-    setAdminPassword('');
-  };
-
   const refreshData = () => {
     setStats(store.getMasterStats());
     const bizList = store.getBusinesses();
     setBusinesses(bizList);
+    setBusinessRequests(store.getBusinessRequests());
+    setSubscriptions(store.getSubscriptions());
+    setAuditLogs(store.getAuditLogs());
     setClaims(store.getClaimRequests());
     const cats = store.getCategories();
     const neighs = store.getNeighborhoods();
@@ -235,237 +242,212 @@ export default function MasterAdminPage() {
     }));
   };
 
-  // Event Management Handlers & CEP Lookup
-  const handleLookupEventCep = async (cepInput: string) => {
-    const cleanCep = cepInput.replace(/\D/g, '');
-    if (cleanCep.length !== 8) {
-      setEventCepMsg({ text: 'Digite os 8 números do CEP para consultar.', success: false });
-      return;
-    }
-    setEventCepLoading(true);
-    setEventCepMsg(null);
-    const res = await fetchAddressByCep(cleanCep);
-    setEventCepLoading(false);
-    if (res) {
-      setEventForm((prev) => ({
-        ...prev,
-        address: res.logradouro || prev.address,
-        neighborhood_name: res.bairro || prev.neighborhood_name,
-        city_name: `${res.localidade}/${res.uf}`,
-      }));
-      setEventCepMsg({
-        text: `✓ Endereço verificado pelo CEP: ${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
-        success: true,
-      });
-    } else {
-      setEventCepMsg({ text: '⚠️ CEP não encontrado no ViaCEP. Preencha o endereço manualmente.', success: false });
-    }
-  };
-
-  const handleSaveEvent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!eventForm.title || !eventForm.event_date) {
-      alert('Por favor, preencha o título e a data do evento.');
-      return;
-    }
-
-    const formattedDateLabel = formatDatePtBr(eventForm.event_date);
-    const formattedTimeLabel = `${eventForm.start_time || '10:00'} às ${eventForm.end_time || '18:00'}`;
-
-    const payload = {
-      title: eventForm.title,
-      description: eventForm.description,
-      location_name: eventForm.location_name,
-      address: eventForm.address,
-      neighborhood_name: eventForm.neighborhood_name,
-      city_name: eventForm.city_name,
-      event_date: formattedDateLabel || eventForm.event_date,
-      event_time: formattedTimeLabel,
-      image_url: eventForm.image_url,
-      whatsapp_contact: eventForm.whatsapp_contact,
-      organizer_name: eventForm.organizer_name,
-      is_active: eventForm.is_active,
-    };
-
-    if (editingEventId) {
-      store.updateEvent(editingEventId, payload);
-    } else {
-      store.createEvent(payload);
-    }
-
-    refreshData();
-    setIsEventModalOpen(false);
-    setEditingEventId(null);
-    resetEventForm();
-  };
-
-  const resetEventForm = () => {
-    setEventCepMsg(null);
-    setEventForm({
-      title: '',
-      description: '',
-      location_name: '',
-      postal_code: '08410-000',
-      address: '',
-      neighborhood_name: 'Guaianases',
-      city_name: 'São Paulo',
-      event_date: new Date().toISOString().split('T')[0],
-      start_time: '10:00',
-      end_time: '18:00',
-      image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
-      whatsapp_contact: '',
-      organizer_name: 'Associação dos Comerciantes Locais',
-      is_active: true,
-    });
-  };
-
-  const handleEditEvent = (evt: LocalEvent) => {
-    setEditingEventId(evt.id);
-    setEventCepMsg(null);
-
-    // Extract start/end time if format is "10:00 às 18:00"
-    let st = '10:00';
-    let et = '18:00';
-    if (evt.event_time.includes('às')) {
-      const parts = evt.event_time.split('às').map((s) => s.trim());
-      if (parts[0]) st = parts[0];
-      if (parts[1]) et = parts[1];
-    }
-
-    setEventForm({
-      title: evt.title,
-      description: evt.description,
-      location_name: evt.location_name,
-      postal_code: '08410-000',
-      address: evt.address,
-      neighborhood_name: evt.neighborhood_name,
-      city_name: evt.city_name,
-      event_date: new Date().toISOString().split('T')[0],
-      start_time: st,
-      end_time: et,
-      image_url: evt.image_url,
-      whatsapp_contact: evt.whatsapp_contact || '',
-      organizer_name: evt.organizer_name,
-      is_active: evt.is_active,
-    });
-    setIsEventModalOpen(true);
-  };
-
-  const handleDeleteEvent = (eventId: string) => {
-    if (confirm('Tem certeza que deseja excluir este evento?')) {
-      store.deleteEvent(eventId);
-      refreshData();
-    }
-  };
-
-  const handleToggleEventActive = (eventId: string) => {
-    store.toggleEventStatus(eventId);
-    refreshData();
-  };
-
   useEffect(() => {
     if (isAuthenticated) {
       refreshData();
-      store.ensureCloudSynced().then(() => refreshData());
-      const unsubscribe = store.subscribe(() => refreshData());
-      return () => unsubscribe();
+      return store.subscribe(() => refreshData());
     }
   }, [isAuthenticated]);
 
-  const handleToggleActive = (bId: string, current: boolean) => {
-    store.updateBusiness(bId, { is_active: !current });
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+
+    const validEmails = ['admin@vitriniza.com.br', 'admin', 'master@vitriniza.com.br'];
+    const validPassword = 'vitriniza2026!';
+
+    if (
+      (validEmails.includes(adminEmail.toLowerCase().trim()) || adminEmail.toLowerCase().includes('admin')) &&
+      (adminPassword === validPassword || adminPassword === 'vitriniza2026')
+    ) {
+      setIsAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('vitriniza_master_auth', 'authenticated');
+      }
+      refreshData();
+    } else {
+      setAuthError('Credenciais mestras inválidas. Verifique seu e-mail e senha de administrador.');
+    }
+  };
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('vitriniza_master_auth');
+    }
+    setIsAuthenticated(false);
+    setAdminPassword('');
+  };
+
+  // --- ACTIONS: REQUESTS MODERATION ---
+  const handleApproveLocalFree = async (requestId: string) => {
+    if (!confirm('Deseja aprovar este comércio como Cadastro Local Gratuito? A vitrine será publicada imediatamente sem criação de conta/painel.')) return;
+    const res = await store.approveLocalFreeRequest(requestId);
+    if (res.success) {
+      alert('✓ Cadastro Local Gratuito aprovado e publicado com sucesso!');
+      refreshData();
+    } else {
+      alert('Erro: ' + res.error);
+    }
+  };
+
+  const handleOpenProModalFromRequest = (req: BusinessRequest) => {
+    // Find matching business or prepare creation
+    const matchingBiz = businesses.find((b) => b.name.toLowerCase() === req.business_name.toLowerCase());
+    if (matchingBiz) {
+      handleOpenConvertModal(matchingBiz, req.owner_name, req.email, req.whatsapp);
+    } else {
+      // Create local_free first, then open conversion
+      store.approveLocalFreeRequest(req.id).then((res) => {
+        if (res.business) {
+          handleOpenConvertModal(res.business, req.owner_name, req.email, req.whatsapp);
+        }
+      });
+    }
+  };
+
+  const handleUpdateReqStatus = async (requestId: string, status: BusinessRequest['status']) => {
+    await store.updateBusinessRequestStatus(requestId, status);
     refreshData();
   };
 
-  const handleToggleFeatured = (bId: string, current: boolean) => {
-    store.updateBusiness(bId, { is_featured: !current });
+  // --- ACTIONS: CONVERSION LOCAL -> PRO ---
+  const handleOpenConvertModal = (biz: Business, initialOwner = '', initialEmail = '', initialPhone = '') => {
+    setConvertingBiz(biz);
+    setConvertForm({
+      ownerName: initialOwner || '',
+      email: initialEmail || '',
+      whatsapp: initialPhone || biz.whatsapp || '',
+      price: settings.pro_plan?.price || 49.9,
+      startsAt: new Date().toISOString().split('T')[0],
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    });
+    setIsConvertModalOpen(true);
+  };
+
+  const handleExecuteConvert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!convertingBiz) return;
+    if (!convertForm.ownerName || !convertForm.email) {
+      alert('Por favor, preencha o nome do responsável e e-mail para liberação do acesso.');
+      return;
+    }
+
+    const res = await store.convertToPro(convertingBiz.id, {
+      ownerName: convertForm.ownerName,
+      email: convertForm.email,
+      whatsapp: convertForm.whatsapp,
+      price: Number(convertForm.price),
+      startsAt: convertForm.startsAt,
+      expiresAt: convertForm.expiresAt,
+    });
+
+    if (res.success) {
+      // Trigger secure user creation route
+      try {
+        await fetch('/api/admin/create-pro-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: convertForm.email,
+            name: convertForm.ownerName,
+            whatsapp: convertForm.whatsapp,
+            businessId: convertingBiz.id,
+            price: Number(convertForm.price),
+            startsAt: convertForm.startsAt,
+            expiresAt: convertForm.expiresAt,
+          }),
+        });
+      } catch (err) {
+        // Handled locally
+      }
+
+      alert(`✓ Estabelecimento "${convertingBiz.name}" convertido para Vitriniza Pro com sucesso!`);
+      setIsConvertModalOpen(false);
+      setConvertingBiz(null);
+      refreshData();
+    } else {
+      alert('Erro ao converter: ' + res.error);
+    }
+  };
+
+  // --- ACTIONS: COMMERCIAL PITCH ("OFERECER PRO") ---
+  const handleOpenPitch = (biz: Business) => {
+    setPitchBiz(biz);
+    const summary = store.getProPitchSummary(biz.id);
+    setPitchData(summary);
+    setIsPitchModalOpen(true);
+  };
+
+  // --- ACTIONS: SUBSCRIPTION MANUAL CONTROLS ---
+  const handleUpdateSubscription = async (subId: string, status: SubscriptionStatus) => {
+    await store.updateSubscriptionStatus(subId, status);
     refreshData();
   };
 
-  const handleToggleVerified = (bId: string, current: boolean) => {
-    store.updateBusiness(bId, { is_verified: !current });
+  const handleRenewSubscription = async (subId: string) => {
+    await store.renewSubscription(subId, 30);
+    alert('✓ Assinatura renovada por +30 dias!');
     refreshData();
   };
 
-  const handleChangePlan = (bId: string, newPlan: PlanTier) => {
-    store.updateBusiness(bId, { plan_id: newPlan });
+  // --- ACTIONS: BUSINESS EDITING & CREATION ---
+  const handleToggleActive = (bizId: string, currentActive: boolean) => {
+    store.updateBusiness(bizId, { is_active: !currentActive });
     refreshData();
   };
 
-  const handleDeleteBusiness = (bId: string) => {
-    if (confirm('Tem certeza que deseja excluir esta empresa? Esta ação é irreversível.')) {
-      store.deleteBusiness(bId);
+  const handleToggleFeatured = (bizId: string, currentFeatured: boolean) => {
+    store.updateBusiness(bizId, { is_featured: !currentFeatured });
+    refreshData();
+  };
+
+  const handleToggleVerified = (bizId: string, currentVerified: boolean) => {
+    store.updateBusiness(bizId, { is_verified: !currentVerified });
+    refreshData();
+  };
+
+  const handleToggleFounder = (bizId: string, currentFounder = false) => {
+    store.updateBusiness(bizId, { is_founder: !currentFounder });
+    refreshData();
+  };
+
+  const handleDeleteBusiness = (bizId: string) => {
+    if (confirm('Tem certeza que deseja excluir esta empresa da plataforma?')) {
+      store.deleteBusiness(bizId);
       refreshData();
     }
   };
 
-  // Edit Business Modal State
-  const [isEditBizModalOpen, setIsEditBizModalOpen] = useState(false);
-  const [editingBizId, setEditingBizId] = useState<string | null>(null);
-  const [editBizCepMsg, setEditBizCepMsg] = useState<string | null>(null);
-  const [editBizForm, setEditBizForm] = useState({
-    name: '',
-    category_id: '',
-    neighborhood_id: '',
-    address: '',
-    number: '',
-    postal_code: '',
-    phone: '',
-    whatsapp: '',
-    short_description: '',
-    description: '',
-    logo_url: '',
-    cover_url: '',
-    instagram: '',
-    website: '',
-    password: '',
-    plan_id: 'free' as PlanTier,
-    is_active: true,
-    is_verified: false,
-    is_featured: false,
-    is_online_only: false,
-  });
-
-  const handleOpenEditBizModal = (b: Business) => {
-    setEditingBizId(b.id);
+  const handleOpenEditBizModal = (biz: Business) => {
+    setEditingBizId(biz.id);
     setEditBizCepMsg(null);
-
-    let neighId = b.neighborhood_id || b.neighborhood?.id || 'neigh-guaianases';
-    if (b.neighborhood?.name) {
-      const ensured = store.ensureNeighborhood(b.neighborhood.name);
-      neighId = ensured.id;
-    }
-
-    setNeighborhoods(store.getNeighborhoods());
-
     setEditBizForm({
-      name: b.name,
-      category_id: b.category_id,
-      neighborhood_id: neighId,
-      address: b.address,
-      number: b.number || '',
-      postal_code: b.postal_code || '08410-000',
-      phone: b.phone || '',
-      whatsapp: b.whatsapp,
-      short_description: b.short_description || '',
-      description: b.description || '',
-      logo_url: b.logo_url || '',
-      cover_url: b.cover_url || '',
-      instagram: b.instagram || '',
-      website: b.website || '',
-      password: b.password || '123456',
-      is_online_only: b.is_online_only || false,
-      plan_id: b.plan_id,
-      is_active: b.is_active,
-      is_verified: b.is_verified,
-      is_featured: b.is_featured,
+      name: biz.name,
+      category_id: biz.category_id,
+      neighborhood_id: biz.neighborhood_id,
+      address: biz.address,
+      number: biz.number || '',
+      postal_code: biz.postal_code || '08410-000',
+      phone: biz.phone,
+      whatsapp: biz.whatsapp,
+      instagram: biz.instagram || '',
+      short_description: biz.short_description || '',
+      listing_type: biz.listing_type || (biz.plan_id === 'free' ? 'local_free' : 'paid'),
+      plan_id: biz.plan_id,
+      is_active: biz.is_active,
+      is_featured: biz.is_featured,
+      is_verified: biz.is_verified,
+      is_founder: Boolean(biz.is_founder),
+      is_online_only: Boolean(biz.is_online_only),
+      logo_url: biz.logo_url || '/logo.png',
+      cover_url: biz.cover_url || '/logo.png',
     });
     setIsEditBizModalOpen(true);
   };
 
   const handleSaveEditBiz = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBizId || !editBizForm.name || !editBizForm.address) return;
+    if (!editingBizId) return;
 
     store.updateBusiness(editingBizId, {
       name: editBizForm.name,
@@ -476,49 +458,60 @@ export default function MasterAdminPage() {
       postal_code: editBizForm.postal_code,
       phone: editBizForm.phone,
       whatsapp: editBizForm.whatsapp,
-      short_description: editBizForm.short_description || editBizForm.description || 'Comércio local cadastrado na Vitriniza com produtos e atendimento de qualidade no bairro.',
-      description: editBizForm.description || editBizForm.short_description || 'Comércio local cadastrado na Vitriniza com produtos e atendimento de qualidade no bairro.',
+      instagram: editBizForm.instagram,
+      short_description: editBizForm.short_description,
+      listing_type: editBizForm.listing_type,
+      plan_id: editBizForm.listing_type === 'paid' ? 'pro' : 'free',
+      is_active: editBizForm.is_active,
+      is_featured: editBizForm.is_featured,
+      is_verified: editBizForm.is_verified,
+      is_founder: editBizForm.is_founder,
+      is_online_only: editBizForm.is_online_only,
       logo_url: editBizForm.logo_url,
       cover_url: editBizForm.cover_url,
-      instagram: editBizForm.instagram,
-      website: editBizForm.website,
-      password: editBizForm.password,
-      is_online_only: editBizForm.is_online_only,
-      plan_id: editBizForm.plan_id,
-      is_active: editBizForm.is_active,
-      is_verified: editBizForm.is_verified,
-      is_featured: editBizForm.is_featured,
     });
 
+    store.logAudit('business_updated', editingBizId, editBizForm.name, { updated: editBizForm });
     refreshData();
     setIsEditBizModalOpen(false);
-    setEditingBizId(null);
   };
 
-  const [lastCreatedBiz, setLastCreatedBiz] = useState<Business | null>(null);
-
-  const handleCreateBusiness = (e: React.FormEvent) => {
+  const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.name || !createForm.address) return;
 
+    const matchingCat = categories.find((c) => c.id === createForm.category_id) || categories[0];
+    const matchingNeigh = neighborhoods.find((n) => n.id === createForm.neighborhood_id) || neighborhoods[0];
+
+    const slug = createForm.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     const newBiz = store.createBusiness({
       name: createForm.name,
+      slug: slug || `comercio-${Date.now()}`,
       category_id: createForm.category_id || categories[0]?.id || 'cat-alimentacao',
       neighborhood_id: createForm.neighborhood_id || neighborhoods[0]?.id || 'neigh-guaianases',
       city_id: 'city-sp',
       state_id: 'SP',
       address: createForm.address,
-      number: createForm.number,
+      number: createForm.number || 'S/N',
       postal_code: createForm.postal_code,
       phone: createForm.phone,
       whatsapp: createForm.whatsapp,
-      short_description: createForm.short_description || 'Comércio local cadastrado na Vitriniza com produtos e atendimento de qualidade no bairro.',
-      description: createForm.description || createForm.short_description || 'Comércio local cadastrado na Vitriniza com produtos e atendimento de qualidade no bairro.',
-      plan_id: createForm.plan_id,
+      short_description: createForm.short_description || `${matchingCat?.name} em ${matchingNeigh?.name}`,
+      description: createForm.description || createForm.short_description || `${matchingCat?.name} em ${matchingNeigh?.name}`,
+      listing_type: createForm.listing_type,
+      ownership_status: createForm.listing_type === 'paid' ? 'claimed' : 'unclaimed',
+      plan_id: createForm.listing_type === 'paid' ? 'pro' : 'free',
+      plan_status: 'active',
       is_active: true,
-      is_verified: false,
-      is_featured: createForm.plan_id !== 'free',
-      cover_url: '/logo.png',
+      is_verified: true,
+      is_featured: createForm.listing_type === 'paid',
+      cover_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
       logo_url: '/logo.png',
       payment_methods: ['Pix', 'Cartão de Crédito', 'Dinheiro'],
       delivery_available: true,
@@ -526,36 +519,53 @@ export default function MasterAdminPage() {
       dine_in_available: false,
     });
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vitriniza.vercel.app';
-    const invite = `${origin}/reivindicar?slug=${newBiz.slug}`;
-    setCreatedInviteLink(invite);
-    setLastCreatedBiz(newBiz);
-    refreshData();
-  };
+    if (createForm.listing_type === 'paid' && createForm.owner_email) {
+      await store.convertToPro(newBiz.id, {
+        ownerName: createForm.owner_name || createForm.name,
+        email: createForm.owner_email,
+        whatsapp: createForm.whatsapp,
+      });
+    }
 
-  const handleResolveClaim = (claimId: string, approved: boolean) => {
-    store.resolveClaimRequest(claimId, approved ? 'approved' : 'rejected', '1');
+    alert(`✓ Estabelecimento "${newBiz.name}" cadastrado com sucesso!`);
     refreshData();
+    setActiveTab('businesses');
   };
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     store.updatePlatformSettings({
+      pro_plan: {
+        name: settingsForm.proName,
+        price: Number(settingsForm.proPrice),
+        interval: 'mensal',
+        features: [
+          'Painel do Comerciante exclusivo',
+          'Catálogo de produtos e serviços ilimitado',
+          'Publicação contínua de Ofertas em Destaque 🔥',
+          'QR Code com logotipo e display para balcão',
+          'Métricas de acessos, cliques no WhatsApp e rotas',
+          'Gerador de artes prontas para Instagram e Status',
+          'Gestão de avaliações de moradores',
+        ],
+        status: 'active',
+      },
       plan_prices: {
-        semanal: settingsForm.semanalPrice,
-        mensal: settingsForm.mensalPrice,
-        destaque: settingsForm.semanalPrice,
-        pro: settingsForm.mensalPrice,
-        premium: settingsForm.mensalPrice,
+        semanal: 19.9,
+        mensal: Number(settingsForm.proPrice),
+        destaque: 19.9,
+        pro: Number(settingsForm.proPrice),
+        premium: Number(settingsForm.proPrice),
       },
       contact_whatsapp: settingsForm.contactWhatsApp,
+      contact_email: settingsForm.contactEmail,
       logo_url: settingsForm.logoUrl,
       hero_bg_url: settingsForm.heroBgUrl,
       hero_title: settingsForm.heroTitle,
       hero_subtitle: settingsForm.heroSubtitle,
     });
     refreshData();
-    alert('Configurações da plataforma salvas com sucesso!');
+    alert('✓ Configurações do SaaS salvas com sucesso!');
   };
 
   // Filtered businesses
@@ -563,13 +573,17 @@ export default function MasterAdminPage() {
     const matchSearch =
       b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       b.neighborhood?.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchPlan = !filterPlan || b.plan_id === filterPlan;
+    const isPro = b.listing_type === 'paid' || (b.plan_id !== 'free' && b.listing_type !== 'local_free');
+    const matchType = !filterType || (filterType === 'pro' && isPro) || (filterType === 'local_free' && !isPro);
     const matchActive =
       !filterActive ||
       (filterActive === 'active' && b.is_active) ||
       (filterActive === 'inactive' && !b.is_active);
-    return matchSearch && matchPlan && matchActive;
+    return matchSearch && matchType && matchActive;
   });
+
+  // Filtered requests
+  const filteredRequests = store.getBusinessRequests(reqFilterStatus, reqFilterType);
 
   // 🔒 IF NOT AUTHENTICATED: RENDER MASTER SECURITY LOCK SCREEN
   if (isAuthenticated === false) {
@@ -662,10 +676,10 @@ export default function MasterAdminPage() {
               <div className="flex items-center gap-2">
                 <h1 className="font-black text-lg text-[#F8F6F0] tracking-tight">Painel Master</h1>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-[#4FA6A6] text-[#0E3B43]">
-                  Super Admin
+                  Super Admin SaaS
                 </span>
               </div>
-              <p className="text-[11px] text-[#F8F6F0]/70">Gestão global e monetização da plataforma Vitriniza</p>
+              <p className="text-[11px] text-[#F8F6F0]/70">Gestão de Cadastros Locais, Assinaturas Pro e Solicitações</p>
             </div>
           </div>
 
@@ -676,7 +690,7 @@ export default function MasterAdminPage() {
                 refreshData();
                 alert('✓ Dados sincronizados com a nuvem em tempo real!');
               }}
-              title="Baixar alterações atualizadas da nuvem (fotos, novos cadastros e edições)"
+              title="Sincronizar alterações da nuvem"
               className="text-xs text-[#F8F6F0] hover:text-white font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4FA6A6]/20 hover:bg-[#4FA6A6]/30 border border-[#4FA6A6]/40 transition-all cursor-pointer"
             >
               <span>🔄 Sincronizar</span>
@@ -692,7 +706,7 @@ export default function MasterAdminPage() {
               href="/"
               className="text-xs text-[#F49C6B] hover:text-white font-bold flex items-center gap-1 transition-colors"
             >
-              <span>Voltar ao Portal</span>
+              <span>Portal</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -704,12 +718,15 @@ export default function MasterAdminPage() {
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 p-1.5 bg-white rounded-2xl border border-[#4FA6A6]/20 card-shadow overflow-x-auto no-scrollbar">
           {[
-            { id: 'dashboard', label: 'Dashboard & KPIs', icon: TrendingUp },
-            { id: 'businesses', label: 'Empresas & Planos', icon: Building, count: businesses.length },
+            { id: 'dashboard', label: 'Dashboard & MRR', icon: TrendingUp },
+            { id: 'requests', label: 'Solicitações Comerciais', icon: Send, count: stats.pendingRequests },
+            { id: 'businesses', label: 'Empresas & Vitrines', icon: Building, count: businesses.length },
+            { id: 'subscriptions', label: 'Assinaturas & Pagamentos', icon: CreditCard, count: stats.activeSubscriptions },
             { id: 'create_business', label: '+ Cadastrar Negócio', icon: Plus },
-            { id: 'claims', label: 'Fila de Reivindicações', icon: AlertCircle, count: claims.filter((c) => c.status === 'pending').length },
+            { id: 'audit', label: 'Auditoria', icon: FileText },
+            { id: 'claims', label: 'Reivindicações', icon: AlertCircle, count: stats.pendingClaims },
             { id: 'events', label: 'Eventos no Bairro', icon: Calendar, count: events.length },
-            { id: 'settings', label: 'Configurações de Preços & Banner', icon: Settings },
+            { id: 'settings', label: 'Configurações do SaaS', icon: Settings },
           ].map((tab) => {
             const IconComp = tab.icon;
             const isSelected = activeTab === tab.id;
@@ -730,7 +747,7 @@ export default function MasterAdminPage() {
                   <span
                     className={cn(
                       'px-1.5 py-0.5 rounded-full text-[10px] font-black',
-                      isSelected ? 'bg-white/20 text-white' : 'bg-[#4FA6A6]/15 text-[#0E3B43]'
+                      isSelected ? 'bg-white/20 text-white' : 'bg-[#E36845] text-white'
                     )}
                   >
                     {tab.count}
@@ -744,16 +761,15 @@ export default function MasterAdminPage() {
         {/* TAB 1: DASHBOARD & KPIS */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            {/* KPI Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-[#4FA6A6]/15 text-[#0E3B43] flex items-center justify-center font-bold shrink-0">
                   <DollarSign className="w-6 h-6 text-[#E36845]" />
                 </div>
                 <div>
-                  <span className="text-xs text-[#537379] font-medium">MRR Estimado (Mensal)</span>
+                  <span className="text-xs text-[#537379] font-medium">MRR Recorrente (Pro)</span>
                   <div className="text-2xl font-black text-[#0E3B43]">{formatCurrency(stats.estimatedMRR)}</div>
-                  <span className="text-[10px] text-[#4FA6A6] font-bold">Base ativa recorrente</span>
+                  <span className="text-[10px] text-[#4FA6A6] font-bold">{stats.activeSubscriptions} assinaturas ativas</span>
                 </div>
               </div>
 
@@ -762,9 +778,11 @@ export default function MasterAdminPage() {
                   <Building className="w-6 h-6 text-[#4FA6A6]" />
                 </div>
                 <div>
-                  <span className="text-xs text-[#537379] font-medium">Empresas Cadastradas</span>
+                  <span className="text-xs text-[#537379] font-medium">Total de Comércios</span>
                   <div className="text-2xl font-black text-[#0E3B43]">{stats.totalBusinesses}</div>
-                  <span className="text-[10px] text-[#537379]">{stats.activeBusinesses} ativas ({stats.paidCount} pagantes)</span>
+                  <span className="text-[10px] text-[#537379]">
+                    {stats.proPaidCount} Pro • {stats.localFreeCount} Cadastro Local
+                  </span>
                 </div>
               </div>
 
@@ -773,30 +791,186 @@ export default function MasterAdminPage() {
                   <MessageCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xs text-[#537379] font-medium">Contatos Gerados WhatsApp</span>
+                  <span className="text-xs text-[#537379] font-medium">Cliques no WhatsApp</span>
                   <div className="text-2xl font-black text-[#0E3B43]">{stats.totalWhatsappClicks}</div>
-                  <span className="text-[10px] text-emerald-600 font-bold">Leads diretos aos lojistas</span>
+                  <span className="text-[10px] text-emerald-600 font-bold">Leads gerados no bairro</span>
                 </div>
               </div>
 
               <div className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-[#E36845]/15 text-[#E36845] flex items-center justify-center font-bold shrink-0">
-                  <AlertCircle className="w-6 h-6" />
+                  <Send className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-xs text-[#537379] font-medium">Reivindicações Pendentes</span>
-                  <div className="text-2xl font-black text-[#E36845]">{stats.pendingClaims}</div>
-                  <span className="text-[10px] text-[#537379]">Aguardando moderação</span>
+                  <span className="text-xs text-[#537379] font-medium">Solicitações Pendentes</span>
+                  <div className="text-2xl font-black text-[#E36845]">{stats.pendingRequests}</div>
+                  <span className="text-[10px] text-[#537379]">Aguardando ativação</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: BUSINESSES & PLANS */}
+        {/* TAB 2: REQUESTS (SOLICITAÇÕES COMERCIAIS) */}
+        {activeTab === 'requests' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-[#4FA6A6]/20 card-shadow">
+              <div>
+                <h3 className="font-black text-base text-[#0E3B43]">Solicitações de Participação</h3>
+                <p className="text-xs text-[#537379]">Comerciantes e prestadores que solicitaram entrada pela página comercial.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={reqFilterStatus}
+                  onChange={(e) => setReqFilterStatus(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
+                >
+                  <option value="all">Todos os Status</option>
+                  <option value="pending">Pendentes</option>
+                  <option value="contacted">Em Contato</option>
+                  <option value="approved">Aprovadas</option>
+                  <option value="rejected">Recusadas</option>
+                </select>
+
+                <select
+                  value={reqFilterType}
+                  onChange={(e) => setReqFilterType(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
+                >
+                  <option value="all">Todos os Tipos</option>
+                  <option value="local_free">Cadastro Local (Grátis)</option>
+                  <option value="pro">Vitriniza Pro (Pago)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {filteredRequests.length > 0 ? (
+                filteredRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white p-5 sm:p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-black text-base text-[#0E3B43]">{req.business_name}</h4>
+                        <span
+                          className={cn(
+                            'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider',
+                            req.interest_type === 'pro'
+                              ? 'bg-[#E36845] text-white'
+                              : 'bg-[#0E3B43]/10 text-[#0E3B43]'
+                          )}
+                        >
+                          {req.interest_type === 'pro' ? '⭐ Vitriniza Pro' : 'Cadastro Local'}
+                        </span>
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 rounded text-[10px] font-black uppercase',
+                            req.status === 'pending'
+                              ? 'bg-amber-100 text-amber-800'
+                              : req.status === 'contacted'
+                              ? 'bg-blue-100 text-blue-800'
+                              : req.status === 'approved'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-stone-200 text-stone-600'
+                          )}
+                        >
+                          {req.status === 'pending'
+                            ? 'Pendente'
+                            : req.status === 'contacted'
+                            ? 'Em Contato'
+                            : req.status === 'approved'
+                            ? 'Aprovada'
+                            : 'Recusada'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-[#537379]">
+                        <p><strong>Responsável:</strong> {req.owner_name}</p>
+                        <p><strong>WhatsApp:</strong> {formatPhone(req.whatsapp)}</p>
+                        {req.email && <p><strong>E-mail:</strong> {req.email}</p>}
+                        {req.instagram && <p><strong>Instagram:</strong> @{req.instagram}</p>}
+                        <p><strong>Bairro:</strong> {req.neighborhood_name || 'Guaianases'} • {req.category_name}</p>
+                        {req.address && <p><strong>Endereço:</strong> {req.address}</p>}
+                      </div>
+
+                      {req.message && (
+                        <p className="text-xs bg-[#F8F6F0] p-2.5 rounded-xl border border-[#E8E4DA] text-[#0E3B43] italic">
+                          "{req.message}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <a
+                        href={buildWhatsAppUrl(
+                          req.whatsapp,
+                          `Olá ${req.owner_name}! Recebemos sua solicitação para cadastrar "${req.business_name}" na Vitriniza (${req.neighborhood_name || 'Guaianases'}). Podemos confirmar as informações para ativar sua vitrine?`
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
+                        <span>WhatsApp</span>
+                      </a>
+
+                      {req.status !== 'approved' && (
+                        <>
+                          {req.interest_type === 'local_free' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveLocalFree(req.id)}
+                              className="px-3.5 py-2 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Aprovar Cadastro Local</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenProModalFromRequest(req)}
+                              className="px-3.5 py-2 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Criar Conta Pro</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateReqStatus(req.id, 'contacted')}
+                            className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-[#0E3B43] text-xs font-bold cursor-pointer"
+                          >
+                            Em Contato
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateReqStatus(req.id, 'rejected')}
+                            className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-red-50 text-red-600 text-xs font-bold cursor-pointer"
+                          >
+                            Recusar
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 text-center bg-white rounded-3xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
+                  Nenhuma solicitação encontrada com os filtros selecionados.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: BUSINESSES TABLE */}
         {activeTab === 'businesses' && (
           <div className="space-y-4">
-            {/* Filter Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-[#4FA6A6]/20 card-shadow">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-[#4FA6A6] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -811,16 +985,13 @@ export default function MasterAdminPage() {
 
               <div className="flex items-center gap-2">
                 <select
-                  value={filterPlan}
-                  onChange={(e) => setFilterPlan(e.target.value)}
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
                   className="px-3 py-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
                 >
-                  <option value="">Todos os Planos</option>
-                  <option value="free">Gratuito</option>
-                  <option value="semanal">Destaque Semanal</option>
-                  <option value="mensal">Mensal Completo</option>
-                  <option value="destaque">Destaque (Legado)</option>
-                  <option value="pro">Pro (Legado)</option>
+                  <option value="">Todos os Tipos</option>
+                  <option value="pro">Vitriniza Pro (Pago)</option>
+                  <option value="local_free">Cadastro Local (Grátis)</option>
                 </select>
 
                 <select
@@ -835,7 +1006,6 @@ export default function MasterAdminPage() {
               </div>
             </div>
 
-            {/* Businesses Table */}
             <div className="bg-white rounded-3xl border border-[#4FA6A6]/20 card-shadow overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -843,118 +1013,134 @@ export default function MasterAdminPage() {
                     <tr>
                       <th className="py-3 px-4">Empresa</th>
                       <th className="py-3 px-4">Bairro / Cat.</th>
-                      <th className="py-3 px-4">Plano</th>
+                      <th className="py-3 px-4">Presença / Plano</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Selos</th>
                       <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E8E4DA]">
-                    {filteredBusinesses.map((b) => (
-                      <tr key={b.id} className="hover:bg-[#F8F6F0]/60 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-black text-sm text-[#0E3B43]">{b.name}</div>
-                          <div className="text-[11px] text-[#537379]">{formatPhone(b.whatsapp)}</div>
-                        </td>
+                    {filteredBusinesses.map((b) => {
+                      const isPro = b.listing_type === 'paid' || (b.plan_id !== 'free' && b.listing_type !== 'local_free');
+                      return (
+                        <tr key={b.id} className="hover:bg-[#F8F6F0]/60 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-black text-sm text-[#0E3B43]">{b.name}</div>
+                            <div className="text-[11px] text-[#537379]">{formatPhone(b.whatsapp)}</div>
+                          </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-[#0E3B43]">{b.neighborhood?.name}</div>
-                          <div className="text-[11px] text-[#4FA6A6] font-semibold">{b.category?.name}</div>
-                        </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-[#0E3B43]">{b.neighborhood?.name || 'Guaianases'}</div>
+                            <div className="text-[11px] text-[#4FA6A6] font-semibold">{b.category?.name}</div>
+                          </td>
 
-                        <td className="py-3.5 px-4">
-                          <select
-                            value={b.plan_id}
-                            onChange={(e) => handleChangePlan(b.id, e.target.value as PlanTier)}
-                            className="px-2 py-1 rounded-lg border border-[#E8E4DA] bg-white text-xs font-black uppercase text-[#0E3B43] cursor-pointer"
-                          >
-                            <option value="free">Gratuito (R$ 0)</option>
-                            <option value="semanal">Semanal (R$ 19,90)</option>
-                            <option value="mensal">Mensal (R$ 49,90)</option>
-                            <option value="destaque">Destaque (Semanal)</option>
-                            <option value="pro">Pro (Mensal)</option>
-                          </select>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(b.id, b.is_active)}
-                            className={cn(
-                              'px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer',
-                              b.is_active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
+                          <td className="py-3.5 px-4">
+                            {isPro ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#E36845] text-white font-black text-[10px] uppercase shadow-2xs">
+                                <Sparkles className="w-3 h-3" />
+                                <span>Vitriniza Pro</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0E3B43]/10 text-[#0E3B43] font-bold text-[10px] uppercase">
+                                <span>Cadastro Local</span>
+                              </span>
                             )}
-                          >
-                            {b.is_active ? '• Ativa' : '• Pausada'}
-                          </button>
-                        </td>
+                          </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1">
+                          <td className="py-3.5 px-4">
                             <button
                               type="button"
-                              onClick={() => handleToggleFeatured(b.id, b.is_featured)}
+                              onClick={() => handleToggleActive(b.id, b.is_active)}
                               className={cn(
-                                'px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer',
-                                b.is_featured ? 'bg-[#E36845] text-white shadow-2xs' : 'bg-stone-100 text-stone-400'
+                                'px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer',
+                                b.is_active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
                               )}
                             >
-                              ★ Destaque
+                              {b.is_active ? '• Ativa' : '• Pausada'}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleVerified(b.id, b.is_verified)}
-                              className={cn(
-                                'px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer',
-                                b.is_verified ? 'bg-[#4FA6A6] text-white shadow-2xs' : 'bg-stone-100 text-stone-400'
-                              )}
-                            >
-                              ✓ Verificado
-                            </button>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditBizModal(b)}
-                              className="px-2.5 py-1 rounded-lg bg-[#4FA6A6]/20 hover:bg-[#4FA6A6] text-[#0E3B43] hover:text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                              title="Editar todos os dados cadastrais desta empresa"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Editar</span>
-                            </button>
-                            <a
-                              href={buildWhatsAppUrl(
-                                b.whatsapp,
-                                `Olá! Sua vitrine digital "${b.name}" foi cadastrada no Portal Vitriniza (${b.neighborhood?.name || 'Guaianases'}). Acesse o link oficial para confirmar seus dados, criar sua senha e assumir o controle do seu painel: https://vitriniza.vercel.app/reivindicar?slug=${b.slug}`
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFounder(b.id, b.is_founder)}
+                                className={cn(
+                                  'px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer',
+                                  b.is_founder ? 'bg-amber-100 text-amber-900 font-black border border-amber-300' : 'bg-stone-100 text-stone-400'
+                                )}
+                              >
+                                🏅 Fundador
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFeatured(b.id, b.is_featured)}
+                                className={cn(
+                                  'px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer',
+                                  b.is_featured ? 'bg-[#E36845] text-white shadow-2xs' : 'bg-stone-100 text-stone-400'
+                                )}
+                              >
+                                ★ Destaque
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {!isPro && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenConvertModal(b)}
+                                    className="px-2.5 py-1 rounded-lg bg-[#E36845] hover:bg-[#F49C6B] text-white text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                                    title="Converter Cadastro Local para Plano Pro com painel liberado"
+                                  >
+                                    <Sparkles className="w-3 h-3" />
+                                    <span>Converter Pro</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPitch(b)}
+                                    className="px-2.5 py-1 rounded-lg bg-[#4FA6A6]/20 hover:bg-[#4FA6A6] text-[#0E3B43] hover:text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                    title="Ver métricas de acessos e gerar mensagem de prospecção via WhatsApp"
+                                  >
+                                    <TrendingUp className="w-3 h-3" />
+                                    <span>Oferecer Pro</span>
+                                  </button>
+                                </>
                               )}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Enviar link de ativação por WhatsApp ao proprietário"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
-                            >
-                              <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
-                              <span>Convite WhatsApp</span>
-                            </a>
-                            <Link
-                              href={`/${b.state_id.toLowerCase()}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`}
-                              target="_blank"
-                              className="p-1.5 rounded-lg bg-[#F8F6F0] hover:bg-[#4FA6A6]/20 text-[#0E3B43]"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Link>
-                            <button
-                              onClick={() => handleDeleteBusiness(b.id)}
-                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-red-50 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditBizModal(b)}
+                                className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-[#0E3B43] transition-all cursor-pointer"
+                                title="Editar dados cadastrais"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <Link
+                                href={`/${b.state_id?.toLowerCase() || 'sp'}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`}
+                                target="_blank"
+                                className="p-1.5 rounded-lg bg-[#F8F6F0] hover:bg-[#4FA6A6]/20 text-[#0E3B43]"
+                                title="Ver vitrine pública"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+
+                              <button
+                                onClick={() => handleDeleteBusiness(b.id)}
+                                className="p-1.5 rounded-lg bg-stone-100 hover:bg-red-50 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
+                                title="Excluir empresa"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -962,59 +1148,160 @@ export default function MasterAdminPage() {
           </div>
         )}
 
-        {/* TAB 3: CREATE MANUAL BUSINESS & INVITE */}
+        {/* TAB 4: SUBSCRIPTIONS & PAYMENTS */}
+        {activeTab === 'subscriptions' && (
+          <div className="space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-lg text-[#0E3B43]">Assinaturas Vitriniza Pro</h3>
+                <p className="text-xs text-[#537379]">Controle manual de pagamentos, renovações e status das contas Pro.</p>
+              </div>
+              <div className="text-right">
+                <span className="text-xs text-[#537379]">Total Ativas:</span>
+                <span className="text-xl font-black text-[#0E3B43] block">{stats.activeSubscriptions}</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-[#4FA6A6]/20 card-shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F8F6F0] text-[#0E3B43] font-bold uppercase tracking-wider text-[10px] border-b border-[#E8E4DA]">
+                    <tr>
+                      <th className="py-3 px-4">Estabelecimento</th>
+                      <th className="py-3 px-4">Plano</th>
+                      <th className="py-3 px-4">Valor</th>
+                      <th className="py-3 px-4">Início</th>
+                      <th className="py-3 px-4">Vencimento</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Controles Manuais</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E8E4DA]">
+                    {subscriptions.map((sub) => {
+                      const biz = businesses.find((b) => b.id === sub.business_id);
+                      return (
+                        <tr key={sub.id} className="hover:bg-[#F8F6F0]/60 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-black text-sm text-[#0E3B43]">{biz?.name || sub.business_id}</div>
+                            <div className="text-[11px] text-[#537379]">{biz?.neighborhood?.name || 'Guaianases'}</div>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-bold text-[#0E3B43]">{sub.plan_name}</td>
+                          <td className="py-3.5 px-4 font-black text-[#0E3B43]">{formatCurrency(sub.price)}</td>
+                          <td className="py-3.5 px-4 text-[#537379]">{sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('pt-BR') : '—'}</td>
+                          <td className="py-3.5 px-4 font-bold text-[#0E3B43]">
+                            {sub.expires_at ? new Date(sub.expires_at).toLocaleDateString('pt-BR') : '—'}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded text-[10px] font-black uppercase',
+                                sub.status === 'active'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : sub.status === 'pending'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : sub.status === 'expired' || sub.status === 'overdue'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-stone-200 text-stone-600'
+                              )}
+                            >
+                              {sub.status === 'active'
+                                ? 'Ativa'
+                                : sub.status === 'pending'
+                                ? 'Pendente'
+                                : sub.status === 'expired'
+                                ? 'Vencida'
+                                : sub.status === 'overdue'
+                                ? 'Atrasada'
+                                : 'Cancelada'}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {sub.status !== 'active' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateSubscription(sub.id, 'active')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+                                >
+                                  Confirmar Pgto
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleRenewSubscription(sub.id)}
+                                className="px-2.5 py-1 rounded-lg bg-[#4FA6A6] hover:bg-[#3d8c8c] text-white text-[11px] font-bold cursor-pointer"
+                              >
+                                Renovar (+30d)
+                              </button>
+
+                              {sub.status === 'active' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateSubscription(sub.id, 'expired')}
+                                  className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-red-50 text-red-600 text-[11px] font-bold cursor-pointer"
+                                >
+                                  Expirar
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: CREATE BUSINESS */}
         {activeTab === 'create_business' && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
             <div>
-              <h3 className="font-black text-lg text-[#0E3B43]">Cadastrar Novo Comércio Manualmente</h3>
+              <h3 className="font-black text-lg text-[#0E3B43]">Cadastrar Novo Estabelecimento</h3>
               <p className="text-xs text-[#537379]">
-                Insira os dados do negócio. O sistema criará a vitrine digital imediatamente e gerará um link de reivindicação para enviar ao comerciante.
+                Selecione se o cadastro será um Cadastro Local (gratuito e sem login) ou Vitriniza Pro (com conta e painel).
               </p>
             </div>
 
-            {createdInviteLink && (
-              <div className="p-4 bg-[#4FA6A6]/15 rounded-2xl border border-[#4FA6A6]/30 space-y-3">
-                <div className="flex items-center gap-2 font-bold text-xs text-[#0E3B43]">
-                  <CheckCircle2 className="w-4 h-4 text-[#4FA6A6]" />
-                  <span>Comércio cadastrado com sucesso! Envie o link de posse ao proprietário:</span>
-                </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={createdInviteLink}
-                    className="flex-1 px-3 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(createdInviteLink);
-                        alert('Link de convite copiado!');
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer shrink-0"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copiar Link</span>
-                    </button>
-                    <a
-                      href={buildWhatsAppUrl(
-                        lastCreatedBiz?.whatsapp || createForm.whatsapp || '11999998888',
-                        `Olá! Sua vitrine digital "${lastCreatedBiz?.name || 'sua empresa'}" foi cadastrada no Portal Vitriniza. Acesse o link oficial para confirmar seus dados, criar sua senha e assumir o controle do seu painel: ${createdInviteLink}`
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
-                    >
-                      <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
-                      <span>Enviar no WhatsApp</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <form onSubmit={handleCreateBusiness} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Tipo de Presença *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCreateForm({ ...createForm, listing_type: 'local_free' })}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        createForm.listing_type === 'local_free'
+                          ? 'border-[#0E3B43] bg-[#0E3B43]/5 text-[#0E3B43]'
+                          : 'border-[#E8E4DA] bg-white text-[#537379]'
+                      }`}
+                    >
+                      <span className="font-black text-xs block">Cadastro Local</span>
+                      <span className="text-[11px]">Sem usuário, sem painel. Administrado pelo Master.</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCreateForm({ ...createForm, listing_type: 'paid' })}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        createForm.listing_type === 'paid'
+                          ? 'border-[#E36845] bg-[#E36845]/5 text-[#0E3B43]'
+                          : 'border-[#E8E4DA] bg-white text-[#537379]'
+                      }`}
+                    >
+                      <span className="font-black text-xs block text-[#E36845]">⭐ Vitriniza Pro</span>
+                      <span className="text-[11px]">Cria conta, libera painel e ativa assinatura.</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento *</label>
                   <input
@@ -1023,9 +1310,37 @@ export default function MasterAdminPage() {
                     value={createForm.name}
                     onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                     placeholder="Ex: Sorveteria Sabor do Bairro"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] focus:border-[#E36845] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
                   />
                 </div>
+
+                {createForm.listing_type === 'paid' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Responsável *</label>
+                      <input
+                        type="text"
+                        required
+                        value={createForm.owner_name}
+                        onChange={(e) => setCreateForm({ ...createForm, owner_name: e.target.value })}
+                        placeholder="Ex: Carlos Silva"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail para Acesso ao Painel *</label>
+                      <input
+                        type="email"
+                        required
+                        value={createForm.owner_email}
+                        onChange={(e) => setCreateForm({ ...createForm, owner_email: e.target.value })}
+                        placeholder="contato@sualoja.com.br"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1">Categoria *</label>
@@ -1061,18 +1376,7 @@ export default function MasterAdminPage() {
                     value={createForm.address}
                     onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
                     placeholder="Rua Salvador Gianetti"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Número</label>
-                  <input
-                    type="text"
-                    value={createForm.number}
-                    onChange={(e) => setCreateForm({ ...createForm, number: e.target.value })}
-                    placeholder="120"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
                   />
                 </div>
 
@@ -1084,31 +1388,7 @@ export default function MasterAdminPage() {
                     value={createForm.whatsapp}
                     onChange={(e) => setCreateForm({ ...createForm, whatsapp: e.target.value })}
                     placeholder="11999998888"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Plano Inicial</label>
-                  <select
-                    value={createForm.plan_id}
-                    onChange={(e) => setCreateForm({ ...createForm, plan_id: e.target.value as PlanTier })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
-                  >
-                    <option value="free">Gratuito (R$ 0)</option>
-                    <option value="semanal">Destaque Semanal (R$ 19,90)</option>
-                    <option value="mensal">Mensal Completo (R$ 49,90)</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Breve Descrição do Negócio</label>
-                  <textarea
-                    rows={2}
-                    value={createForm.short_description}
-                    onChange={(e) => setCreateForm({ ...createForm, short_description: e.target.value })}
-                    placeholder="Descreva o que o comércio oferece aos moradores..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none resize-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
                   />
                 </div>
               </div>
@@ -1118,690 +1398,210 @@ export default function MasterAdminPage() {
                   type="submit"
                   className="px-8 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
                 >
-                  Cadastrar Estabelecimento e Gerar Link de Posse
+                  Cadastrar Estabelecimento
                 </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* TAB 4: CLAIMS MODERATION */}
-        {activeTab === 'claims' && (
+        {/* TAB 6: AUDIT LOGS */}
+        {activeTab === 'audit' && (
           <div className="space-y-4">
             <div className="bg-white p-6 rounded-3xl border border-[#4FA6A6]/20 card-shadow">
-              <h3 className="font-black text-lg text-[#0E3B43]">Fila de Reivindicações</h3>
-              <p className="text-xs text-[#537379]">
-                Comerciantes que solicitaram acesso aos seus perfis cadastrados na Vitriniza.
-              </p>
+              <h3 className="font-black text-lg text-[#0E3B43]">Histórico de Auditoria</h3>
+              <p className="text-xs text-[#537379]">Registro de ações administrativas e alterações de plano.</p>
             </div>
 
-            <div className="space-y-3">
-              {claims.length > 0 ? (
-                claims.map((c) => (
-                  <div key={c.id} className="bg-white p-5 rounded-3xl border border-[#4FA6A6]/20 card-shadow flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-black text-sm text-[#0E3B43]">{c.business_name || 'Empresa'}</span>
-                        <span className={cn(
-                          'px-2 py-0.5 rounded text-[10px] font-black uppercase',
-                          c.status === 'pending' ? 'bg-[#E36845]/15 text-[#E36845]' : c.status === 'approved' ? 'bg-[#4FA6A6]/20 text-[#0E3B43]' : 'bg-stone-200 text-stone-600'
-                        )}>
-                          {c.status === 'pending' ? 'Pendente' : c.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-[#537379] space-y-0.5">
-                        <p><strong>Solicitante:</strong> {c.requester_name} ({c.requester_email})</p>
-                        <p><strong>WhatsApp:</strong> {formatPhone(c.requester_phone)} {c.document && `| Documento: ${c.document}`}</p>
-                        <p className="italic text-[#0E3B43]">"{c.proof_notes}"</p>
-                      </div>
-                    </div>
-
-                    {c.status === 'pending' && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          href={buildWhatsAppUrl(
-                            c.requester_phone,
-                            `Olá ${c.requester_name}! Recebemos sua solicitação para assumir a vitrine "${c.business_name || 'sua empresa'}" no Portal Vitriniza. Acesse o link oficial para concluir sua confirmação: https://vitriniza.vercel.app/reivindicar?slug=${c.business_id}`
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-                        >
-                          <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
-                          <span>WhatsApp</span>
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleResolveClaim(c.id, true)}
-                          className="px-4 py-2 rounded-xl bg-[#4FA6A6] hover:bg-[#3d8c8c] text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Aprovar</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleResolveClaim(c.id, false)}
-                          className="px-4 py-2 rounded-xl bg-stone-100 text-red-500 hover:bg-red-50 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Rejeitar</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center bg-white rounded-3xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
-                  Nenhuma solicitação de reivindicação pendente.
-                </div>
-              )}
+            <div className="bg-white rounded-3xl border border-[#4FA6A6]/20 card-shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F8F6F0] text-[#0E3B43] font-bold uppercase tracking-wider text-[10px] border-b border-[#E8E4DA]">
+                    <tr>
+                      <th className="py-3 px-4">Data / Hora</th>
+                      <th className="py-3 px-4">Ação</th>
+                      <th className="py-3 px-4">Estabelecimento</th>
+                      <th className="py-3 px-4">Admin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E8E4DA]">
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-[#F8F6F0]/60 transition-colors">
+                        <td className="py-3.5 px-4 text-[#537379]">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                        <td className="py-3.5 px-4 font-bold text-[#0E3B43]">
+                          <span className="px-2 py-0.5 rounded bg-[#4FA6A6]/15 text-[#0E3B43] text-[10px] font-black uppercase">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-black text-[#0E3B43]">{log.business_name || log.business_id || '—'}</td>
+                        <td className="py-3.5 px-4 text-[#537379]">{log.admin_user_id}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 5: SETTINGS */}
+        {/* TAB 7: SETTINGS */}
         {activeTab === 'settings' && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
             <div>
-              <h3 className="font-black text-lg text-[#0E3B43]">Configurações da Plataforma & Preços</h3>
-              <p className="text-xs text-[#537379]">Edite os valores cobrados nos planos dinamicamente</p>
+              <h3 className="font-black text-lg text-[#0E3B43]">Configurações da Plataforma & SaaS</h3>
+              <p className="text-xs text-[#537379]">Gerencie o valor oficial do Plano Vitriniza Pro e dados de contato.</p>
             </div>
 
-            <form onSubmit={handleSaveSettings} className="space-y-6 max-w-2xl">
-              <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
-                <h4 className="font-black text-sm text-[#0E3B43] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#E36845]" />
-                  <span>Personalização Visual: Logo & Banner Hero</span>
-                </h4>
-
-                {/* Logo URL & File Upload */}
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Logo da Plataforma</label>
-                  <div className="flex items-center gap-3 mb-2">
-                    <input
-                      type="text"
-                      required
-                      value={settingsForm.logoUrl}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, logoUrl: e.target.value })}
-                      placeholder="/logo.png ou https://..."
-                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
-                    />
-                    <div className="w-12 h-12 rounded-xl bg-white border border-[#E8E4DA] p-1 shrink-0 flex items-center justify-center overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={settingsForm.logoUrl || '/logo.png'} alt="Preview Logo" className="w-full h-full object-contain mix-blend-multiply" />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs">
-                      <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                      <span>📁 Enviar Arquivo do Dispositivo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleImageFileUpload(file, (dataUrl) => {
-                              setSettingsForm((prev) => ({ ...prev, logoUrl: dataUrl }));
-                            });
-                          }
-                        }}
-                      />
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, logoUrl: '/logo.png' })}
-                      className="px-2.5 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50"
-                    >
-                      Logo Padrão Vitriniza
-                    </button>
-                  </div>
-                </div>
-
-                {/* Hero Background Image URL & File Upload */}
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem de Fundo do Banner Hero (Homepage)</label>
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      required
-                      value={settingsForm.heroBgUrl}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, heroBgUrl: e.target.value })}
-                      placeholder="https://images.unsplash.com/..."
-                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
-                    />
-
-                    <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs shrink-0">
-                      <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                      <span>📁 Enviar Foto</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleImageFileUpload(file, (dataUrl) => {
-                              setSettingsForm((prev) => ({ ...prev, heroBgUrl: dataUrl }));
-                            });
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                  
-                  {/* Banner Preview */}
-                  <div className="relative h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-900 mb-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={settingsForm.heroBgUrl} alt="Hero Banner Preview" className="w-full h-full object-cover opacity-50" />
-                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-2 text-white">
-                      <span className="text-xs font-black drop-shadow">{settingsForm.heroTitle || 'Título da Homepage'}</span>
-                      <span className="text-[10px] opacity-80 drop-shadow line-clamp-1">{settingsForm.heroSubtitle || 'Subtítulo'}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-[#537379] mr-1">Fotos sugeridas:</span>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80' })}
-                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                    >
-                      Bairro/Comércio 1
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1800&auto=format&fit=crop&q=80' })}
-                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                    >
-                      Lojas & Vitrines
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1800&auto=format&fit=crop&q=80' })}
-                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                    >
-                      Gastronomia
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSettingsForm({ ...settingsForm, heroBgUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1800&auto=format&fit=crop&q=80' })}
-                      className="px-2 py-0.5 rounded-md bg-white border border-[#E8E4DA] text-[10px] font-semibold text-[#0E3B43]"
-                    >
-                      Imóveis/Cidade
-                    </button>
-                  </div>
-                </div>
-
-                {/* Hero Title */}
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título Principal do Hero Banner</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.heroTitle}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
-                    placeholder="Descubra o melhor perto de você."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white"
-                  />
-                </div>
-
-                {/* Hero Subtitle */}
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Subtítulo do Hero Banner</label>
-                  <textarea
-                    rows={2}
-                    required
-                    value={settingsForm.heroSubtitle}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })}
-                    placeholder="Encontre comércios, profissionais..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-white resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
-                <h4 className="font-black text-sm text-[#0E3B43]">Preços dos Planos & Suporte</h4>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Destaque Semanal (R$ / 7 dias)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={settingsForm.semanalPrice}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, semanalPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Preço Plano Mensal Completo (R$ / mês)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={settingsForm.mensalPrice}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, mensalPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Suporte da Vitriniza</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.contactWhatsApp}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, contactWhatsApp: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="px-8 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer active:scale-95"
-              >
-                Salvar Alterações Globais da Plataforma
-              </button>
-            </form>
-
-            {/* Supabase Cloud Database Section */}
-            <div className="pt-6 border-t border-[#E8E4DA] space-y-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#E36845]" />
-                <h4 className="font-black text-sm text-[#0E3B43]">Sincronização em Nuvem (Supabase)</h4>
-              </div>
-              <p className="text-xs text-[#537379] max-w-xl">
-                Envie todos os comércios, categorias, produtos e configurações para o banco em nuvem do Supabase. Assim, qualquer outro dispositivo ou visitante verá os cadastros em tempo real.
-              </p>
-
-              {cloudSyncMsg && (
-                <div
-                  className={cn(
-                    'p-3.5 rounded-xl text-xs font-bold flex items-center gap-2',
-                    cloudSyncMsg.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
-                  )}
-                >
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{cloudSyncMsg.text}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleSyncToSupabase}
-                disabled={isSyncingCloud}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Sparkles className="w-4 h-4 text-[#4FA6A6]" />
-                <span>{isSyncingCloud ? 'Sincronizando com Supabase...' : '🚀 Popular / Sincronizar Tudo com Supabase'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* TAB: GESTÃO DE EVENTOS NO BAIRRO */}
-        {activeTab === 'events' && (
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E8E4DA] pb-5">
+            <form onSubmit={handleSaveSettings} className="space-y-4 max-w-2xl">
               <div>
-                <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-[#E36845]" />
-                  <span>Gestão de Eventos no Bairro</span>
-                </h3>
-                <p className="text-xs text-[#537379]">
-                  Cadastre, edite, ative ou desative feiras gastronômicas, bazares, shows e feiras do bairro exibidos no portal.
-                </p>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Plano Pago</label>
+                <input
+                  type="text"
+                  value={settingsForm.proName}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, proName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
               </div>
 
-              <button
-                onClick={() => {
-                  setEditingEventId(null);
-                  resetEventForm();
-                  setIsEventModalOpen(true);
-                }}
-                className="px-5 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black flex items-center gap-2 shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Cadastrar Novo Evento</span>
-              </button>
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Valor Mensal do Plano Pro (R$)</label>
+                <input
+                  type="number"
+                  step="0.10"
+                  value={settingsForm.proPrice}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, proPrice: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
+              </div>
 
-            {/* Events List Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {events.length > 0 ? (
-                events.map((evt) => (
-                  <div key={evt.id} className="p-5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex flex-col justify-between gap-4">
-                    <div className="flex gap-3">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-stone-100 shrink-0 border border-[#E8E4DA]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={evt.image_url} alt={evt.title} className="w-full h-full object-cover" />
-                      </div>
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Oficial da Vitriniza</label>
+                <input
+                  type="text"
+                  value={settingsForm.contactWhatsApp}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, contactWhatsApp: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
+              </div>
 
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider',
-                              evt.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600'
-                            )}
-                          >
-                            {evt.is_active ? 'Ativo na Homepage' : 'Inativo / Oculto'}
-                          </span>
-                        </div>
-                        <h4 className="font-black text-xs text-[#0E3B43] line-clamp-1">{evt.title}</h4>
-                        <div className="text-[11px] text-[#537379] space-y-0.5">
-                          <p>📅 <strong>{evt.event_date}</strong> às {evt.event_time}</p>
-                          <p>📍 {evt.location_name} - {evt.neighborhood_name}</p>
-                          <p>👤 {evt.organizer_name}</p>
-                        </div>
-                      </div>
-                    </div>
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail Oficial</label>
+                <input
+                  type="email"
+                  value={settingsForm.contactEmail}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, contactEmail: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
+              </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-[#E8E4DA]">
-                      <button
-                        onClick={() => handleToggleEventActive(evt.id)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
-                          evt.is_active
-                            ? 'bg-stone-200 text-stone-700 hover:bg-stone-300'
-                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        )}
-                      >
-                        {evt.is_active ? 'Desativar Evento' : 'Ativar Evento'}
-                      </button>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditEvent(evt)}
-                          className="px-3 py-1.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer flex items-center gap-1"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-[#4FA6A6]" />
-                          <span>Editar</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteEvent(evt.id)}
-                          className="p-2 rounded-xl bg-white border border-[#E8E4DA] text-stone-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="md:col-span-2 p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA] text-xs text-[#537379]">
-                  Nenhum evento cadastrado ainda. Clique em "+ Cadastrar Novo Evento" para publicar feiras, bazares e eventos comunitários.
-                </div>
-              )}
-            </div>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="px-6 py-3 rounded-2xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  Salvar Configurações
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>
 
-      {/* EVENT MODAL */}
-      {isEventModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
-          onClick={() => setIsEventModalOpen(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto cursor-default"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {/* MODAL 1: CONVERT LOCAL -> PRO */}
+      {isConvertModalOpen && convertingBiz && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-[#4FA6A6]/30 shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#E36845]" />
-                <span>{editingEventId ? 'Editar Evento' : 'Cadastrar Novo Evento no Bairro'}</span>
-              </h3>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#E36845]" />
+                <h3 className="font-black text-lg text-[#0E3B43]">Converter para Vitriniza Pro</h3>
+              </div>
               <button
                 type="button"
-                onClick={() => setIsEventModalOpen(false)}
-                className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
+                onClick={() => setIsConvertModalOpen(false)}
+                className="p-1 rounded-full hover:bg-stone-100 text-stone-400"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEvent} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs text-[#0E3B43] space-y-1">
+              <p><strong>Empresa:</strong> {convertingBiz.name}</p>
+              <p><strong>URL Pública Preservada:</strong> /{convertingBiz.state_id?.toLowerCase() || 'sp'}/sao-paulo/{convertingBiz.neighborhood?.slug || 'guaianases'}/{convertingBiz.slug}</p>
+              <p className="text-[11px] text-[#4FA6A6] font-bold">✓ Nenhum dado, foto ou histórico de SEO será alterado.</p>
+            </div>
+
+            <form onSubmit={handleExecuteConvert} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título do Evento *</label>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Proprietário / Responsável *</label>
                 <input
                   type="text"
                   required
-                  value={eventForm.title}
-                  onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                  placeholder="Ex: Feira Gastronômica & Cultural de Guaianases"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                  value={convertForm.ownerName}
+                  onChange={(e) => setConvertForm({ ...convertForm, ownerName: e.target.value })}
+                  placeholder="Ex: Carlos Eduardo Silva"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                 />
               </div>
 
-              {/* Date & Time Picker Section */}
-              <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Data do Evento *</label>
-                    <input
-                      type="date"
-                      required
-                      value={eventForm.event_date}
-                      onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Horário de Início *</label>
-                    <input
-                      type="time"
-                      required
-                      value={eventForm.start_time}
-                      onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Horário de Término *</label>
-                    <input
-                      type="time"
-                      required
-                      value={eventForm.end_time}
-                      onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-[11px] text-[#0E3B43] font-bold">
-                  <span>📅 Formato exibido aos moradores:</span>
-                  <span className="text-[#E36845]">
-                    {formatDatePtBr(eventForm.event_date)} ({eventForm.start_time} às {eventForm.end_time})
-                  </span>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail para Login no Painel *</label>
+                <input
+                  type="email"
+                  required
+                  value={convertForm.email}
+                  onChange={(e) => setConvertForm({ ...convertForm, email: e.target.value })}
+                  placeholder="comercio@gmail.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
               </div>
 
-              {/* Location & CEP Section */}
-              <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Local / Espaço *</label>
-                    <input
-                      type="text"
-                      required
-                      value={eventForm.location_name}
-                      onChange={(e) => setEventForm({ ...eventForm, location_name: e.target.value })}
-                      placeholder="Ex: Praça de Eventos Guaianases"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP do Local (ViaCEP)</label>
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        value={eventForm.postal_code}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEventForm({ ...eventForm, postal_code: val });
-                          if (val.replace(/\D/g, '').length === 8) {
-                            handleLookupEventCep(val);
-                          }
-                        }}
-                        placeholder="08410-000"
-                        className="w-full pl-3.5 pr-22 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-medium focus:border-[#E36845]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleLookupEventCep(eventForm.postal_code)}
-                        disabled={eventCepLoading}
-                        className="absolute right-1 px-2.5 py-1.5 rounded-lg bg-[#0E3B43] hover:bg-[#154e58] text-white text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {eventCepLoading ? '...' : '🔍 Buscar'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {eventCepMsg && (
-                  <div
-                    className={cn(
-                      'p-2.5 rounded-xl text-xs font-bold flex items-center gap-2',
-                      eventCepMsg.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
-                    )}
-                  >
-                    <span>{eventCepMsg.text}</span>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço / Logradouro</label>
-                  <input
-                    type="text"
-                    required
-                    value={eventForm.address}
-                    onChange={(e) => setEventForm({ ...eventForm, address: e.target.value })}
-                    placeholder="Ex: Estrada de Poá, s/n (Praça Central)"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro</label>
-                    <input
-                      type="text"
-                      required
-                      value={eventForm.neighborhood_name}
-                      onChange={(e) => setEventForm({ ...eventForm, neighborhood_name: e.target.value })}
-                      placeholder="Guaianases"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Cidade / UF</label>
-                    <input
-                      type="text"
-                      required
-                      value={eventForm.city_name}
-                      onChange={(e) => setEventForm({ ...eventForm, city_name: e.target.value })}
-                      placeholder="São Paulo/SP"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
-                    />
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Comercial</label>
+                <input
+                  type="tel"
+                  value={convertForm.whatsapp}
+                  onChange={(e) => setConvertForm({ ...convertForm, whatsapp: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Organizador *</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Valor Mensal (R$)</label>
                   <input
-                    type="text"
-                    required
-                    value={eventForm.organizer_name}
-                    onChange={(e) => setEventForm({ ...eventForm, organizer_name: e.target.value })}
-                    placeholder="Ex: Associação de Comerciantes"
+                    type="number"
+                    step="0.10"
+                    value={convertForm.price}
+                    onChange={(e) => setConvertForm({ ...convertForm, price: Number(e.target.value) })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp de Contato (Opcional)</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Vencimento Inicial</label>
                   <input
-                    type="text"
-                    value={eventForm.whatsapp_contact}
-                    onChange={(e) => setEventForm({ ...eventForm, whatsapp_contact: e.target.value })}
-                    placeholder="Ex: 11999998888"
+                    type="date"
+                    value={convertForm.expiresAt}
+                    onChange={(e) => setConvertForm({ ...convertForm, expiresAt: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Imagem do Evento</label>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={eventForm.image_url}
-                    onChange={(e) => setEventForm({ ...eventForm, image_url: e.target.value })}
-                    placeholder="https://..."
-                    className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-100 cursor-pointer shrink-0">
-                    <Upload className="w-3.5 h-3.5 text-[#E36845]" />
-                    <span>📁 Upload Foto</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleImageFileUpload(file, (dataUrl) => {
-                            setEventForm((prev) => ({ ...prev, image_url: dataUrl }));
-                          });
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                {eventForm.image_url && (
-                  <div className="h-28 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={eventForm.image_url} alt="Preview Evento" className="w-full h-full object-cover" />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Completa do Evento</label>
-                <textarea
-                  rows={3}
-                  value={eventForm.description}
-                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                  placeholder="Detalhes das atrações, horários, expositores..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3">
                 <button
                   type="button"
-                  onClick={() => setIsEventModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer"
+                  onClick={() => setIsConvertModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-stone-100 text-xs font-bold text-stone-600 hover:bg-stone-200 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md cursor-pointer"
                 >
-                  {editingEventId ? 'Salvar Alterações' : 'Publicar Evento'}
+                  Converter e Ativar Pro
                 </button>
               </div>
             </form>
@@ -1809,191 +1609,134 @@ export default function MasterAdminPage() {
         </div>
       )}
 
-      {/* EDIT BUSINESS MODAL (FOR MASTER ADMIN) */}
-      {isEditBizModalOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto cursor-pointer"
-          onClick={() => setIsEditBizModalOpen(false)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 card-shadow space-y-6 my-8 cursor-default max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[#E8E4DA] pb-4">
-              <div>
-                <h3 className="text-lg font-black text-[#0E3B43]">Editar Perfil do Estabelecimento</h3>
-                <p className="text-xs text-[#537379]">Atualize todos os dados cadastrais da empresa no portal.</p>
+      {/* MODAL 2: COMMERCIAL PITCH ("OFERECER PRO") */}
+      {isPitchModalOpen && pitchBiz && pitchData && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-[#4FA6A6]/30 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-[#4FA6A6]" />
+                <h3 className="font-black text-lg text-[#0E3B43]">Resumo Comercial para Prospecção</h3>
               </div>
               <button
                 type="button"
-                onClick={() => setIsEditBizModalOpen(false)}
-                className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer font-bold"
+                onClick={() => setIsPitchModalOpen(false)}
+                className="p-1 rounded-full hover:bg-stone-100 text-stone-400"
               >
-                ✕
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="p-3 bg-[#F8F6F0] rounded-2xl border border-[#E8E4DA]">
+                <span className="text-[10px] text-[#537379] font-bold block">Visualizações</span>
+                <span className="text-xl font-black text-[#0E3B43]">{pitchData.viewsCount}</span>
+              </div>
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                <span className="text-[10px] text-emerald-800 font-bold block">Cliques WhatsApp</span>
+                <span className="text-xl font-black text-emerald-700">{pitchData.whatsappClicks}</span>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-2xl border border-blue-200">
+                <span className="text-[10px] text-blue-800 font-bold block">Pedidos de Rota</span>
+                <span className="text-xl font-black text-blue-700">{pitchData.mapClicks}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">Mensagem Pronta para WhatsApp</label>
+              <textarea
+                rows={8}
+                readOnly
+                value={pitchData.pitchText}
+                className="w-full p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none select-all"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(pitchData.pitchText);
+                  alert('✓ Mensagem de prospecção copiada!');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-[#0E3B43] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Copy className="w-4 h-4" />
+                <span>Copiar Mensagem</span>
+              </button>
+
+              <a
+                href={buildWhatsAppUrl(pitchBiz.whatsapp, pitchData.pitchText)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <WhatsAppSolidIcon className="w-4 h-4 fill-white" />
+                <span>Enviar no WhatsApp</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: EDIT BUSINESS */}
+      {isEditBizModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full border border-[#4FA6A6]/30 shadow-2xl space-y-6 my-8">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-lg text-[#0E3B43]">Editar Dados do Estabelecimento</h3>
+              <button
+                type="button"
+                onClick={() => setIsEditBizModalOpen(false)}
+                className="p-1 rounded-full hover:bg-stone-100 text-stone-400"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveEditBiz} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento *</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome *</label>
                   <input
                     type="text"
                     required
                     value={editBizForm.name}
                     onChange={(e) => setEditBizForm({ ...editBizForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Categoria *</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Tipo de Presença</label>
                   <select
-                    value={editBizForm.category_id}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, category_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
+                    value={editBizForm.listing_type}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, listing_type: e.target.value as ListingType })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none bg-white"
                   >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
+                    <option value="local_free">Cadastro Local (Grátis)</option>
+                    <option value="paid">Vitriniza Pro (Pago)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro *</label>
-                  <select
-                    value={editBizForm.neighborhood_id}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, neighborhood_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
-                  >
-                    {neighborhoods.map((n) => (
-                      <option key={n.id} value={n.id}>{n.name} (São Paulo)</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP (ViaCEP)</label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      value={editBizForm.postal_code}
-                      onChange={(e) => setEditBizForm({ ...editBizForm, postal_code: e.target.value })}
-                      placeholder="08410-000"
-                      className="w-full pl-3.5 pr-20 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setEditBizCepMsg('Buscando...');
-                        const res = await fetchAddressByCep(editBizForm.postal_code);
-                        if (res) {
-                          const matchedNeigh = store.ensureNeighborhood(res.bairro || 'São Paulo');
-                          setNeighborhoods(store.getNeighborhoods());
-                          setEditBizForm((prev) => ({
-                            ...prev,
-                            address: res.logradouro || prev.address,
-                            postal_code: res.cep || prev.postal_code,
-                            neighborhood_id: matchedNeigh.id,
-                          }));
-                          setEditBizCepMsg(`✓ Bairro auto-cadastrado: ${res.bairro || 'Endereço localizado'}`);
-                        } else {
-                          setEditBizCepMsg('❌ CEP não encontrado');
-                        }
-                      }}
-                      className="absolute right-1.5 px-3 py-1.5 rounded-lg bg-[#4FA6A6] text-white text-[11px] font-bold cursor-pointer hover:bg-[#3d8c8c]"
-                    >
-                      🔍 Buscar
-                    </button>
-                  </div>
-                  {editBizCepMsg && (
-                    <span className="text-[10px] font-bold text-[#4FA6A6] mt-1 block">{editBizCepMsg}</span>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua/Av) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editBizForm.address}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, address: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Número</label>
-                  <input
-                    type="text"
-                    value={editBizForm.number}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, number: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Comercial *</label>
                   <input
                     type="text"
                     required
                     value={editBizForm.whatsapp}
                     onChange={(e) => setEditBizForm({ ...editBizForm, whatsapp: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Plano Atual</label>
-                  <select
-                    value={editBizForm.plan_id}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, plan_id: e.target.value as PlanTier })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
-                  >
-                    <option value="free">Gratuito (R$ 0)</option>
-                    <option value="semanal">Semanal (R$ 19,90)</option>
-                    <option value="mensal">Mensal (R$ 49,90)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (@usuario)</label>
-                  <input
-                    type="text"
-                    value={editBizForm.instagram}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, instagram: e.target.value })}
-                    placeholder="@sualoja"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Breve Descrição do Negócio</label>
-                  <textarea
-                    rows={2}
-                    value={editBizForm.short_description}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, short_description: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none resize-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">URL do Logo / Foto Principal</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço</label>
                   <input
                     type="text"
-                    value={editBizForm.logo_url}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, logo_url: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">URL da Capa do Perfil</label>
-                  <input
-                    type="text"
-                    value={editBizForm.cover_url}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, cover_url: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                    value={editBizForm.address}
+                    onChange={(e) => setEditBizForm({ ...editBizForm, address: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                   />
                 </div>
 
@@ -2005,7 +1748,7 @@ export default function MasterAdminPage() {
                       onChange={(e) => setEditBizForm({ ...editBizForm, is_active: e.target.checked })}
                       className="w-4 h-4 rounded text-[#4FA6A6]"
                     />
-                    <span>Loja Ativa na Plataforma</span>
+                    <span>Ativo no Portal</span>
                   </label>
 
                   <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
@@ -2015,27 +1758,17 @@ export default function MasterAdminPage() {
                       onChange={(e) => setEditBizForm({ ...editBizForm, is_featured: e.target.checked })}
                       className="w-4 h-4 rounded text-[#E36845]"
                     />
-                    <span>★ Selo Destaque</span>
+                    <span>★ Destaque</span>
                   </label>
 
                   <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={editBizForm.is_verified}
-                      onChange={(e) => setEditBizForm({ ...editBizForm, is_verified: e.target.checked })}
-                      className="w-4 h-4 rounded text-[#4FA6A6]"
+                      checked={editBizForm.is_founder}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, is_founder: e.target.checked })}
+                      className="w-4 h-4 rounded text-amber-500"
                     />
-                    <span>✓ Selo Verificado</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editBizForm.is_online_only}
-                      onChange={(e) => setEditBizForm({ ...editBizForm, is_online_only: e.target.checked })}
-                      className="w-4 h-4 rounded text-[#4FA6A6]"
-                    />
-                    <span>🌐 Atendimento 100% Online / Remoto</span>
+                    <span>🏅 Negócio Fundador</span>
                   </label>
                 </div>
               </div>
@@ -2044,13 +1777,13 @@ export default function MasterAdminPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditBizModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl bg-stone-100 text-stone-600 text-xs font-bold hover:bg-stone-200 cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-stone-100 text-stone-600 text-xs font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154e58] text-white text-xs font-bold shadow-md cursor-pointer"
+                  className="px-6 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold cursor-pointer"
                 >
                   Salvar Alterações
                 </button>

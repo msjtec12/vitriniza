@@ -1,5 +1,10 @@
 export type PlanTier = 'free' | 'semanal' | 'mensal' | 'destaque' | 'pro' | 'premium';
 
+export type ListingType = 'local_free' | 'paid';
+export type OwnershipStatus = 'unclaimed' | 'claimed';
+export type SubscriptionStatus = 'active' | 'pending' | 'overdue' | 'cancelled' | 'expired';
+export type BusinessRole = 'owner' | 'manager' | 'editor';
+
 export interface PlanLimits {
   max_products: number; // -1 for unlimited
   max_photos: number;
@@ -133,6 +138,74 @@ export interface Review {
   created_at: string;
 }
 
+export interface BusinessMember {
+  id: string;
+  user_id: string;
+  business_id: string;
+  role: BusinessRole;
+  user_email?: string;
+  user_name?: string;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  business_id: string;
+  plan_id: string;
+  plan_name: string;
+  price: number;
+  interval: 'monthly' | 'yearly';
+  status: SubscriptionStatus;
+  starts_at: string;
+  expires_at: string;
+  payment_confirmed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BusinessRequest {
+  id: string;
+  owner_name: string;
+  business_name: string;
+  whatsapp: string;
+  email?: string;
+  instagram?: string;
+  category_id?: string;
+  category_name?: string;
+  neighborhood_id?: string;
+  neighborhood_name?: string;
+  address?: string;
+  interest_type: 'local_free' | 'pro';
+  message?: string;
+  status: 'pending' | 'contacted' | 'approved' | 'rejected';
+  admin_notes?: string;
+  created_at: string;
+  reviewed_at?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  admin_user_id: string;
+  business_id?: string;
+  business_name?: string;
+  action:
+    | 'business_created'
+    | 'business_updated'
+    | 'business_converted_to_pro'
+    | 'user_invited'
+    | 'owner_changed'
+    | 'subscription_created'
+    | 'payment_confirmed'
+    | 'subscription_expired'
+    | 'subscription_renewed'
+    | 'business_suspended'
+    | 'business_reactivated'
+    | 'request_approved'
+    | 'request_rejected';
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface Business {
   id: string;
   name: string;
@@ -159,6 +232,11 @@ export interface Business {
   website?: string;
   logo_url: string;
   cover_url: string;
+  listing_type?: ListingType; // 'local_free' | 'paid'
+  ownership_status?: OwnershipStatus; // 'unclaimed' | 'claimed'
+  owner_user_id?: string | null;
+  subscription_id?: string;
+  subscription_status?: SubscriptionStatus;
   plan_id: PlanTier;
   plan_status: 'active' | 'suspended' | 'canceled' | 'trial';
   plan_starts_at?: string;
@@ -289,6 +367,13 @@ export interface PlatformSettings {
     destaque: number;
     pro: number;
     premium: number;
+  };
+  pro_plan?: {
+    name: string;
+    price: number;
+    interval: string;
+    features: string[];
+    status: 'active' | 'inactive';
   };
   platform_name: string;
   contact_whatsapp: string;

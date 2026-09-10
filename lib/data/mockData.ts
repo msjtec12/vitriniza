@@ -11,6 +11,10 @@ import {
   LocalEvent,
   Banner,
   PlatformSettings,
+  BusinessRequest,
+  Subscription,
+  AuditLog,
+  BusinessMember,
 } from '@/types';
 
 export const mockStates: State[] = [
@@ -409,6 +413,21 @@ export const mockPlatformSettings: PlatformSettings = {
     destaque: 19.90,
     pro: 49.90,
     premium: 49.90,
+  },
+  pro_plan: {
+    name: 'Vitriniza Pro',
+    price: 49.90,
+    interval: 'mensal',
+    features: [
+      'Painel do Comerciante exclusivo',
+      'Catálogo de produtos e serviços ilimitado',
+      'Publicação contínua de Ofertas em Destaque 🔥',
+      'QR Code com logotipo e display para balcão',
+      'Métricas de acessos, cliques no WhatsApp e rotas',
+      'Gerador de artes prontas para Instagram e Status',
+      'Gestão de avaliações de moradores',
+    ],
+    status: 'active',
   },
   platform_name: 'Vitriniza',
   contact_whatsapp: '11987654321',
@@ -1610,3 +1629,97 @@ export const mockBanners: Banner[] = [
     created_at: '2026-01-10T12:00:00Z',
   },
 ];
+
+// COMMERCIAL BUSINESS REQUESTS
+export const mockBusinessRequests: BusinessRequest[] = [
+  {
+    id: 'req-1',
+    owner_name: 'Renato Silva',
+    business_name: 'Auto Elétrica e Baterias Guaianases',
+    whatsapp: '11987654321',
+    email: 'renato.eletrica@gmail.com',
+    instagram: 'autoeletricaguaianases',
+    category_name: 'Automotivo',
+    neighborhood_name: 'Guaianases',
+    address: 'Av. Nordestina, 4200 - Guaianases',
+    interest_type: 'pro',
+    message: 'Gostaria de cadastrar minha auto elétrica e publicar ofertas de troca de bateria.',
+    status: 'pending',
+    created_at: '2026-09-08T14:30:00Z',
+  },
+  {
+    id: 'req-2',
+    owner_name: 'Fernanda Lima',
+    business_name: 'Ateliê Doce Sabor Bolos',
+    whatsapp: '11976543210',
+    email: 'fernanda.doces@hotmail.com',
+    instagram: 'ateliedocesabor_bolos',
+    category_name: 'Doces & Bolos',
+    neighborhood_name: 'Guaianases',
+    address: 'Rua Central, 120',
+    interest_type: 'local_free',
+    message: 'Quero cadastrar gratuitamente meu ateliê de bolos no portal do bairro.',
+    status: 'pending',
+    created_at: '2026-09-09T09:15:00Z',
+  },
+  {
+    id: 'req-3',
+    owner_name: 'Marcos Vinicius',
+    business_name: 'Studio M Barber Shop',
+    whatsapp: '11965432109',
+    email: 'marcos.barber@gmail.com',
+    instagram: 'studiombarbershop',
+    category_name: 'Beleza & Estética',
+    neighborhood_name: 'Guaianases',
+    address: 'Rua Salvador Gianetti, 890',
+    interest_type: 'pro',
+    message: 'Tenho interesse na Vitriniza Pro com display de balcão e QR Code.',
+    status: 'contacted',
+    created_at: '2026-09-07T11:00:00Z',
+  },
+];
+
+// SAAS SUBSCRIPTIONS
+export const mockSubscriptions: Subscription[] = [
+  {
+    id: 'sub-biz-1',
+    business_id: 'biz-1',
+    plan_id: 'pro',
+    plan_name: 'Vitriniza Pro',
+    price: 49.90,
+    interval: 'monthly',
+    status: 'active',
+    starts_at: '2026-01-01T00:00:00Z',
+    expires_at: '2026-12-31T23:59:59Z',
+    payment_confirmed_at: '2026-01-01T00:00:00Z',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  },
+];
+
+// AUDIT LOGS
+export const mockAuditLogs: AuditLog[] = [
+  {
+    id: 'log-1',
+    admin_user_id: 'master_admin',
+    business_id: 'biz-1',
+    business_name: 'Pizzaria Bella Villa',
+    action: 'subscription_created',
+    metadata: { plan_name: 'Vitriniza Pro', price: 49.90 },
+    created_at: '2026-01-01T00:00:00Z',
+  },
+];
+
+// BUSINESS MEMBERS
+export const mockBusinessMembers: BusinessMember[] = [
+  {
+    id: 'bm-1',
+    user_id: 'usr-1',
+    business_id: 'biz-1',
+    role: 'owner',
+    user_email: 'contato@bellavillapizza.com.br',
+    user_name: 'Carlos Villa',
+    created_at: '2026-01-01T00:00:00Z',
+  },
+];
+

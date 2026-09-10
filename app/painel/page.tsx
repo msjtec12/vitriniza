@@ -129,6 +129,7 @@ export default function MerchantPanelPage() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [settings, setSettings] = useState(store.getPlatformSettings());
   const [isSavingChanges, setIsSavingChanges] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -511,11 +512,11 @@ export default function MerchantPanelPage() {
             </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-black">
               <ShieldCheck className="w-3.5 h-3.5 text-[#E36845]" />
-              <span>Acesso do Comerciante</span>
+              <span>Área do Comerciante</span>
             </div>
-            <h2 className="font-black text-2xl text-[#0E3B43]">Painel do Lojista</h2>
+            <h2 className="font-black text-2xl text-[#0E3B43]">Acesse sua Vitrine</h2>
             <p className="text-xs text-[#537379] leading-relaxed">
-              Entre para gerenciar sua vitrine digital, produtos, promoções e fotos na Vitriniza.
+              Digite seu WhatsApp e senha para gerenciar produtos, ofertas e fotos da sua loja.
             </p>
           </div>
 
@@ -561,12 +562,12 @@ export default function MerchantPanelPage() {
           </form>
 
           <div className="text-center pt-2 border-t border-[#E8E4DA] space-y-2 text-xs text-[#537379]">
-            <p>Ainda não cadastrou seu comércio?</p>
+            <p>Quer ter acesso ao painel do comerciante?</p>
             <Link
               href="/para-empresas"
               className="inline-flex items-center gap-1 font-bold text-[#E36845] hover:underline"
             >
-              <span>Cadastrar meu negócio na Vitriniza</span>
+              <span>Conheça a Vitriniza Pro</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -580,6 +581,59 @@ export default function MerchantPanelPage() {
     return (
       <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center p-4 text-xs font-bold text-[#537379]">
         Carregando painel do comerciante...
+      </div>
+    );
+  }
+
+  // GATING: If business is Cadastro Local, block access with upgrade prompt
+  const access = store.canAccessMerchantPanel(business.id);
+  if (access.isLocalFree) {
+    return (
+      <div className="min-h-[85vh] bg-[#F8F6F0] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-[#4FA6A6]/20 card-shadow text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-[#0E3B43]/10 text-[#0E3B43] mx-auto flex items-center justify-center">
+            <Store className="w-8 h-8 text-[#0E3B43]" />
+          </div>
+          <div className="space-y-2">
+            <div className="inline-block px-3 py-1 rounded-full bg-stone-100 text-stone-700 text-xs font-bold uppercase tracking-wider">
+              Cadastro Local
+            </div>
+            <h2 className="text-2xl font-black text-[#0E3B43]">{business.name}</h2>
+            <p className="text-xs text-[#537379] leading-relaxed">
+              Este comércio é um <strong>Cadastro Local Gratuito</strong>. O Cadastro Local garante presença nas buscas e no portal do bairro, mas não possui acesso ao painel de gerenciamento.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs text-[#0E3B43] space-y-2 text-left">
+            <span className="font-black block uppercase tracking-wider text-[10px] text-[#4FA6A6]">
+              Com a Vitriniza Pro você libera:
+            </span>
+            <ul className="space-y-1.5 text-xs">
+              <li className="flex items-center gap-2">✓ Painel exclusivo para gerenciar fotos e dados</li>
+              <li className="flex items-center gap-2">✓ Catálogo de produtos e serviços</li>
+              <li className="flex items-center gap-2">✓ Publicação contínua de ofertas em destaque 🔥</li>
+              <li className="flex items-center gap-2">✓ Display oficial de balcão com QR Code</li>
+              <li className="flex items-center gap-2">✓ Métricas em tempo real de acessos</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <Link
+              href="/para-empresas"
+              className="w-full py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Quero Minha Vitrine Pro</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-[#0E3B43] text-xs font-bold cursor-pointer"
+            >
+              Trocar de Conta / Sair
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -601,12 +655,7 @@ export default function MerchantPanelPage() {
     { name: 'Dom', visualizacoes: stats.viewsCount > 0 ? Math.round(stats.viewsCount * 0.2) : 0, cliquesWhatsApp: stats.whatsappClicks > 0 ? Math.round(stats.whatsappClicks * 0.2) : 0 },
   ];
 
-  const friendlyPlanName =
-    business.plan_id === 'mensal' || business.plan_id === 'pro' || business.plan_id === 'premium'
-      ? 'Plano Mensal Completo'
-      : business.plan_id === 'semanal' || business.plan_id === 'destaque'
-      ? 'Plano Destaque Semanal'
-      : 'Plano Gratuito';
+  const friendlyPlanName = access.isExpired ? 'Vitriniza Pro (Vencido)' : 'Vitriniza Pro';
 
   const menuItems = [
     { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
@@ -705,6 +754,22 @@ export default function MerchantPanelPage() {
             </button>
           </div>
         </div>
+
+        {/* EXPIRED BANNER (If subscription is expired, display warning without locking viewing) */}
+        {access.isExpired && (
+          <div className="bg-amber-500 text-white px-4 py-2.5 text-center text-xs font-black flex flex-wrap items-center justify-center gap-2 shadow-xs">
+            <AlertTriangle className="w-4 h-4 text-white shrink-0" />
+            <span>Seu Plano Vitriniza Pro está vencido. Renove para continuar administrando seus produtos e promoções.</span>
+            <a
+              href={`https://wa.me/55${settings.contact_whatsapp}?text=${encodeURIComponent(`Olá! Gostaria de renovar a assinatura Vitriniza Pro do meu comércio *${business.name}*.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 rounded-lg bg-[#0E3B43] hover:bg-[#154e58] text-white text-[11px] font-bold shadow-xs transition-all"
+            >
+              Renovar no WhatsApp
+            </a>
+          </div>
+        )}
 
         {/* MOBILE HORIZONTAL NAVIGATION PILLS */}
         <div className="lg:hidden flex items-center gap-1 px-4 py-2 border-t border-[#E8E4DA] overflow-x-auto no-scrollbar bg-white">
@@ -1473,92 +1538,80 @@ export default function MerchantPanelPage() {
               </div>
             )}
 
-            {/* 7. PLANO E PAGAMENTOS TAB (Requirement #10) */}
+            {/* 7. PLANO E PAGAMENTOS TAB (Vitriniza Pro SaaS) */}
             {activeTab === 'plan' && (
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h3 className="font-black text-xl text-[#0E3B43]">Plano e Pagamentos</h3>
-                    <p className="text-xs text-[#537379]">Informações da sua assinatura e recursos liberados</p>
+                    <p className="text-xs text-[#537379]">Informações da sua assinatura oficial na Vitriniza</p>
                   </div>
-                  <span className="px-3.5 py-1.5 rounded-full bg-[#4FA6A6]/20 text-[#0E3B43] font-black text-xs uppercase tracking-wider">
-                    {friendlyPlanName}
+                  <span className="px-3.5 py-1.5 rounded-full bg-[#E36845] text-white font-black text-xs uppercase tracking-wider shadow-xs flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{friendlyPlanName}</span>
                   </span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Sua vitrine está ativa e visível para os moradores de Guaianases.</span>
+                <div className="p-5 rounded-2xl bg-[#0E3B43] text-white space-y-3 shadow-md">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="text-xs text-[#4FA6A6] font-bold block uppercase tracking-wider">Assinatura Oficial</span>
+                      <h4 className="text-2xl font-black text-white">Vitriniza Pro</h4>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-white">{formatCurrency(settings.pro_plan?.price || 49.90)}</span>
+                      <span className="text-xs text-white/70 block">/mês</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between text-xs text-[#F8F6F0]/90 gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Painel de lojista 100% liberado</span>
+                    </span>
+                    <a
+                      href={`https://wa.me/55${settings.contact_whatsapp}?text=${encodeURIComponent(`Olá! Sou do comércio *${business.name}* e gostaria de falar sobre a assinatura Vitriniza Pro.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold transition-all"
+                    >
+                      <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
+                      <span>Suporte / Faturas</span>
+                    </a>
+                  </div>
                 </div>
 
                 {/* Included Features */}
                 <div className="space-y-3">
                   <h4 className="font-black text-xs uppercase tracking-wider text-[#0E3B43]">
-                    Recursos Inclusos no Seu Plano
+                    Recursos Inclusos no Seu Plano Pro
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-[#0E3B43]">
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Perfil público no bairro</span>
+                      <span><strong>Painel do Lojista:</strong> edição completa da vitrine</span>
                     </div>
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Botão direto para WhatsApp</span>
+                      <span><strong>Catálogo Ilimitado:</strong> produtos e serviços</span>
                     </div>
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Endereço verificado com mapa</span>
+                      <span><strong>Ofertas e Promoções 🔥:</strong> com destaque no bairro</span>
                     </div>
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{limits.max_products === -1 ? 'Produtos e serviços Ilimitados' : `Até ${limits.max_products} produtos cadastrados`}</span>
+                      <span><strong>Display de Balcão:</strong> arte pronta em PNG de alta resolução</span>
                     </div>
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>QR Code de balcão para impressão</span>
+                      <span><strong>Gerador de Artes:</strong> Instagram Stories e WhatsApp Status</span>
                     </div>
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA]">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Painel de controle com métricas</span>
+                      <span><strong>Métricas em Tempo Real:</strong> cliques no WhatsApp e rotas</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Locked Features */}
-                {business.plan_id === 'free' && (
-                  <div className="space-y-3 pt-2">
-                    <h4 className="font-black text-xs uppercase tracking-wider text-[#537379]">
-                      Recursos Exclusivos de Planos Pagos
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-[#537379]">
-                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
-                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
-                        <span>Publicação de Ofertas em Destaque</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
-                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
-                        <span>Selo oficial de Destaque nas buscas</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
-                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
-                        <span>Posição prioritária na Home de Guaianases</span>
-                      </div>
-                      <div className="flex items-center gap-2 p-3 rounded-xl bg-stone-50 border border-stone-200">
-                        <Lock className="w-4 h-4 text-[#E36845] shrink-0" />
-                        <span>Catálogo com produtos ilimitados</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2">
-                  <Link
-                    href="/para-empresas"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer active:scale-95 min-h-[44px]"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Conhecer Todos os Planos</span>
-                  </Link>
                 </div>
               </div>
             )}

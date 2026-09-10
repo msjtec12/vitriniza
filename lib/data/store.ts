@@ -18,6 +18,13 @@ import {
   PlanTier,
   PlanLimits,
   BusinessRecommendation,
+  BusinessRequest,
+  Subscription,
+  AuditLog,
+  BusinessMember,
+  ListingType,
+  OwnershipStatus,
+  SubscriptionStatus,
 } from '@/types';
 import {
   mockStates,
@@ -32,6 +39,10 @@ import {
   mockBanners,
   mockPlatformSettings,
   mockPlans,
+  mockBusinessRequests,
+  mockSubscriptions,
+  mockAuditLogs,
+  mockBusinessMembers,
 } from './mockData';
 import { supabase } from '@/lib/supabase/client';
 
@@ -45,6 +56,10 @@ const STORAGE_KEYS = {
   SETTINGS: 'vitriniza_settings_v1',
   ANALYTICS: 'vitriniza_analytics_v1',
   EVENTS: 'vitriniza_events_v1',
+  REQUESTS: 'vitriniza_requests_v1',
+  SUBSCRIPTIONS: 'vitriniza_subscriptions_v1',
+  AUDIT_LOGS: 'vitriniza_audit_logs_v1',
+  MEMBERS: 'vitriniza_members_v1',
 };
 
 // HYBRID STORE WITH INSTANT LOCAL PERSISTENCE + REAL-TIME SUPABASE CLOUD SYNC & REACTION
@@ -121,6 +136,10 @@ class VitrinizaStore {
     },
   ];
   private claimRequests: ClaimRequest[] = [];
+  private businessRequests: BusinessRequest[] = [...mockBusinessRequests];
+  private subscriptions: Subscription[] = [...mockSubscriptions];
+  private auditLogs: AuditLog[] = [...mockAuditLogs];
+  private businessMembers: BusinessMember[] = [...mockBusinessMembers];
   private banners: Banner[] = [...mockBanners];
   private articles: Article[] = [...mockArticles];
   private events: LocalEvent[] = [...mockEvents];
@@ -624,6 +643,38 @@ class VitrinizaStore {
         }
       }
 
+      const storedRequests = localStorage.getItem(STORAGE_KEYS.REQUESTS);
+      if (storedRequests !== null) {
+        const parsed = JSON.parse(storedRequests);
+        if (Array.isArray(parsed)) {
+          this.businessRequests = parsed;
+        }
+      }
+
+      const storedSubs = localStorage.getItem(STORAGE_KEYS.SUBSCRIPTIONS);
+      if (storedSubs !== null) {
+        const parsed = JSON.parse(storedSubs);
+        if (Array.isArray(parsed)) {
+          this.subscriptions = parsed;
+        }
+      }
+
+      const storedLogs = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
+      if (storedLogs !== null) {
+        const parsed = JSON.parse(storedLogs);
+        if (Array.isArray(parsed)) {
+          this.auditLogs = parsed;
+        }
+      }
+
+      const storedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+      if (storedMembers !== null) {
+        const parsed = JSON.parse(storedMembers);
+        if (Array.isArray(parsed)) {
+          this.businessMembers = parsed;
+        }
+      }
+
       this.isHydrated = true;
     } catch (err) {
       console.warn('[VitrinizaStore] Error loading storage:', err);
@@ -643,6 +694,10 @@ class VitrinizaStore {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
       localStorage.setItem(STORAGE_KEYS.ANALYTICS, JSON.stringify(this.analyticsEvents));
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(this.events));
+      localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(this.businessRequests));
+      localStorage.setItem(STORAGE_KEYS.SUBSCRIPTIONS, JSON.stringify(this.subscriptions));
+      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(this.auditLogs));
+      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(this.businessMembers));
     } catch (err) {
       console.warn('[VitrinizaStore] Error saving storage:', err);
     }
@@ -1486,15 +1541,12 @@ class VitrinizaStore {
     this.ensureHydrated();
     const total = this.businesses.length;
     const active = this.businesses.filter((b) => b.is_active).length;
-    const freeCount = this.businesses.filter((b) => b.plan_id === 'free').length;
-    const paidCount = total - freeCount;
+    const localFreeCount = this.businesses.filter((b) => b.listing_type === 'local_free' || b.plan_id === 'free').length;
+    const proPaidCount = this.businesses.filter((b) => b.listing_type === 'paid' || (b.plan_id !== 'free' && b.listing_type !== 'local_free')).length;
 
-    const prices = this.settings.plan_prices;
-    let estimatedMRR = 0;
-    this.businesses.forEach((b) => {
-      if (b.plan_id === 'semanal' || b.plan_id === 'destaque') estimatedMRR += (prices.semanal || 19.90) * 4;
-      if (b.plan_id === 'mensal' || b.plan_id === 'pro' || b.plan_id === 'premium') estimatedMRR += (prices.mensal || 49.90);
-    });
+    const proPrice = this.settings.pro_plan?.price || this.settings.plan_prices.pro || 49.90;
+    const activeSubs = this.subscriptions.filter((s) => s.status === 'active');
+    const estimatedMRR = activeSubs.length * proPrice;
 
     const totalVisits = this.analyticsEvents.filter((e) => e.event_type === 'business_view').length;
     const totalWhatsappClicks = this.analyticsEvents.filter((e) => e.event_type === 'whatsapp_click').length;
@@ -1502,19 +1554,476 @@ class VitrinizaStore {
     return {
       totalBusinesses: total,
       activeBusinesses: active,
-      freeCount,
-      paidCount,
+      localFreeCount,
+      proPaidCount,
+      freeCount: localFreeCount,
+      paidCount: proPaidCount,
       estimatedMRR: Number(estimatedMRR.toFixed(2)),
       totalVisits,
       totalWhatsappClicks,
+      pendingRequests: this.businessRequests.filter((r) => r.status === 'pending').length,
       pendingClaims: this.claimRequests.filter((c) => c.status === 'pending').length,
       citiesCount: this.cities.length,
       neighborhoodsCount: this.neighborhoods.length,
       categoriesCount: this.categories.length,
       promotionsCount: this.promotions.length,
+      activeSubscriptions: activeSubs.length,
     };
+  }
+
+  // ==============================================================================
+  // --- SAAS MODEL MANAGEMENT: REQUESTS, CONVERSIONS, SUBSCRIPTIONS, AUDIT ---
+  // ==============================================================================
+
+  public getBusinessRequests(filterStatus?: string, filterType?: string): BusinessRequest[] {
+    this.ensureHydrated();
+    return this.businessRequests.filter((req) => {
+      if (filterStatus && filterStatus !== 'all' && req.status !== filterStatus) return false;
+      if (filterType && filterType !== 'all' && req.interest_type !== filterType) return false;
+      return true;
+    });
+  }
+
+  public async addBusinessRequest(data: Omit<BusinessRequest, 'id' | 'created_at' | 'status'>): Promise<BusinessRequest> {
+    this.ensureHydrated();
+    const newReq: BusinessRequest = {
+      ...data,
+      id: `req-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    this.businessRequests.unshift(newReq);
+    this.saveToStorage();
+    this.notifyListeners();
+
+    if (supabase) {
+      try {
+        await supabase.from('business_requests').upsert(newReq);
+      } catch (err) {
+        console.warn('[Supabase Insert Business Request Error]', err);
+      }
+    }
+
+    return newReq;
+  }
+
+  public async updateBusinessRequestStatus(id: string, status: BusinessRequest['status'], adminNotes?: string): Promise<boolean> {
+    this.ensureHydrated();
+    const index = this.businessRequests.findIndex((r) => r.id === id);
+    if (index === -1) return false;
+
+    this.businessRequests[index] = {
+      ...this.businessRequests[index],
+      status,
+      admin_notes: adminNotes || this.businessRequests[index].admin_notes,
+      reviewed_at: new Date().toISOString(),
+    };
+
+    this.saveToStorage();
+    this.notifyListeners();
+
+    if (supabase) {
+      try {
+        await supabase.from('business_requests').update({
+          status,
+          admin_notes: this.businessRequests[index].admin_notes,
+          reviewed_at: this.businessRequests[index].reviewed_at,
+        }).eq('id', id);
+      } catch (err) {
+        console.warn('[Supabase Update Business Request Error]', err);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * FLUXO DO CADASTRO LOCAL:
+   * Cria ou ativa negócio com listing_type = 'local_free', sem criar usuário e sem painel.
+   */
+  public async approveLocalFreeRequest(requestId: string, adminUserId = 'master_admin'): Promise<{ success: boolean; business?: Business; error?: string }> {
+    this.ensureHydrated();
+    const request = this.businessRequests.find((r) => r.id === requestId);
+    if (!request) return { success: false, error: 'Solicitação não encontrada.' };
+
+    const matchingCategory = this.categories.find(
+      (c) => c.name.toLowerCase() === request.category_name?.toLowerCase()
+    ) || this.categories[0];
+
+    const matchingNeighborhood = this.neighborhoods.find(
+      (n) => n.name.toLowerCase() === request.neighborhood_name?.toLowerCase()
+    ) || this.neighborhoods[0];
+
+    const slug = request.business_name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const newBusiness: Business = {
+      id: `biz-${Date.now()}`,
+      name: request.business_name,
+      slug: slug || `comercio-${Date.now()}`,
+      description: request.message || `${request.business_name} em ${matchingNeighborhood.name}. Entre em contato direto pelo WhatsApp.`,
+      short_description: `${matchingCategory.name} em ${matchingNeighborhood.name}`,
+      category_id: matchingCategory.id,
+      category: matchingCategory,
+      neighborhood_id: matchingNeighborhood.id,
+      neighborhood: matchingNeighborhood,
+      city_id: matchingNeighborhood.city_id || 'city-sp',
+      state_id: 'SP',
+      address: request.address || 'Guaianases',
+      number: 'S/N',
+      postal_code: '08410-000',
+      latitude: -23.5424,
+      longitude: -46.4178,
+      phone: request.whatsapp,
+      whatsapp: request.whatsapp,
+      instagram: request.instagram,
+      logo_url: '/logo.png',
+      cover_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
+      listing_type: 'local_free',
+      ownership_status: 'unclaimed',
+      owner_user_id: null,
+      plan_id: 'free',
+      plan_status: 'active',
+      is_featured: false,
+      is_verified: true,
+      is_founder: false,
+      is_active: true,
+      payment_methods: ['Pix', 'Dinheiro', 'Cartão de Débito', 'Cartão de Crédito'],
+      delivery_available: false,
+      takeaway_available: true,
+      dine_in_available: false,
+      rating: 5.0,
+      reviews_count: 0,
+      products: [],
+      promotions: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.businesses.unshift(newBusiness);
+    await this.updateBusinessRequestStatus(requestId, 'approved', 'Cadastro Local Gratuito aprovado e publicado.');
+    this.logAudit('business_created', newBusiness.id, newBusiness.name, { listing_type: 'local_free', requestId }, adminUserId);
+
+    this.saveToStorage();
+    this.notifyListeners();
+    this.syncBusinessToCloud(newBusiness);
+
+    return { success: true, business: newBusiness };
+  }
+
+  /**
+   * CONVERSÃO DE CADASTRO LOCAL PARA PRO:
+   * Mantém o mesmo business_id, slug, fotos, reviews e SEO.
+   * Promove listing_type para 'paid', cria membership e ativa assinatura.
+   */
+  public async convertToPro(
+    businessId: string,
+    options: {
+      ownerName: string;
+      email: string;
+      whatsapp?: string;
+      price?: number;
+      startsAt?: string;
+      expiresAt?: string;
+      adminUserId?: string;
+    }
+  ): Promise<{ success: boolean; subscription?: Subscription; error?: string }> {
+    this.ensureHydrated();
+    const biz = this.businesses.find((b) => b.id === businessId);
+    if (!biz) return { success: false, error: 'Estabelecimento não encontrado.' };
+
+    const adminUserId = options.adminUserId || 'master_admin';
+    const price = options.price || this.settings.pro_plan?.price || 49.90;
+    const startsAt = options.startsAt || new Date().toISOString();
+    const expiresAt = options.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const subId = `sub-${Date.now()}`;
+    const newSub: Subscription = {
+      id: subId,
+      business_id: businessId,
+      plan_id: 'pro',
+      plan_name: this.settings.pro_plan?.name || 'Vitriniza Pro',
+      price,
+      interval: 'monthly',
+      status: 'active',
+      starts_at: startsAt,
+      expires_at: expiresAt,
+      payment_confirmed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const existingSubIndex = this.subscriptions.findIndex((s) => s.business_id === businessId);
+    if (existingSubIndex >= 0) {
+      this.subscriptions[existingSubIndex] = newSub;
+    } else {
+      this.subscriptions.unshift(newSub);
+    }
+
+    // Criar membro proprietário
+    const userId = `usr-${Date.now()}`;
+    const newMember: BusinessMember = {
+      id: `bm-${Date.now()}`,
+      user_id: userId,
+      business_id: businessId,
+      role: 'owner',
+      user_email: options.email,
+      user_name: options.ownerName,
+      created_at: new Date().toISOString(),
+    };
+    this.businessMembers.unshift(newMember);
+
+    // Atualizar negócio existente
+    this.updateBusiness(businessId, {
+      listing_type: 'paid',
+      ownership_status: 'claimed',
+      owner_user_id: userId,
+      plan_id: 'pro',
+      plan_status: 'active',
+      subscription_id: subId,
+      subscription_status: 'active',
+      is_active: true,
+      whatsapp: options.whatsapp || biz.whatsapp,
+    });
+
+    this.logAudit(
+      'business_converted_to_pro',
+      biz.id,
+      biz.name,
+      { email: options.email, ownerName: options.ownerName, price, expiresAt },
+      adminUserId
+    );
+
+    this.saveToStorage();
+    this.notifyListeners();
+
+    if (supabase) {
+      try {
+        await supabase.from('subscriptions').upsert(newSub);
+        await supabase.from('business_members').upsert(newMember);
+      } catch (err) {
+        console.warn('[Supabase Convert Pro Error]', err);
+      }
+    }
+
+    return { success: true, subscription: newSub };
+  }
+
+  public getSubscriptions(): Subscription[] {
+    this.ensureHydrated();
+    return this.subscriptions;
+  }
+
+  public getSubscription(businessId: string): Subscription | undefined {
+    this.ensureHydrated();
+    return this.subscriptions.find((s) => s.business_id === businessId);
+  }
+
+  public async updateSubscriptionStatus(
+    subscriptionId: string,
+    status: SubscriptionStatus,
+    adminUserId = 'master_admin'
+  ): Promise<boolean> {
+    this.ensureHydrated();
+    const index = this.subscriptions.findIndex((s) => s.id === subscriptionId);
+    if (index === -1) return false;
+
+    this.subscriptions[index] = {
+      ...this.subscriptions[index],
+      status,
+      updated_at: new Date().toISOString(),
+      payment_confirmed_at: status === 'active' ? new Date().toISOString() : this.subscriptions[index].payment_confirmed_at,
+    };
+
+    const bizId = this.subscriptions[index].business_id;
+    this.updateBusiness(bizId, {
+      subscription_status: status,
+      plan_status: status === 'active' ? 'active' : 'suspended',
+    });
+
+    this.logAudit(
+      status === 'active' ? 'payment_confirmed' : 'subscription_expired',
+      bizId,
+      undefined,
+      { subscriptionId, status },
+      adminUserId
+    );
+
+    this.saveToStorage();
+    this.notifyListeners();
+
+    if (supabase) {
+      try {
+        await supabase.from('subscriptions').update({
+          status,
+          updated_at: new Date().toISOString(),
+          payment_confirmed_at: this.subscriptions[index].payment_confirmed_at,
+        }).eq('id', subscriptionId);
+      } catch (err) {
+        console.warn('[Supabase Update Subscription Error]', err);
+      }
+    }
+
+    return true;
+  }
+
+  public async renewSubscription(
+    subscriptionId: string,
+    days = 30,
+    adminUserId = 'master_admin'
+  ): Promise<boolean> {
+    this.ensureHydrated();
+    const index = this.subscriptions.findIndex((s) => s.id === subscriptionId);
+    if (index === -1) return false;
+
+    const currentExpires = new Date(this.subscriptions[index].expires_at || Date.now());
+    const baseDate = currentExpires.getTime() > Date.now() ? currentExpires : new Date();
+    const newExpiresAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    this.subscriptions[index] = {
+      ...this.subscriptions[index],
+      status: 'active',
+      expires_at: newExpiresAt,
+      payment_confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const bizId = this.subscriptions[index].business_id;
+    this.updateBusiness(bizId, {
+      subscription_status: 'active',
+      plan_status: 'active',
+    });
+
+    this.logAudit(
+      'subscription_renewed',
+      bizId,
+      undefined,
+      { subscriptionId, renewedDays: days, newExpiresAt },
+      adminUserId
+    );
+
+    this.saveToStorage();
+    this.notifyListeners();
+
+    if (supabase) {
+      try {
+        await supabase.from('subscriptions').update({
+          status: 'active',
+          expires_at: newExpiresAt,
+          payment_confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', subscriptionId);
+      } catch (err) {
+        console.warn('[Supabase Renew Subscription Error]', err);
+      }
+    }
+
+    return true;
+  }
+
+  public getAuditLogs(): AuditLog[] {
+    this.ensureHydrated();
+    return this.auditLogs;
+  }
+
+  public logAudit(
+    action: AuditLog['action'],
+    businessId?: string,
+    businessName?: string,
+    metadata?: Record<string, unknown>,
+    adminUserId = 'master_admin'
+  ) {
+    this.ensureHydrated();
+    const log: AuditLog = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      admin_user_id: adminUserId,
+      business_id: businessId,
+      business_name: businessName,
+      action,
+      metadata,
+      created_at: new Date().toISOString(),
+    };
+
+    this.auditLogs.unshift(log);
+    this.saveToStorage();
+    this.notifyListeners();
+
+    if (supabase) {
+      supabase.from('audit_logs').insert(log).then();
+    }
+  }
+
+  /**
+   * PITCH COMERCIAL PARA CONVERSÃO EM PRO:
+   * Gera o resumo de acessos reais do Cadastro Local para prospecção via WhatsApp.
+   */
+  public getProPitchSummary(businessId: string) {
+    this.ensureHydrated();
+    const biz = this.getBusinessById(businessId);
+    const bizEvents = this.analyticsEvents.filter((e) => e.business_id === businessId);
+    const viewsCount = bizEvents.filter((e) => e.event_type === 'business_view').length;
+    const whatsappClicks = bizEvents.filter((e) => e.event_type === 'whatsapp_click').length;
+    const mapClicks = bizEvents.filter((e) => e.event_type === 'map_click').length;
+    const shareClicks = bizEvents.filter((e) => e.event_type === 'share_click').length;
+
+    const pitchText =
+      `Olá, tudo bem? Aqui é da equipe Vitriniza Guaianases!\n\n` +
+      `Sua empresa *${biz?.name || 'seu comércio'}* já está cadastrada no nosso portal e tem chamado a atenção dos moradores.\n\n` +
+      `📊 *Desempenho nos últimos 30 dias:*\n` +
+      `• *${viewsCount}* visualizações da sua vitrine\n` +
+      `• *${whatsappClicks}* clientes clicaram para falar no seu WhatsApp\n` +
+      `• *${mapClicks}* pedidos de rota para o seu endereço\n\n` +
+      `Com o *Vitriniza Pro*, você libera o painel próprio para adicionar seu catálogo completo, publicar promoções e receber o display de acrílico com QR Code para o seu balcão.\n\n` +
+      `Gostaria de ativar sua Vitrine Pro hoje?`;
+
+    return {
+      viewsCount,
+      whatsappClicks,
+      mapClicks,
+      shareClicks,
+      pitchText,
+    };
+  }
+
+  /**
+   * VALIDAÇÃO DE ACESSO AO PAINEL DO LOJISTA:
+   */
+  public canAccessMerchantPanel(businessId: string): {
+    allowed: boolean;
+    isExpired?: boolean;
+    isLocalFree?: boolean;
+    message?: string;
+  } {
+    this.ensureHydrated();
+    const biz = this.getBusinessById(businessId);
+    if (!biz) return { allowed: false, message: 'Estabelecimento não encontrado.' };
+
+    if (biz.listing_type === 'local_free' || (biz.plan_id === 'free' && biz.listing_type !== 'paid')) {
+      return {
+        allowed: false,
+        isLocalFree: true,
+        message: 'Este comércio é um Cadastro Local Gratuito e não possui acesso ao painel de lojista.',
+      };
+    }
+
+    const sub = this.getSubscription(businessId);
+    if (sub && sub.status === 'expired') {
+      return {
+        allowed: true,
+        isExpired: true,
+        message: 'Seu Plano Vitriniza Pro está vencido. Renove para continuar administrando sua vitrine.',
+      };
+    }
+
+    return { allowed: true };
   }
 }
 
 // Global singleton instance
 export const store = new VitrinizaStore();
+
