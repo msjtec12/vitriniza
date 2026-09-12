@@ -62,15 +62,19 @@ const STORAGE_KEYS = {
   MEMBERS: 'vitriniza_members_v1',
 };
 
+const USE_DEMO_DATA =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_DATA === 'true';
+
 // HYBRID STORE WITH INSTANT LOCAL PERSISTENCE + REAL-TIME SUPABASE CLOUD SYNC & REACTION
 class VitrinizaStore {
-  private businesses: Business[] = [...mockBusinesses];
+  private businesses: Business[] = USE_DEMO_DATA ? [...mockBusinesses] : [];
   private categories: Category[] = [...mockCategories];
   private cities: City[] = [...mockCities];
   private neighborhoods: Neighborhood[] = [...mockNeighborhoods];
-  private products: Product[] = [...mockProducts];
-  private promotions: Promotion[] = [...mockPromotions];
-  private reviews: Review[] = [
+  private products: Product[] = USE_DEMO_DATA ? [...mockProducts] : [];
+  private promotions: Promotion[] = USE_DEMO_DATA ? [...mockPromotions] : [];
+  private reviews: Review[] = USE_DEMO_DATA ? [
     {
       id: 'rev-1',
       business_id: 'biz-1',
@@ -134,15 +138,15 @@ class VitrinizaStore {
       status: 'approved',
       created_at: '2026-02-17T17:00:00Z',
     },
-  ];
+  ] : [];
   private claimRequests: ClaimRequest[] = [];
-  private businessRequests: BusinessRequest[] = [...mockBusinessRequests];
-  private subscriptions: Subscription[] = [...mockSubscriptions];
-  private auditLogs: AuditLog[] = [...mockAuditLogs];
-  private businessMembers: BusinessMember[] = [...mockBusinessMembers];
-  private banners: Banner[] = [...mockBanners];
-  private articles: Article[] = [...mockArticles];
-  private events: LocalEvent[] = [...mockEvents];
+  private businessRequests: BusinessRequest[] = USE_DEMO_DATA ? [...mockBusinessRequests] : [];
+  private subscriptions: Subscription[] = USE_DEMO_DATA ? [...mockSubscriptions] : [];
+  private auditLogs: AuditLog[] = USE_DEMO_DATA ? [...mockAuditLogs] : [];
+  private businessMembers: BusinessMember[] = USE_DEMO_DATA ? [...mockBusinessMembers] : [];
+  private banners: Banner[] = USE_DEMO_DATA ? [...mockBanners] : [];
+  private articles: Article[] = USE_DEMO_DATA ? [...mockArticles] : [];
+  private events: LocalEvent[] = USE_DEMO_DATA ? [...mockEvents] : [];
   private settings: PlatformSettings = { ...mockPlatformSettings };
   private analyticsEvents: AnalyticsEvent[] = [];
   private isHydrated: boolean = false;
@@ -229,37 +233,57 @@ class VitrinizaStore {
         };
       }
 
-      // 2. Fetch Cloud Businesses
+      // 2. Fetch public reference data from the database.
+      const [categoriesResult, citiesResult, neighborhoodsResult] = await Promise.all([
+        supabase.from('categories').select('*').eq('active', true).order('order_index'),
+        supabase.from('cities').select('*').eq('active', true),
+        supabase.from('neighborhoods').select('*').eq('active', true).order('order_index'),
+      ]);
+
+      if (!categoriesResult.error && categoriesResult.data) {
+        this.categories = categoriesResult.data as Category[];
+      }
+      if (!citiesResult.error && citiesResult.data) {
+        this.cities = citiesResult.data as City[];
+      }
+      if (!neighborhoodsResult.error && neighborhoodsResult.data) {
+        this.neighborhoods = neighborhoodsResult.data as Neighborhood[];
+      }
+
+      // 3. Fetch Cloud Businesses
       const { data: cloudBusinesses, error: errBiz } = await supabase
         .from('businesses')
         .select('*');
 
       if (!errBiz && Array.isArray(cloudBusinesses) && cloudBusinesses.length > 0) {
-        const cloudMap = new Map(cloudBusinesses.map((b) => [b.id, b]));
-        
-        this.businesses = this.businesses.map((localBiz) => {
-          const cloudBiz = cloudMap.get(localBiz.id);
-          if (cloudBiz) {
-            return {
-              ...localBiz,
-              ...cloudBiz,
-              category: localBiz.category,
-              neighborhood: localBiz.neighborhood,
-              city: localBiz.city,
-            };
-          }
-          return localBiz;
-        });
+        if (!USE_DEMO_DATA) {
+          this.businesses = cloudBusinesses as Business[];
+        } else {
+          const cloudMap = new Map(cloudBusinesses.map((b) => [b.id, b]));
 
-        const localIds = new Set(this.businesses.map((b) => b.id));
-        for (const cloudBiz of cloudBusinesses) {
-          if (!localIds.has(cloudBiz.id)) {
-            this.businesses.push(cloudBiz as Business);
+          this.businesses = this.businesses.map((localBiz) => {
+            const cloudBiz = cloudMap.get(localBiz.id);
+            if (cloudBiz) {
+              return {
+                ...localBiz,
+                ...cloudBiz,
+                category: localBiz.category,
+                neighborhood: localBiz.neighborhood,
+                city: localBiz.city,
+              };
+            }
+            return localBiz;
+          });
+
+          const localIds = new Set(this.businesses.map((b) => b.id));
+          for (const cloudBiz of cloudBusinesses) {
+            if (!localIds.has(cloudBiz.id)) {
+              this.businesses.push(cloudBiz as Business);
+            }
           }
         }
-      } else if (!errBiz && cloudBusinesses?.length === 0 && this.businesses.length > 0) {
-        console.log('[VitrinizaStore] Cloud database empty. Auto-populating Supabase...');
-        await this.pushAllToSupabase();
+      } else if (!errBiz && !USE_DEMO_DATA) {
+        this.businesses = [];
       }
 
       // 3. Fetch Cloud Products
@@ -267,17 +291,23 @@ class VitrinizaStore {
         .from('products')
         .select('*');
       if (!errProd && Array.isArray(cloudProducts) && cloudProducts.length > 0) {
-        const cloudProdMap = new Map(cloudProducts.map((p) => [p.id, p]));
-        this.products = this.products.map((localProd) => {
-          const cloudProd = cloudProdMap.get(localProd.id);
-          return cloudProd ? { ...localProd, ...cloudProd } : localProd;
-        });
-        const localProdIds = new Set(this.products.map((p) => p.id));
-        for (const cloudProd of cloudProducts) {
-          if (!localProdIds.has(cloudProd.id)) {
-            this.products.push(cloudProd as Product);
+        if (!USE_DEMO_DATA) {
+          this.products = cloudProducts as Product[];
+        } else {
+          const cloudProdMap = new Map(cloudProducts.map((p) => [p.id, p]));
+          this.products = this.products.map((localProd) => {
+            const cloudProd = cloudProdMap.get(localProd.id);
+            return cloudProd ? { ...localProd, ...cloudProd } : localProd;
+          });
+          const localProdIds = new Set(this.products.map((p) => p.id));
+          for (const cloudProd of cloudProducts) {
+            if (!localProdIds.has(cloudProd.id)) {
+              this.products.push(cloudProd as Product);
+            }
           }
         }
+      } else if (!errProd && !USE_DEMO_DATA) {
+        this.products = [];
       }
 
       // 4. Fetch Cloud Promotions
@@ -285,24 +315,30 @@ class VitrinizaStore {
         .from('promotions')
         .select('*');
       if (!errPromo && Array.isArray(cloudPromos) && cloudPromos.length > 0) {
-        const cloudPromoMap = new Map(cloudPromos.map((p) => [p.id, p]));
-        this.promotions = this.promotions.map((localPromo) => {
-          const cloudPromo = cloudPromoMap.get(localPromo.id);
-          return cloudPromo ? { ...localPromo, ...cloudPromo } : localPromo;
-        });
-        const localPromoIds = new Set(this.promotions.map((p) => p.id));
-        for (const cloudPromo of cloudPromos) {
-          if (!localPromoIds.has(cloudPromo.id)) {
-            this.promotions.push(cloudPromo as Promotion);
+        if (!USE_DEMO_DATA) {
+          this.promotions = cloudPromos as Promotion[];
+        } else {
+          const cloudPromoMap = new Map(cloudPromos.map((p) => [p.id, p]));
+          this.promotions = this.promotions.map((localPromo) => {
+            const cloudPromo = cloudPromoMap.get(localPromo.id);
+            return cloudPromo ? { ...localPromo, ...cloudPromo } : localPromo;
+          });
+          const localPromoIds = new Set(this.promotions.map((p) => p.id));
+          for (const cloudPromo of cloudPromos) {
+            if (!localPromoIds.has(cloudPromo.id)) {
+              this.promotions.push(cloudPromo as Promotion);
+            }
           }
         }
+      } else if (!errPromo && !USE_DEMO_DATA) {
+        this.promotions = [];
       }
 
       // 5. Fetch Cloud Claims
       const { data: cloudClaims, error: errClaims } = await supabase
         .from('claim_requests')
         .select('*');
-      if (!errClaims && Array.isArray(cloudClaims) && cloudClaims.length > 0) {
+      if (!errClaims && Array.isArray(cloudClaims)) {
         this.claimRequests = cloudClaims as ClaimRequest[];
       }
 
@@ -311,7 +347,9 @@ class VitrinizaStore {
         const { data: cloudEvents, error: errEvents } = await supabase
           .from('events')
           .select('*');
-        if (!errEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
+        if (!errEvents && Array.isArray(cloudEvents) && !USE_DEMO_DATA) {
+          this.events = cloudEvents as LocalEvent[];
+        } else if (!errEvents && Array.isArray(cloudEvents) && cloudEvents.length > 0) {
           const cloudEventMap = new Map(cloudEvents.map((e) => [e.id, e]));
           this.events = this.events.map((localEvt) => {
             const cloudEvt = cloudEventMap.get(localEvt.id);
@@ -326,6 +364,36 @@ class VitrinizaStore {
         }
       } catch (evtErr) {
         console.warn('[VitrinizaStore] Events cloud sync warning:', evtErr);
+      }
+
+      // RLS returns only the collections the current authenticated user may access.
+      const [requestsResult, subscriptionsResult, logsResult, membersResult, analyticsResult, reviewsResult] =
+        await Promise.all([
+          supabase.from('business_requests').select('*').order('created_at', { ascending: false }),
+          supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
+          supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(500),
+          supabase.from('business_members').select('*'),
+          supabase.from('analytics_events').select('*').order('created_at', { ascending: false }).limit(10_000),
+          supabase.from('reviews').select('*').order('created_at', { ascending: false }),
+        ]);
+
+      if (!requestsResult.error && requestsResult.data) {
+        this.businessRequests = requestsResult.data as BusinessRequest[];
+      }
+      if (!subscriptionsResult.error && subscriptionsResult.data) {
+        this.subscriptions = subscriptionsResult.data as Subscription[];
+      }
+      if (!logsResult.error && logsResult.data) {
+        this.auditLogs = logsResult.data as AuditLog[];
+      }
+      if (!membersResult.error && membersResult.data) {
+        this.businessMembers = membersResult.data as BusinessMember[];
+      }
+      if (!analyticsResult.error && analyticsResult.data) {
+        this.analyticsEvents = analyticsResult.data as AnalyticsEvent[];
+      }
+      if (!reviewsResult.error && reviewsResult.data) {
+        this.reviews = reviewsResult.data as Review[];
       }
 
       this.isCloudSynced = true;
@@ -357,7 +425,6 @@ class VitrinizaStore {
     }
   }
 
-  // --- MANUAL / ON-DEMAND FULL CLOUD SEED ---
   // --- MANUAL / ON-DEMAND FULL CLOUD SEED ---
   public async pushAllToSupabase(): Promise<{ success: boolean; message: string }> {
     if (!supabase) {
@@ -432,7 +499,7 @@ class VitrinizaStore {
 
       // 3. Businesses
       try {
-        const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, is_online_only, password, ...rest }) => rest);
+        const bizClean = this.businesses.map(({ category, neighborhood, city, products, promotions, is_online_only, ...rest }) => rest);
         await supabase.from('businesses').upsert(bizClean, { onConflict: 'id' });
       } catch (e) { console.warn('[Businesses Push Warning]', e); }
 
@@ -496,7 +563,7 @@ class VitrinizaStore {
         }
       }
 
-      const { category, neighborhood, city, products, promotions, is_online_only, password, ...clean } = biz;
+      const { category, neighborhood, city, products, promotions, is_online_only, ...clean } = biz;
       const cleanBiz = {
         ...clean,
         category_id: clean.category_id || 'cat-alimentacao',
@@ -573,7 +640,7 @@ class VitrinizaStore {
   }
 
   private loadFromStorage() {
-    if (!this.isBrowser()) return;
+    if (!this.isBrowser() || !USE_DEMO_DATA) return;
 
     try {
       const storedBiz = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
@@ -682,7 +749,7 @@ class VitrinizaStore {
   }
 
   private saveToStorage() {
-    if (!this.isBrowser()) return;
+    if (!this.isBrowser() || !USE_DEMO_DATA) return;
 
     try {
       const cleanBusinesses = this.businesses.map(({ category, neighborhood, city, products, promotions, ...rest }) => rest);
@@ -1356,18 +1423,11 @@ class VitrinizaStore {
       author_name: data.author_name,
       rating: data.rating,
       comment: data.comment,
-      status: 'approved',
+      status: 'pending',
       created_at: new Date().toISOString(),
     };
 
     this.reviews.unshift(newReview);
-
-    const bizReviews = this.reviews.filter((r) => r.business_id === data.business_id && r.status === 'approved');
-    const avgRating = bizReviews.reduce((acc, r) => acc + r.rating, 0) / bizReviews.length;
-    this.updateBusiness(data.business_id, {
-      rating: Number(avgRating.toFixed(1)),
-      reviews_count: bizReviews.length,
-    });
 
     this.saveToStorage();
     this.notifyListeners();
@@ -2026,4 +2086,3 @@ class VitrinizaStore {
 
 // Global singleton instance
 export const store = new VitrinizaStore();
-

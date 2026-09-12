@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
-    role TEXT NOT NULL DEFAULT 'consumer' CHECK (role IN ('consumer', 'merchant', 'super_admin')),
+    role TEXT NOT NULL DEFAULT 'consumer' CHECK (role IN ('consumer', 'merchant', 'admin')),
     avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.states (
 
 -- 3. CITIES
 CREATE TABLE IF NOT EXISTS public.cities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     state_id TEXT NOT NULL REFERENCES public.states(id) ON DELETE RESTRICT,
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS public.cities (
 
 -- 4. NEIGHBORHOODS (Bairros)
 CREATE TABLE IF NOT EXISTS public.neighborhoods (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    city_id UUID NOT NULL REFERENCES public.cities(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY,
+    city_id TEXT NOT NULL REFERENCES public.cities(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.neighborhoods (
 
 -- 5. CATEGORIES
 CREATE TABLE IF NOT EXISTS public.categories (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     slug TEXT NOT NULL UNIQUE,
     icon TEXT NOT NULL,
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS public.categories (
 
 -- 6. SUBCATEGORIES
 CREATE TABLE IF NOT EXISTS public.subcategories (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY,
+    category_id TEXT NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -92,15 +92,15 @@ CREATE TABLE IF NOT EXISTS public.plans (
 
 -- 8. BUSINESSES (Estabelecimentos)
 CREATE TABLE IF NOT EXISTS public.businesses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL DEFAULT '',
     short_description TEXT NOT NULL DEFAULT '',
-    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
-    subcategory_id UUID REFERENCES public.subcategories(id) ON DELETE SET NULL,
-    neighborhood_id UUID NOT NULL REFERENCES public.neighborhoods(id) ON DELETE RESTRICT,
-    city_id UUID NOT NULL REFERENCES public.cities(id) ON DELETE RESTRICT,
+    category_id TEXT NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
+    subcategory_id TEXT REFERENCES public.subcategories(id) ON DELETE SET NULL,
+    neighborhood_id TEXT NOT NULL REFERENCES public.neighborhoods(id) ON DELETE RESTRICT,
+    city_id TEXT NOT NULL REFERENCES public.cities(id) ON DELETE RESTRICT,
     state_id TEXT NOT NULL REFERENCES public.states(id) ON DELETE RESTRICT,
     address TEXT NOT NULL,
     number TEXT NOT NULL DEFAULT 'S/N',
@@ -134,8 +134,8 @@ CREATE TABLE IF NOT EXISTS public.businesses (
 
 -- 9. BUSINESS HOURS
 CREATE TABLE IF NOT EXISTS public.business_hours (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('hour_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
     open_time VARCHAR(5) NOT NULL DEFAULT '08:00',
     close_time VARCHAR(5) NOT NULL DEFAULT '18:00',
@@ -145,8 +145,8 @@ CREATE TABLE IF NOT EXISTS public.business_hours (
 
 -- 10. PRODUCTS & SERVICES
 CREATE TABLE IF NOT EXISTS public.products (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('prod_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     price NUMERIC(10,2) NOT NULL DEFAULT 0.00,
@@ -161,8 +161,8 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 -- 11. PROMOTIONS
 CREATE TABLE IF NOT EXISTS public.promotions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('promo_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     original_price NUMERIC(10,2) NOT NULL,
@@ -178,8 +178,8 @@ CREATE TABLE IF NOT EXISTS public.promotions (
 
 -- 12. BUSINESS IMAGES (Galeria)
 CREATE TABLE IF NOT EXISTS public.business_images (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('img_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     image_url TEXT NOT NULL,
     caption TEXT,
     image_type TEXT NOT NULL DEFAULT 'gallery' CHECK (image_type IN ('gallery', 'facade', 'product', 'team')),
@@ -189,8 +189,8 @@ CREATE TABLE IF NOT EXISTS public.business_images (
 
 -- 13. REVIEWS
 CREATE TABLE IF NOT EXISTS public.reviews (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('review_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     profile_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     author_name TEXT NOT NULL,
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
@@ -201,17 +201,17 @@ CREATE TABLE IF NOT EXISTS public.reviews (
 
 -- 14. FAVORITES
 CREATE TABLE IF NOT EXISTS public.favorites (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT ('fav_' || uuid_generate_v4()),
     profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(profile_id, business_id)
 );
 
 -- 15. ANALYTICS EVENTS
 CREATE TABLE IF NOT EXISTS public.analytics_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('event_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     event_type TEXT NOT NULL CHECK (event_type IN ('business_view', 'product_view', 'promotion_view', 'whatsapp_click', 'phone_click', 'instagram_click', 'map_click', 'share_click', 'favorite', 'search')),
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     ip_hash TEXT,
@@ -220,8 +220,8 @@ CREATE TABLE IF NOT EXISTS public.analytics_events (
 
 -- 16. CLAIM REQUESTS (Reivindicação de Empresa)
 CREATE TABLE IF NOT EXISTS public.claim_requests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT ('claim_' || uuid_generate_v4()),
+    business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
     requester_name TEXT NOT NULL,
     requester_email TEXT NOT NULL,
     requester_phone TEXT NOT NULL,
@@ -235,12 +235,12 @@ CREATE TABLE IF NOT EXISTS public.claim_requests (
 
 -- 17. BANNERS PUBLICITÁRIOS
 CREATE TABLE IF NOT EXISTS public.banners (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT ('banner_' || uuid_generate_v4()),
     advertiser_name TEXT NOT NULL,
     image_url TEXT NOT NULL,
     target_url TEXT NOT NULL,
     placement TEXT NOT NULL DEFAULT 'homepage' CHECK (placement IN ('homepage', 'search', 'category')),
-    city_id UUID REFERENCES public.cities(id) ON DELETE SET NULL,
+    city_id TEXT REFERENCES public.cities(id) ON DELETE SET NULL,
     starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
     impressions_count INT NOT NULL DEFAULT 0,
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS public.banners (
 
 -- 18. ARTICLES & HISTÓRIAS (Descobrir)
 CREATE TABLE IF NOT EXISTS public.articles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT ('article_' || uuid_generate_v4()),
     title TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     content TEXT NOT NULL,
@@ -268,7 +268,7 @@ CREATE TABLE IF NOT EXISTS public.articles (
 
 -- 19. LOCAL EVENTS
 CREATE TABLE IF NOT EXISTS public.events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT ('local_event_' || uuid_generate_v4()),
     title TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
@@ -331,11 +331,6 @@ CREATE POLICY "Public can view active promotions"
 CREATE POLICY "Public can view approved reviews"
     ON public.reviews FOR SELECT
     USING (status = 'approved');
-
--- Authenticated users can insert reviews
-CREATE POLICY "Authenticated users can insert reviews"
-    ON public.reviews FOR INSERT
-    WITH CHECK (TRUE);
 
 -- Business owners can manage their products
 CREATE POLICY "Owners can manage products"

@@ -12,7 +12,8 @@ import {
   Sparkles,
   HelpCircle,
 } from 'lucide-react';
-import { store } from '@/lib/data/store';
+import { supabase } from '@/lib/supabase/client';
+import { getActiveMembershipBusinessIds } from '@/lib/auth/client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,48 +22,65 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const cleanInput = loginInput.trim();
-    const cleanDigits = loginInput.replace(/\D/g, '');
+    const cleanInput = loginInput.trim().toLowerCase();
     const cleanPass = password.trim();
 
     if (!cleanInput || !cleanPass) {
-      setError('Por favor, informe seu WhatsApp/E-mail e sua senha.');
+      setError('Por favor, informe seu e-mail e sua senha.');
       return;
     }
 
     setIsLoading(true);
 
-    const businesses = store.getBusinesses();
-    const matched = businesses.find((b) => {
-      const bizPhone = b.whatsapp.replace(/\D/g, '');
-      const passMatches = b.password === cleanPass || (!b.password && cleanPass === '123456');
-      const phoneMatches = cleanDigits && (bizPhone.includes(cleanDigits) || cleanDigits.includes(bizPhone));
-      const emailMatches = b.owner_id === cleanInput || cleanInput.includes(b.slug);
-      return (phoneMatches || emailMatches) && passMatches;
+    if (!supabase) {
+      setIsLoading(false);
+      setError('O serviço de autenticação está temporariamente indisponível.');
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: cleanInput,
+      password: cleanPass,
     });
+
+    if (signInError) {
+      setIsLoading(false);
+      setError('E-mail ou senha incorretos.');
+      return;
+    }
+
+    const businessIds = await getActiveMembershipBusinessIds();
 
     setIsLoading(false);
 
-    if (matched) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('vitriniza_merchant_auth', matched.id);
-        sessionStorage.setItem('vitriniza_merchant_phone', cleanDigits || cleanInput);
-      }
-      router.push('/painel');
-    } else {
-      setError('Credenciais incorretas. Verifique seu WhatsApp/E-mail e senha.');
+    if (!businessIds.length) {
+      await supabase.auth.signOut();
+      setError('Sua conta ainda não possui uma Vitrine Pro liberada.');
+      return;
     }
+
+    router.push('/painel');
   };
 
-  const handleForgotPassword = () => {
-    const settings = store.getPlatformSettings();
-    const whatsapp = settings.contact_whatsapp || '11987654321';
-    const text = `Olá Equipe Vitriniza! Esqueci minha senha de acesso ao Painel do Comerciante. Meu estabelecimento é: ${loginInput || ''}`;
-    window.open(`https://wa.me/55${whatsapp}?text=${encodeURIComponent(text)}`, '_blank');
+  const handleForgotPassword = async () => {
+    const email = loginInput.trim().toLowerCase();
+    if (!supabase || !email) {
+      setError('Informe seu e-mail para receber o link de redefinição.');
+      return;
+    }
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/recuperar-senha`,
+    });
+    setError(
+      resetError
+        ? 'Não foi possível enviar o link. Tente novamente.'
+        : 'Se o e-mail estiver cadastrado, enviaremos um link de redefinição.'
+    );
   };
 
   return (
@@ -91,13 +109,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp ou E-mail Cadastrado *</label>
+            <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail cadastrado *</label>
             <input
-              type="text"
+              type="email"
               required
               value={loginInput}
               onChange={(e) => setLoginInput(e.target.value)}
-              placeholder="Ex: 11987654321 ou contato@sualoja.com.br"
+              placeholder="Ex: contato@sualoja.com.br"
               className="w-full px-3.5 py-3 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
             />
           </div>

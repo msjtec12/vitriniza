@@ -1,85 +1,58 @@
-import { MetadataRoute } from 'next';
-import { store } from '@/lib/data/store';
+import type { MetadataRoute } from 'next';
+import { getSitemapRecords } from '@/lib/data/server';
+import { SITE_URL } from '@/lib/site';
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://vitriniza.vercel.app';
-  const businesses = store.getBusinesses();
-  const neighborhoods = store.getNeighborhoods();
-  const categories = store.getCategories();
-  const articles = store.getArticles();
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const { businesses, neighborhoods, categories, articles, cities } = await getSitemapRecords();
+  const cityById = new Map(cities.map((city) => [city.id, city]));
+  const neighborhoodById = new Map(neighborhoods.map((neighborhood) => [neighborhood.id, neighborhood]));
 
   const routes: MetadataRoute.Sitemap = [
-    {
-      url: `${baseUrl}/`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/buscar`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/sp/sao-paulo/guaianases`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/descobrir`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/para-empresas`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
+    { url: `${SITE_URL}/`, changeFrequency: 'daily', priority: 1 },
+    { url: `${SITE_URL}/buscar`, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${SITE_URL}/descobrir`, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${SITE_URL}/para-empresas`, changeFrequency: 'weekly', priority: 0.8 },
   ];
 
-  // Business pages
-  businesses.forEach((b) => {
+  for (const business of businesses) {
+    const city = cityById.get(business.city_id);
+    const neighborhood = neighborhoodById.get(business.neighborhood_id);
+    if (!city || !neighborhood) continue;
+
     routes.push({
-      url: `${baseUrl}/${b.state_id.toLowerCase()}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`,
-      lastModified: new Date(b.updated_at || Date.now()),
+      url: `${SITE_URL}/${String(business.state_id).toLowerCase()}/${city.slug}/${neighborhood.slug}/${business.slug}`,
+      lastModified: business.updated_at ? new Date(business.updated_at) : undefined,
       changeFrequency: 'daily',
       priority: 0.9,
     });
-  });
+  }
 
-  // Neighborhood pages
-  neighborhoods.forEach((n) => {
+  for (const neighborhood of neighborhoods) {
+    const city = cityById.get(neighborhood.city_id);
+    if (!city) continue;
     routes.push({
-      url: `${baseUrl}/sp/sao-paulo/${n.slug}`,
-      lastModified: new Date(),
+      url: `${SITE_URL}/${String(city.state_id).toLowerCase()}/${city.slug}/${neighborhood.slug}`,
       changeFrequency: 'weekly',
       priority: 0.8,
     });
-  });
+  }
 
-  // Category pages
-  categories.forEach((c) => {
+  for (const category of categories) {
     routes.push({
-      url: `${baseUrl}/buscar?categoria=${c.slug}`,
-      lastModified: new Date(),
+      url: `${SITE_URL}/buscar?categoria=${category.slug}`,
       changeFrequency: 'weekly',
       priority: 0.7,
     });
-  });
+  }
 
-  // Articles
-  articles.forEach((a) => {
+  for (const article of articles) {
     routes.push({
-      url: `${baseUrl}/descobrir/${a.slug}`,
-      lastModified: new Date(a.created_at || Date.now()),
+      url: `${SITE_URL}/descobrir/${article.slug}`,
+      lastModified: article.created_at ? new Date(article.created_at) : undefined,
       changeFrequency: 'monthly',
       priority: 0.7,
     });
-  });
+  }
 
   return routes;
 }

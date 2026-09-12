@@ -61,6 +61,8 @@ import { Business, Product, Promotion, BusinessImage, Review, PlanLimits } from 
 import { formatCurrency, formatPhone, cn, fetchAddressByCep, buildWhatsAppUrl } from '@/lib/utils';
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
 import { SocialShareCardGenerator } from '@/components/merchant/SocialShareCardGenerator';
+import { supabase } from '@/lib/supabase/client';
+import { getActiveMembershipBusinessIds, getAuthHeaders } from '@/lib/auth/client';
 
 export default function MerchantPanelPage() {
   // Toast notification state (replaces browser alerts)
@@ -71,28 +73,45 @@ export default function MerchantPanelPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // High-performance image compressor & reader for instant multi-device cloud sync
-  const handleImageFileUpload = (file: File, callback: (dataUrl: string) => void) => {
-    if (!file || !file.type.startsWith('image/')) {
-      showToast('Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, SVG).', 'error');
+  // Compress and upload images to Supabase Storage; database rows keep URLs only.
+  const handleImageFileUpload = async (
+    file: File,
+    callback: (publicUrl: string) => void,
+    folder: 'profile' | 'products' | 'promotions'
+  ) => {
+    if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      showToast('Selecione uma imagem PNG, JPG ou WEBP.', 'error');
       return;
     }
-    if (file.size > 15 * 1024 * 1024) {
-      showToast('A imagem é muito grande. Escolha um arquivo de até 15MB.', 'error');
+    if (file.size > 8 * 1024 * 1024) {
+      showToast('A imagem é muito grande. Escolha um arquivo de até 8MB.', 'error');
+      return;
+    }
+    if (!supabase || !business) {
+      showToast('Não foi possível iniciar o upload.', 'error');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const rawDataUrl = e.target?.result as string;
-      if (!rawDataUrl) return;
+    try {
+      const rawDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+        reader.readAsDataURL(file);
+      });
 
-      const img = new Image();
-      img.onload = () => {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const candidate = new Image();
+        candidate.onload = () => resolve(candidate);
+        candidate.onerror = () => reject(new Error('Imagem inválida.'));
+        candidate.src = rawDataUrl;
+      });
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
         const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxWidth = 1000;
+        let width = image.width;
+        let height = image.height;
+        const maxWidth = 1400;
 
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
@@ -102,25 +121,37 @@ export default function MerchantPanelPage() {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          callback(compressedDataUrl);
-        } else {
-          callback(rawDataUrl);
+        if (!ctx) {
+          reject(new Error('Não foi possível processar a imagem.'));
+          return;
         }
-      };
-      img.onerror = () => callback(rawDataUrl);
-      img.src = rawDataUrl;
-    };
-    reader.readAsDataURL(file);
+        ctx.drawImage(image, 0, 0, width, height);
+        canvas.toBlob(
+          (result) => (result ? resolve(result) : reject(new Error('Falha ao compactar a imagem.'))),
+          'image/jpeg',
+          0.8
+        );
+      });
+
+      const path = `${business.id}/${folder}/${crypto.randomUUID()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('business-media')
+        .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('business-media').getPublicUrl(path);
+      callback(data.publicUrl);
+    } catch (error: unknown) {
+      showToast(error instanceof Error ? error.message : 'Falha ao enviar imagem.', 'error');
+    }
   };
 
   // SECURITY AUTHENTICATION STATE
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [loginPhone, setLoginPhone] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [memberBusinessIds, setMemberBusinessIds] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'profile' | 'products' | 'promotions' | 'qrcode' | 'reviews' | 'plan'
@@ -208,41 +239,57 @@ export default function MerchantPanelPage() {
     image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
   });
 
-  // Check existing session
+  // Validate the Supabase session and memberships on every page load.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedAuth = sessionStorage.getItem('vitriniza_merchant_auth');
-      if (savedAuth) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
+    let active = true;
+
+    const validateSession = async () => {
+      if (!supabase) {
+        if (active) setIsAuthenticated(false);
+        return;
       }
-    }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        if (active) setIsAuthenticated(false);
+        return;
+      }
+
+      const businessIds = await getActiveMembershipBusinessIds();
+
+      if (!active) return;
+      if (!businessIds.length) {
+        setMemberBusinessIds([]);
+        setIsAuthenticated(false);
+        return;
+      }
+
+      setMemberBusinessIds(businessIds);
+      setIsAuthenticated(true);
+    };
+
+    void validateSession();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const loadActiveBusiness = (bizId?: string) => {
     const list = store.getBusinesses();
-    const savedAuthId = typeof window !== 'undefined' ? sessionStorage.getItem('vitriniza_merchant_auth') : null;
-    const savedPhone = typeof window !== 'undefined' ? sessionStorage.getItem('vitriniza_merchant_phone') : null;
-
-    if (!savedAuthId) {
+    if (memberBusinessIds.length === 0) {
       setIsAuthenticated(false);
       setBusiness(null);
       return;
     }
 
-    const authBiz = list.find((b) => b.id === savedAuthId);
-    const authPhoneClean = authBiz ? authBiz.whatsapp.replace(/\D/g, '') : (savedPhone || '');
+    const myStores = list.filter((businessItem) => memberBusinessIds.includes(businessItem.id));
+    const savedBusinessId =
+      typeof window !== 'undefined' ? sessionStorage.getItem('vitriniza_selected_business') : null;
 
-    const myStores = list.filter((b) => {
-      if (b.id === savedAuthId) return true;
-      if (authPhoneClean && authPhoneClean.length >= 8 && b.whatsapp.replace(/\D/g, '').includes(authPhoneClean)) return true;
-      return false;
-    });
+    setAllBusinesses(myStores);
 
-    setAllBusinesses(myStores.length > 0 ? myStores : (authBiz ? [authBiz] : []));
-
-    const selected = bizId ? list.find((b) => b.id === bizId) : (authBiz || myStores[0] || list[0]);
+    const requestedId = bizId || savedBusinessId || memberBusinessIds[0];
+    const selected = myStores.find((businessItem) => businessItem.id === requestedId) || myStores[0];
 
     if (selected) {
       setBusiness(selected);
@@ -276,43 +323,53 @@ export default function MerchantPanelPage() {
       const unsub = store.subscribe(() => loadActiveBusiness());
       return () => unsub();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, memberBusinessIds]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
 
-    const cleanInputPhone = loginPhone.replace(/\D/g, '');
+    const cleanEmail = loginEmail.trim().toLowerCase();
     const cleanPassword = loginPassword.trim();
 
-    if (!cleanInputPhone || !cleanPassword) {
-      setAuthError('Por favor, informe seu WhatsApp e sua senha de acesso.');
+    if (!cleanEmail || !cleanPassword) {
+      setAuthError('Informe seu e-mail e senha de acesso.');
       return;
     }
 
-    const businesses = store.getBusinesses();
-    const matched = businesses.find((b) => {
-      const bizPhone = b.whatsapp.replace(/\D/g, '');
-      const passMatches = b.password === cleanPassword || (!b.password && cleanPassword === '123456');
-      const phoneMatches = bizPhone.includes(cleanInputPhone) || cleanInputPhone.includes(bizPhone);
-      return phoneMatches && passMatches;
-    });
-
-    if (matched) {
-      sessionStorage.setItem('vitriniza_merchant_auth', matched.id);
-      sessionStorage.setItem('vitriniza_merchant_phone', cleanInputPhone);
-      setIsAuthenticated(true);
-      showToast(`Bem-vindo de volta ao painel de ${matched.name}!`, 'success');
-    } else {
-      setAuthError('WhatsApp ou senha incorretos. Caso seja seu primeiro acesso, use a senha cadastrada no formulário de adesão.');
+    if (!supabase) {
+      setAuthError('O serviço de autenticação está temporariamente indisponível.');
+      return;
     }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: cleanPassword,
+    });
+    if (signInError) {
+      setAuthError('E-mail ou senha incorretos.');
+      return;
+    }
+
+    const businessIds = await getActiveMembershipBusinessIds();
+
+    if (!businessIds.length) {
+      await supabase.auth.signOut();
+      setAuthError('Sua conta ainda não possui uma Vitrine Pro liberada.');
+      return;
+    }
+
+    setMemberBusinessIds(businessIds);
+    setIsAuthenticated(true);
+    showToast('Acesso autorizado com segurança.', 'success');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('vitriniza_merchant_auth');
-      sessionStorage.removeItem('vitriniza_merchant_phone');
+      sessionStorage.removeItem('vitriniza_selected_business');
     }
+    setMemberBusinessIds([]);
     setIsAuthenticated(false);
     setBusiness(null);
     showToast('Você saiu do painel.', 'info');
@@ -324,31 +381,42 @@ export default function MerchantPanelPage() {
     setIsSavingChanges(true);
 
     try {
-      store.updateBusiness(business.id, {
-        name: profileForm.name.trim(),
-        short_description: profileForm.short_description.trim(),
-        description: profileForm.description.trim(),
-        whatsapp: profileForm.whatsapp.trim(),
-        phone: profileForm.phone.trim(),
-        instagram: profileForm.instagram.trim(),
-        website: profileForm.website.trim(),
-        address: profileForm.address.trim(),
-        number: profileForm.number.trim(),
-        postal_code: profileForm.postal_code.trim(),
-        neighborhood_id: profileForm.neighborhood_id || business.neighborhood_id,
-        logo_url: profileForm.logo_url,
-        cover_url: profileForm.cover_url,
-        delivery_available: profileForm.delivery_available,
-        takeaway_available: profileForm.takeaway_available,
-        dine_in_available: profileForm.dine_in_available,
-        is_online_only: profileForm.is_online_only,
+      const response = await fetch('/api/merchant/business', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({
+          businessId: business.id,
+          updates: {
+            name: profileForm.name.trim(),
+            short_description: profileForm.short_description.trim(),
+            description: profileForm.description.trim(),
+            whatsapp: profileForm.whatsapp.trim(),
+            phone: profileForm.phone.trim(),
+            instagram: profileForm.instagram.trim(),
+            website: profileForm.website.trim(),
+            address: profileForm.address.trim(),
+            number: profileForm.number.trim(),
+            postal_code: profileForm.postal_code.trim(),
+            neighborhood_id: profileForm.neighborhood_id || business.neighborhood_id,
+            logo_url: profileForm.logo_url,
+            cover_url: profileForm.cover_url,
+            delivery_available: profileForm.delivery_available,
+            takeaway_available: profileForm.takeaway_available,
+            dine_in_available: profileForm.dine_in_available,
+            is_online_only: profileForm.is_online_only,
+          },
+        }),
       });
+      const result = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Não foi possível salvar as alterações.');
+      }
 
       await store.ensureCloudSynced(true);
       loadActiveBusiness();
       showToast('✓ Alterações publicadas! Suas informações já estão disponíveis na vitrine.', 'success');
-    } catch (err) {
-      showToast('Não foi possível salvar as alterações. Tente novamente.', 'error');
+    } catch (error: unknown) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível salvar as alterações.', 'error');
     } finally {
       setIsSavingChanges(false);
     }
@@ -359,20 +427,29 @@ export default function MerchantPanelPage() {
     handleSaveAllChanges();
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!business || !productForm.name || !productForm.price) return;
+    if (!business || !supabase || !productForm.name || !productForm.price) return;
 
-    store.addProduct(business.id, {
+    const { error } = await supabase.from('products').insert({
+      id: `prod_${crypto.randomUUID()}`,
+      business_id: business.id,
       name: productForm.name.trim(),
       description: productForm.description.trim(),
       price: parseFloat(productForm.price),
-      promo_price: productForm.promo_price ? parseFloat(productForm.promo_price) : undefined,
+      promo_price: productForm.promo_price ? parseFloat(productForm.promo_price) : null,
       category: productForm.category.trim() || 'Geral',
       image_url: productForm.image_url,
       is_available: true,
       order_index: (business.products?.length || 0) + 1,
     });
+    if (error) {
+      showToast('Não foi possível adicionar o item. Verifique sua assinatura e tente novamente.', 'error');
+      return;
+    }
+
+    await store.ensureCloudSynced(true);
+    loadActiveBusiness();
 
     setIsProductModalOpen(false);
     setProductForm({
@@ -386,17 +463,24 @@ export default function MerchantPanelPage() {
     showToast('Item adicionado com sucesso ao seu catálogo!', 'success');
   };
 
-  const handleDeleteProduct = (prodId: string) => {
-    if (!business) return;
-    store.deleteProduct(prodId);
+  const handleDeleteProduct = async (prodId: string) => {
+    if (!business || !supabase) return;
+    const { error } = await supabase.from('products').delete().eq('id', prodId).eq('business_id', business.id);
+    if (error) {
+      showToast('Não foi possível remover o item.', 'error');
+      return;
+    }
+    await store.ensureCloudSynced(true);
+    loadActiveBusiness();
     showToast('Item removido do catálogo.', 'info');
   };
 
-  const handleAddPromotion = (e: React.FormEvent) => {
+  const handleAddPromotion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!business || !promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
+    if (!business || !supabase || !promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
 
-    store.createPromotion({
+    const { error } = await supabase.from('promotions').insert({
+      id: `promo_${crypto.randomUUID()}`,
       business_id: business.id,
       title: promoForm.title.trim(),
       description: promoForm.description.trim() || promoForm.title.trim(),
@@ -407,8 +491,14 @@ export default function MerchantPanelPage() {
       rules: promoForm.rules,
       image_url: promoForm.image_url,
       is_active: true,
-      neighborhood_name: business.neighborhood?.name || 'Guaianases',
     });
+    if (error) {
+      showToast('Não foi possível publicar a oferta. Verifique sua assinatura e tente novamente.', 'error');
+      return;
+    }
+
+    await store.ensureCloudSynced(true);
+    loadActiveBusiness();
 
     setIsPromoModalOpen(false);
     setPromoForm({
@@ -422,8 +512,15 @@ export default function MerchantPanelPage() {
     showToast('Oferta publicada com sucesso na Vitriniza!', 'success');
   };
 
-  const handleDeletePromotion = (promoId: string) => {
-    store.deletePromotion(promoId);
+  const handleDeletePromotion = async (promoId: string) => {
+    if (!business || !supabase) return;
+    const { error } = await supabase.from('promotions').delete().eq('id', promoId).eq('business_id', business.id);
+    if (error) {
+      showToast('Não foi possível encerrar a oferta.', 'error');
+      return;
+    }
+    await store.ensureCloudSynced(true);
+    loadActiveBusiness();
     showToast('Oferta encerrada.', 'info');
   };
 
@@ -516,7 +613,7 @@ export default function MerchantPanelPage() {
             </div>
             <h2 className="font-black text-2xl text-[#0E3B43]">Acesse sua Vitrine</h2>
             <p className="text-xs text-[#537379] leading-relaxed">
-              Digite seu WhatsApp e senha para gerenciar produtos, ofertas e fotos da sua loja.
+              Digite o e-mail da sua conta Vitriniza Pro e sua senha.
             </p>
           </div>
 
@@ -529,13 +626,13 @@ export default function MerchantPanelPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Cadastrado *</label>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail cadastrado *</label>
               <input
-                type="text"
+                type="email"
                 required
-                value={loginPhone}
-                onChange={(e) => setLoginPhone(e.target.value)}
-                placeholder="Ex: 11 99999-8888"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="Ex: contato@sualoja.com.br"
                 className="w-full px-3.5 py-3 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
               />
             </div>
@@ -698,7 +795,10 @@ export default function MerchantPanelPage() {
                 {allBusinesses.length > 1 ? (
                   <select
                     value={business.id}
-                    onChange={(e) => loadActiveBusiness(e.target.value)}
+                    onChange={(e) => {
+                      sessionStorage.setItem('vitriniza_selected_business', e.target.value);
+                      loadActiveBusiness(e.target.value);
+                    }}
                     className="font-black text-xs sm:text-sm text-[#0E3B43] bg-transparent border-b border-[#E8E4DA] outline-none cursor-pointer pr-2 max-w-[180px] sm:max-w-[240px] truncate"
                   >
                     {allBusinesses.map((b) => (
@@ -1075,7 +1175,7 @@ export default function MerchantPanelPage() {
                                     handleImageFileUpload(file, (dataUrl) => {
                                       setProfileForm((prev) => ({ ...prev, logo_url: dataUrl }));
                                       showToast('Logo atualizada!', 'success');
-                                    });
+                                    }, 'profile');
                                   }
                                 }}
                               />
@@ -1128,7 +1228,7 @@ export default function MerchantPanelPage() {
                                   handleImageFileUpload(file, (dataUrl) => {
                                     setProfileForm((prev) => ({ ...prev, cover_url: dataUrl }));
                                     showToast('Foto de capa atualizada!', 'success');
-                                  });
+                                  }, 'profile');
                                 }
                               }}
                             />
@@ -1522,7 +1622,7 @@ export default function MerchantPanelPage() {
                             <span>Denunciar</span>
                           </button>
                         </div>
-                        <p className="text-xs text-[#537379] leading-relaxed">"{r.comment}"</p>
+                        <p className="text-xs text-[#537379] leading-relaxed">“{r.comment}”</p>
                       </div>
                     ))
                   ) : (
@@ -1674,7 +1774,7 @@ export default function MerchantPanelPage() {
                         if (file) {
                           handleImageFileUpload(file, (dataUrl) => {
                             setProductForm((prev) => ({ ...prev, image_url: dataUrl }));
-                          });
+                          }, 'products');
                         }
                       }}
                     />
@@ -1795,7 +1895,7 @@ export default function MerchantPanelPage() {
                         if (file) {
                           handleImageFileUpload(file, (dataUrl) => {
                             setPromoForm((prev) => ({ ...prev, image_url: dataUrl }));
-                          });
+                          }, 'promotions');
                         }
                       }}
                     />

@@ -30,7 +30,7 @@ export default function PrivacidadePage() {
           <ul className="list-disc pl-5 space-y-1 text-xs">
             <li>Dados comerciais públicos fornecidos pelo comerciante (nome fantasia, telefone/WhatsApp, endereço, horários, fotos e produtos);</li>
             <li>Dados anônimos de navegação e métricas agregadas (visualizações de página, cliques no botão do WhatsApp);</li>
-            <li>Localização geográfica aproximada mediante autorização do usuário no navegador para o recurso "Perto de Mim".</li>
+            <li>Localização geográfica aproximada mediante autorização do usuário no navegador para o recurso “Perto de Mim”.</li>
           </ul>
         </section>
 

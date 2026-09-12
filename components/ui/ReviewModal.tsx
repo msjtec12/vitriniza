@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { X, Star, CheckCircle, Send } from 'lucide-react';
-import { store } from '@/lib/data/store';
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -24,22 +23,36 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   const [authorName, setAuthorName] = useState('');
   const [comment, setComment] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authorName.trim() || !comment.trim()) {
       alert('Por favor, preencha seu nome e comentário.');
       return;
     }
 
-    store.submitReview({
-      business_id: businessId,
-      author_name: authorName.trim(),
-      rating,
-      comment: comment.trim(),
+    setSubmitting(true);
+    setError('');
+    const response = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        business_id: businessId,
+        author_name: authorName.trim(),
+        rating,
+        comment: comment.trim(),
+      }),
     });
+    const result = (await response.json()) as { success?: boolean; error?: string };
+    setSubmitting(false);
+    if (!response.ok || !result.success) {
+      setError(result.error || 'Não foi possível enviar a avaliação.');
+      return;
+    }
 
     setSubmitted(true);
     onReviewSubmitted?.();
@@ -67,7 +80,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           <div className="py-8 text-center flex flex-col items-center">
             <CheckCircle className="w-14 h-14 text-[#4FA6A6] mb-3" />
             <h3 className="text-xl font-black text-[#0E3B43] mb-1">Avaliação enviada!</h3>
-            <p className="text-xs text-[#537379]">Obrigado por apoiar e avaliar o comércio do seu bairro.</p>
+            <p className="text-xs text-[#537379]">Obrigado! A avaliação será exibida após a moderação.</p>
           </div>
         ) : (
           <div>
@@ -77,6 +90,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}
               {/* Star Selector */}
               <div className="flex flex-col items-center p-4 bg-[#F8F6F0] rounded-2xl border border-[#4FA6A6]/20">
                 <span className="text-xs font-bold text-[#537379] mb-2">Sua nota geral</span>
@@ -128,10 +142,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-bold shadow-md transition-all active:scale-95"
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-bold shadow-md transition-all active:scale-95 disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                <span>Publicar Avaliação</span>
+                <span>{submitting ? 'Enviando...' : 'Enviar Avaliação'}</span>
               </button>
             </form>
           </div>

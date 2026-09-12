@@ -3,6 +3,9 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { store } from '@/lib/data/store';
 import { BusinessShowcaseClient } from '@/components/business/BusinessShowcaseClient';
+import { getApprovedReviews, getPublicBusinessBySlug } from '@/lib/data/server';
+import { SITE_URL } from '@/lib/site';
+import { serializeJsonLd } from '@/lib/security/json-ld.mjs';
 
 interface PageProps {
   params: Promise<{
@@ -15,7 +18,9 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const business = store.getBusinessBySlug(resolvedParams.slug);
+  const business =
+    (await getPublicBusinessBySlug(resolvedParams.slug)) ||
+    (process.env.NODE_ENV !== 'production' ? store.getBusinessBySlug(resolvedParams.slug) : null);
 
   if (!business) {
     return {
@@ -28,8 +33,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cityName = business.city?.name || 'São Paulo';
   const pageTitle = `${business.name} em ${neighborhoodName} | Vitriniza`;
   const pageDescription = `Conheça ${business.name} em ${neighborhoodName}, ${cityName}. Veja produtos, ofertas, endereço, horário e fale diretamente pelo WhatsApp.`;
-  const pageUrl = `https://vitriniza.vercel.app/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
-  const shareImage = business.cover_url || business.logo_url || 'https://vitriniza.vercel.app/logo.png';
+  const pageUrl = `${SITE_URL}/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const shareImage = business.cover_url || business.logo_url || `${SITE_URL}/logo.png`;
 
   return {
     title: pageTitle,
@@ -69,14 +74,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function BusinessShowcasePage({ params }: PageProps) {
   const resolvedParams = await params;
-  const business = store.getBusinessBySlug(resolvedParams.slug);
+  const business =
+    (await getPublicBusinessBySlug(resolvedParams.slug)) ||
+    (process.env.NODE_ENV !== 'production' ? store.getBusinessBySlug(resolvedParams.slug) : null);
 
-  const reviews = business ? store.getReviews(business.id) : [];
+  if (business) {
+    const canonicalState = business.state_id.toLowerCase();
+    const canonicalCity = business.city?.slug || 'sao-paulo';
+    const canonicalNeighborhood = business.neighborhood?.slug || 'guaianases';
+    if (
+      resolvedParams.state !== canonicalState ||
+      resolvedParams.city !== canonicalCity ||
+      resolvedParams.neighborhood !== canonicalNeighborhood
+    ) {
+      notFound();
+    }
+  }
+
+  const reviews = business
+    ? await getApprovedReviews(business.id)
+    : [];
   const neighborhoodName = business?.neighborhood?.name || 'Guaianases';
   const cityName = business?.city?.name || 'São Paulo';
   const pageUrl = business
-    ? `https://vitriniza.vercel.app/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`
-    : `https://vitriniza.vercel.app/sp/sao-paulo/guaianases/${resolvedParams.slug}`;
+    ? `${SITE_URL}/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`
+    : `${SITE_URL}/${resolvedParams.state}/${resolvedParams.city}/${resolvedParams.neighborhood}/${resolvedParams.slug}`;
 
   // Structured Data Schema.org (LocalBusiness & BreadcrumbList)
   const jsonLd = business
@@ -92,7 +114,7 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
           '@type': 'PostalAddress',
           streetAddress: `${business.address || ''}, ${business.number || ''}`,
           addressLocality: neighborhoodName,
-          addressRegion: 'SP',
+          addressRegion: business.state_id,
           postalCode: business.postal_code || '08400-000',
           addressCountry: 'BR',
         },
@@ -112,19 +134,19 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
         '@type': 'ListItem',
         position: 1,
         name: 'Vitriniza',
-        item: 'https://vitriniza.vercel.app',
+        item: SITE_URL,
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: cityName,
-        item: 'https://vitriniza.vercel.app/buscar',
+        item: `${SITE_URL}/buscar`,
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: neighborhoodName,
-        item: `https://vitriniza.vercel.app/sp/sao-paulo/${business?.neighborhood?.slug || 'guaianases'}`,
+        item: `${SITE_URL}/${resolvedParams.state}/${resolvedParams.city}/${resolvedParams.neighborhood}`,
       },
       {
         '@type': 'ListItem',
@@ -140,12 +162,12 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
       {jsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }}
       />
       <BusinessShowcaseClient
         initialBusiness={business || null}
