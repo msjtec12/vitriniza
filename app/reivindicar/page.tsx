@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -9,7 +9,6 @@ import {
   Sparkles,
   CheckCircle2,
   ArrowRight,
-  Lock,
   User,
   Phone,
   Mail,
@@ -19,18 +18,14 @@ import {
 import confetti from 'canvas-confetti';
 import { store } from '@/lib/data/store';
 import { Business } from '@/types';
-import { formatPhone } from '@/lib/utils';
 import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 
 function ReivindicarContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get('token') || '';
   const bizParam = searchParams.get('biz') || searchParams.get('slug') || '';
 
   const [business, setBusiness] = useState<Business | null>(null);
-  const [businessesList, setBusinessesList] = useState<Business[]>([]);
-  const [selectedBizId, setSelectedBizId] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,13 +33,11 @@ function ReivindicarContent() {
     ownerName: '',
     email: '',
     whatsapp: '',
-    password: '',
-    notes: 'Sou o proprietário e estou ativando minha vitrine através do link de convite oficial.',
+    notes: 'Sou o proprietário e solicito a verificação da titularidade desta vitrine.',
   });
 
   useEffect(() => {
     const allBusinesses = store.getBusinesses();
-    setBusinessesList(allBusinesses);
 
     let foundBiz: Business | undefined;
 
@@ -69,73 +62,46 @@ function ReivindicarContent() {
       }
     }
 
-    if (!foundBiz && allBusinesses.length > 0) {
-      foundBiz = allBusinesses[0];
-    }
-
     if (foundBiz) {
       setBusiness(foundBiz);
-      setSelectedBizId(foundBiz.id);
-      setForm((prev) => ({
-        ...prev,
-        whatsapp: foundBiz?.whatsapp || prev.whatsapp,
-      }));
     }
   }, [token, bizParam]);
 
-  const handleSelectBusiness = (bizId: string) => {
-    setSelectedBizId(bizId);
-    const found = businessesList.find((b) => b.id === bizId) || null;
-    setBusiness(found);
-    if (found) {
-      setForm((prev) => ({
-        ...prev,
-        whatsapp: found.whatsapp || prev.whatsapp,
-      }));
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.ownerName || !form.whatsapp || !form.password) return;
+    if (!business || !form.ownerName || !form.email || !form.whatsapp) return;
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      // Register claim and approve
-      if (business) {
-        store.submitClaimRequest({
+    try {
+      const response = await fetch('/api/claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           business_id: business.id,
           requester_name: form.ownerName,
-          requester_email: form.email || `${business.slug}@vitriniza.com.br`,
+          requester_email: form.email,
           requester_phone: form.whatsapp,
           proof_notes: form.notes,
-        });
-
-        // Activate ownership & mark verified with password
-        store.updateBusiness(business.id, {
-          is_verified: true,
-          is_active: true,
-          plan_status: 'active',
-          password: form.password,
-        });
+        }),
+      });
+      const result = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Não foi possível enviar a solicitação.');
       }
 
-      setIsLoading(false);
       setIsSuccess(true);
-
-      // Trigger Celebration Confetti
-      try {
-        confetti({
-          particleCount: 120,
-          spread: 80,
-          origin: { y: 0.6 },
-          colors: ['#E36845', '#4FA6A6', '#0E3B43', '#F49C6B'],
-        });
-      } catch {
-        // ignore if canvas blocked
-      }
-    }, 800);
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#E36845', '#4FA6A6', '#0E3B43', '#F49C6B'],
+      });
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Não foi possível enviar a solicitação.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -154,7 +120,7 @@ function ReivindicarContent() {
             Assuma o controle da sua <span className="text-[#E36845]">Vitrine Digital</span>
           </h1>
           <p className="text-xs sm:text-sm text-[#537379] mt-2 max-w-md mx-auto leading-relaxed">
-            Finalize a ativação do seu perfil comercial para gerenciar produtos, fotos, ofertas e receber clientes no seu WhatsApp.
+            Envie seus dados para a equipe confirmar a titularidade antes de liberar o painel.
           </p>
         </div>
 
@@ -167,13 +133,13 @@ function ReivindicarContent() {
 
             <div>
               <span className="px-3 py-1 rounded-full bg-[#E36845]/15 text-[#E36845] font-black text-xs uppercase tracking-wider">
-                🎉 Ativação Concluída com Sucesso!
+                Solicitação enviada
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-[#0E3B43] mt-3 mb-2">
                 Parabéns, {form.ownerName}!
               </h2>
               <p className="text-xs sm:text-sm text-[#537379] max-w-md mx-auto leading-relaxed">
-                Você agora é o administrador oficial da vitrine de <strong>{business?.name}</strong>.
+                A equipe verificará a titularidade de <strong>{business?.name}</strong> antes de liberar qualquer acesso.
               </p>
             </div>
 
@@ -189,17 +155,17 @@ function ReivindicarContent() {
                   <p className="text-xs text-[#537379]">{business.neighborhood?.name}, {business.city?.name}</p>
                 </div>
                 <span className="px-2.5 py-1 rounded-lg bg-[#4FA6A6]/20 text-[#0E3B43] font-bold text-[10px] uppercase">
-                  Verificado ✓
+                  Em análise
                 </span>
               </div>
             )}
 
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                href="/painel"
+                href="/"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-black shadow-lg transition-all active:scale-95"
               >
-                <span>Acessar Painel do Comerciante</span>
+                <span>Voltar para o início</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 
@@ -223,10 +189,10 @@ function ReivindicarContent() {
               <label className="block text-xs font-bold text-[#0E3B43] mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Store className="w-4 h-4 text-[#E36845]" />
-                  <span>Estabelecimento a ser ativado:</span>
+                  <span>Estabelecimento a ser reivindicado:</span>
                 </div>
                 <span className="px-2 py-0.5 rounded-md bg-[#4FA6A6]/20 text-[#0E3B43] text-[10px] font-black uppercase">
-                  🔒 Convite Exclusivo
+                  Vitrine selecionada
                 </span>
               </label>
 
@@ -290,10 +256,11 @@ function ReivindicarContent() {
                 <div>
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1 flex items-center gap-1">
                     <Mail className="w-3.5 h-3.5 text-[#4FA6A6]" />
-                    <span>E-mail Comercial</span>
+                    <span>E-mail Comercial *</span>
                   </label>
                   <input
                     type="email"
+                    required
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     placeholder="contato@seunegocio.com.br"
@@ -302,41 +269,25 @@ function ReivindicarContent() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#0E3B43] mb-1 flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5 text-[#4FA6A6]" />
-                  <span>Crie uma Senha para o Painel do Comerciante *</span>
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Mínimo de 6 caracteres"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
-                />
-              </div>
-
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !business}
                   className="w-full py-4 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-black shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   {isLoading ? (
-                    <span>Validando e ativando vitrine...</span>
+                    <span>Enviando para verificação...</span>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      <span>Confirmar e Assumir Controle da Vitrine</span>
+                      <span>Solicitar verificação de titularidade</span>
                     </>
                   )}
                 </button>
               </div>
 
               <p className="text-[11px] text-[#537379] text-center">
-                Ao ativar, você concorda com os nossos <Link href="/termos" className="underline text-[#0E3B43]">Termos de Uso</Link> e <Link href="/privacidade" className="underline text-[#0E3B43]">Privacidade</Link>.
+                Ao enviar, você concorda com os nossos <Link href="/termos" className="underline text-[#0E3B43]">Termos de Uso</Link> e <Link href="/privacidade" className="underline text-[#0E3B43]">Privacidade</Link>.
               </p>
             </form>
           </div>

@@ -61,6 +61,8 @@ import {
 } from '@/types';
 import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr, buildWhatsAppUrl } from '@/lib/utils';
 import { WhatsAppSolidIcon } from '@/components/ui/Icons';
+import { supabase } from '@/lib/supabase/client';
+import { getAuthHeaders } from '@/lib/auth/client';
 
 export default function MasterAdminPage() {
   // SECURITY AUTHENTICATION STATE
@@ -208,16 +210,37 @@ export default function MasterAdminPage() {
       'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.',
   });
 
-  // Check existing session
+  // Validate the administrator session against Supabase Auth and the profiles table.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedAuth = sessionStorage.getItem('vitriniza_master_auth');
-      if (savedAuth === 'authenticated') {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
+    let active = true;
+
+    const validateAdmin = async () => {
+      if (!supabase) {
+        if (active) setIsAuthenticated(false);
+        return;
       }
-    }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        if (active) setIsAuthenticated(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userData.user.id)
+        .maybeSingle();
+
+      const authorized = !profileError && profile?.role === 'admin';
+      if (authorized) await store.ensureCloudSynced(true);
+      if (active) setIsAuthenticated(authorized);
+    };
+
+    void validateAdmin();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const refreshData = () => {
@@ -249,31 +272,44 @@ export default function MasterAdminPage() {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
 
-    const validEmails = ['admin@vitriniza.com.br', 'admin', 'master@vitriniza.com.br'];
-    const validPassword = 'vitriniza2026!';
-
-    if (
-      (validEmails.includes(adminEmail.toLowerCase().trim()) || adminEmail.toLowerCase().includes('admin')) &&
-      (adminPassword === validPassword || adminPassword === 'vitriniza2026')
-    ) {
-      setIsAuthenticated(true);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('vitriniza_master_auth', 'authenticated');
-      }
-      refreshData();
-    } else {
-      setAuthError('Credenciais mestras inválidas. Verifique seu e-mail e senha de administrador.');
+    if (!supabase) {
+      setAuthError('O serviço de autenticação está temporariamente indisponível.');
+      return;
     }
+
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: adminEmail.trim().toLowerCase(),
+      password: adminPassword,
+    });
+
+    if (signInError || !signInData.user) {
+      setAuthError('E-mail ou senha inválidos.');
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', signInData.user.id)
+      .maybeSingle();
+
+    if (profileError || profile?.role !== 'admin') {
+      await supabase.auth.signOut();
+      setAuthError('Esta conta não possui permissão administrativa.');
+      return;
+    }
+
+    setIsAuthenticated(true);
+    await store.ensureCloudSynced(true);
+    refreshData();
   };
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('vitriniza_master_auth');
-    }
+  const handleLogout = async () => {
+    if (supabase) await supabase.auth.signOut();
     setIsAuthenticated(false);
     setAdminPassword('');
   };
@@ -332,21 +368,10 @@ export default function MasterAdminPage() {
       return;
     }
 
-    const res = await store.convertToPro(convertingBiz.id, {
-      ownerName: convertForm.ownerName,
-      email: convertForm.email,
-      whatsapp: convertForm.whatsapp,
-      price: Number(convertForm.price),
-      startsAt: convertForm.startsAt,
-      expiresAt: convertForm.expiresAt,
-    });
-
-    if (res.success) {
-      // Trigger secure user creation route
-      try {
+    try {
         await fetch('/api/admin/create-pro-user', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
           body: JSON.stringify({
             email: convertForm.email,
             name: convertForm.ownerName,
@@ -356,17 +381,20 @@ export default function MasterAdminPage() {
             startsAt: convertForm.startsAt,
             expiresAt: convertForm.expiresAt,
           }),
+        }).then(async (response) => {
+          const result = (await response.json()) as { success?: boolean; error?: string };
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Falha ao criar conta Pro.');
+          }
         });
-      } catch (err) {
-        // Handled locally
-      }
-
+      await store.ensureCloudSynced(true);
       alert(`✓ Estabelecimento "${convertingBiz.name}" convertido para Vitriniza Pro com sucesso!`);
       setIsConvertModalOpen(false);
       setConvertingBiz(null);
       refreshData();
-    } else {
-      alert('Erro ao converter: ' + res.error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Falha ao criar conta Pro.';
+      alert(message);
     }
   };
 
@@ -619,7 +647,7 @@ export default function MasterAdminPage() {
                 required
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
-                placeholder="admin@vitriniza.com.br"
+                placeholder="voce@empresa.com.br"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] transition-colors"
               />
             </div>
@@ -898,7 +926,7 @@ export default function MasterAdminPage() {
 
                       {req.message && (
                         <p className="text-xs bg-[#F8F6F0] p-2.5 rounded-xl border border-[#E8E4DA] text-[#0E3B43] italic">
-                          "{req.message}"
+                          “{req.message}”
                         </p>
                       )}
                     </div>

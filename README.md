@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vitriniza
 
-## Getting Started
+Plataforma Next.js para descoberta de comércios e serviços locais, com painel do lojista, administração, avaliações e páginas públicas indexáveis.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20+
+- Um projeto Supabase
+
+## Configuração local
 
 ```bash
+cp .env.example .env.local
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Preencha as variáveis do Supabase em `.env.local`. A `SUPABASE_SERVICE_ROLE_KEY` é usada somente nas rotas de servidor e nunca deve usar o prefixo `NEXT_PUBLIC_`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Banco de dados
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+As migrações canônicas ficam em `supabase/migrations` e usam IDs textuais compatíveis com os dados da aplicação.
 
-## Learn More
+```bash
+supabase link --project-ref SEU_PROJECT_REF
+supabase db push
+```
 
-To learn more about Next.js, take a look at the following resources:
+A migração `002_security_hardening.sql` remove políticas permissivas antigas, aplica RLS multi-tenant e cria o bucket `business-media`. Os arquivos SQL soltos na raiz são mantidos apenas como referência para instalações legadas; não os execute depois das migrações canônicas.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Para criar o primeiro administrador:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Crie o usuário em Authentication no painel do Supabase.
+2. Insira ou atualize a linha correspondente em `public.profiles` com `role = 'admin'`.
+3. Acesse `/master` usando o e-mail e a senha desse usuário.
 
-## Deploy on Vercel
+Contas de lojista são convidadas pelo administrador. O acesso a cada negócio depende de `business_members` e de uma assinatura Pro ativa.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Variáveis
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variável | Uso |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL pública do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave pública `anon` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave privada das rotas de servidor |
+| `NEXT_PUBLIC_SITE_URL` | URL canônica do site, sem barra final |
+| `NEXT_PUBLIC_ENABLE_DEMO_DATA` | Use `true` apenas em desenvolvimento para carregar dados fictícios |
+
+## Validação
+
+```bash
+npm run lint
+npm test
+npm run build
+npm audit --audit-level=high
+```
+
+O workflow de CI executa essas verificações em pushes e pull requests.

@@ -133,7 +133,9 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 -- =======================================================
--- HABILITAR ROW LEVEL SECURITY (RLS) COM POLÍTICAS ABERTAS
+-- HABILITAR ROW LEVEL SECURITY (RLS)
+-- Escritas administrativas e de comerciantes são definidas pela migration
+-- supabase/migrations/002_security_hardening.sql.
 -- =======================================================
 ALTER TABLE platform_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
@@ -145,19 +147,13 @@ ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para leitura pública de dados
 CREATE POLICY "Permitir leitura pública em platform_settings" ON platform_settings FOR SELECT USING (true);
-CREATE POLICY "Permitir alteração em platform_settings" ON platform_settings FOR ALL USING (true);
 
 CREATE POLICY "Permitir leitura pública em categories" ON categories FOR SELECT USING (true);
-CREATE POLICY "Permitir alteração em categories" ON categories FOR ALL USING (true);
 
 CREATE POLICY "Permitir leitura pública em businesses" ON businesses FOR SELECT USING (true);
-CREATE POLICY "Permitir inserção e atualização em businesses" ON businesses FOR ALL USING (true);
 
 CREATE POLICY "Permitir leitura pública em products" ON products FOR SELECT USING (true);
-CREATE POLICY "Permitir inserção e alteração em products" ON products FOR ALL USING (true);
 
 CREATE POLICY "Permitir leitura pública em promotions" ON promotions FOR SELECT USING (true);
-CREATE POLICY "Permitir inserção e alteração em promotions" ON promotions FOR ALL USING (true);
 
-CREATE POLICY "Permitir leitura e inserção em claim_requests" ON claim_requests FOR ALL USING (true);
-CREATE POLICY "Permitir leitura e inserção em reviews" ON reviews FOR ALL USING (true);
+CREATE POLICY "Permitir leitura pública em reviews" ON reviews FOR SELECT USING (status = 'approved');

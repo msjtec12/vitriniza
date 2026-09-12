@@ -4,9 +4,10 @@ import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Footer } from '@/components/layout/Footer';
 import { PwaInstallPrompt } from '@/components/ui/PwaInstallPrompt';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://vitriniza.com.br'),
+  metadataBase: new URL(SITE_URL),
   title: 'Vitriniza | O comércio perto de você - Vitrine Digital Inteligente',
   description: 'Descubra quem empreende perto de você. Encontre comércios, restaurantes, serviços, produtos e promoções no seu bairro e fale direto pelo WhatsApp.',
   keywords: [
@@ -24,14 +25,14 @@ export const metadata: Metadata = {
   authors: [{ name: 'Vitriniza' }],
   manifest: '/manifest.json',
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png',
+    icon: '/icon-192.png',
+    shortcut: '/icon-192.png',
+    apple: '/icon-192.png',
   },
   openGraph: {
     title: 'Vitriniza | O comércio perto de você',
     description: 'Encontre comércios locais, serviços, promoções e entre em contato direto pelo WhatsApp.',
-    url: 'https://vitriniza.com.br',
+    url: SITE_URL,
     siteName: 'Vitriniza',
     locale: 'pt_BR',
     type: 'website',
@@ -66,9 +67,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="h-full">
-      <head>
-        <link rel="icon" href="/logo.png" type="image/png" />
-      </head>
       <body className="min-h-full flex flex-col bg-[#F8F6F0] text-[#0E3B43] antialiased">
         <Navbar />
         <main className="flex-1 pb-mobile-nav lg:pb-0">{children}</main>

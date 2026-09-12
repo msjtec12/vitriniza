@@ -32,7 +32,9 @@ export default function ParaEmpresasPage() {
     whatsapp: '',
     email: '',
     instagram: '',
-    neighborhood: 'Guaianases',
+    neighborhood: '',
+    city: '',
+    state: 'SP',
     category: 'Alimentação & Gastronomia',
     address: '',
     message: '',
@@ -43,53 +45,41 @@ export default function ParaEmpresasPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.businessName || !form.ownerName || !form.whatsapp) {
-      alert('Por favor, preencha o nome do estabelecimento, responsável e WhatsApp.');
+    if (!form.businessName || !form.ownerName || !form.whatsapp || !form.neighborhood || !form.city || form.state.length !== 2) {
+      alert('Preencha estabelecimento, responsável, WhatsApp, bairro, cidade e UF.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 1. Save request in store / database
-      await store.addBusinessRequest({
-        owner_name: form.ownerName,
-        business_name: form.businessName,
-        whatsapp: form.whatsapp,
-        email: form.email || undefined,
-        instagram: form.instagram || undefined,
-        category_name: form.category,
-        neighborhood_name: form.neighborhood,
-        address: form.address || undefined,
-        interest_type: form.interest_type,
-        message: form.message || undefined,
+      const response = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner_name: form.ownerName,
+          business_name: form.businessName,
+          whatsapp: form.whatsapp,
+          email: form.email,
+          instagram: form.instagram,
+          category_name: form.category,
+          neighborhood_name: form.neighborhood,
+          city_name: form.city,
+          state_code: form.state,
+          address: form.address,
+          interest_type: form.interest_type,
+          message: form.message,
+        }),
       });
-
-      // 2. Also try API route for multi-device sync
-      try {
-        await fetch('/api/requests', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            owner_name: form.ownerName,
-            business_name: form.businessName,
-            whatsapp: form.whatsapp,
-            email: form.email,
-            instagram: form.instagram,
-            category_name: form.category,
-            neighborhood_name: form.neighborhood,
-            address: form.address,
-            interest_type: form.interest_type,
-            message: form.message,
-          }),
-        });
-      } catch (e) {
-        // Local store handled
+      const result = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Não foi possível enviar a solicitação.');
       }
 
       setSubmitted(true);
-    } catch (err: any) {
-      alert('Erro ao enviar solicitação: ' + err.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Tente novamente.';
+      alert('Erro ao enviar solicitação: ' + message);
     } finally {
       setIsSubmitting(false);
     }
@@ -103,7 +93,7 @@ export default function ParaEmpresasPage() {
       `🏢 Estabelecimento: *${form.businessName || 'Meu Comércio'}*\n` +
       `👤 Responsável: *${form.ownerName || 'Responsável'}*\n` +
       `📱 WhatsApp: *${form.whatsapp || 'WhatsApp'}*\n` +
-      `📍 Bairro: *${form.neighborhood}*\n` +
+      `📍 Local: *${form.neighborhood}, ${form.city}/${form.state}*\n` +
       `🏷️ Categoria: *${form.category}*\n` +
       `⭐ Interesse: *${typeLabel}*`;
 
@@ -140,7 +130,7 @@ export default function ParaEmpresasPage() {
     {
       icon: Users,
       title: 'Fortalecimento do Comércio Local',
-      desc: 'Faça parte da rede oficial que conecta quem mora a quem empreende e produz dentro de Guaianases.',
+      desc: 'Faça parte da rede que conecta quem mora a quem empreende e produz na mesma região.',
     },
   ];
 
@@ -152,7 +142,7 @@ export default function ParaEmpresasPage() {
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4FA6A6]/15 border border-[#4FA6A6]/30 shadow-2xs mb-6">
             <Sparkles className="w-4 h-4 text-[#E36845]" />
             <span className="text-xs font-black text-[#0E3B43]">
-              Para Comerciantes, Autônomos e Prestadores de Serviço em Guaianases
+              Para Comerciantes, Autônomos e Prestadores de Serviço
             </span>
           </div>
 
@@ -161,7 +151,7 @@ export default function ParaEmpresasPage() {
           </h1>
 
           <p className="text-sm sm:text-lg text-[#537379] max-w-2xl mx-auto mb-8 leading-relaxed font-medium">
-            Conecte sua empresa aos moradores que procuram produtos, serviços, alimentação e profissionais em Guaianases. Escolha a presença ideal para o seu estabelecimento:
+            Conecte sua empresa a moradores que procuram produtos, serviços e profissionais perto de casa. Escolha a presença ideal para o seu estabelecimento:
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -219,7 +209,7 @@ export default function ParaEmpresasPage() {
                 <ul className="space-y-3 text-xs sm:text-sm text-[#0E3B43]">
                   <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Presença garantida no portal de Guaianases</span>
+                    <span>Presença no portal da sua cidade e do seu bairro</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -535,7 +525,33 @@ export default function ParaEmpresasPage() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Cidade *</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    placeholder="Ex: São Paulo"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Estado (UF) *</label>
+                  <input
+                    type="text"
+                    required
+                    minLength={2}
+                    maxLength={2}
+                    value={form.state}
+                    onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })}
+                    placeholder="SP"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0] uppercase"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço / Ponto de Referência</label>
                   <input
                     type="text"

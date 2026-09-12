@@ -133,6 +133,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION public.can_manage_business(target_business_id TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN public.is_admin() OR EXISTS (
+    SELECT 1
+    FROM public.business_members member
+    JOIN public.businesses business ON business.id = member.business_id
+    JOIN public.subscriptions subscription ON subscription.business_id = business.id
+    WHERE member.business_id = target_business_id
+      AND member.user_id = auth.uid()
+      AND business.listing_type = 'paid'
+      AND business.plan_status = 'active'
+      AND business.subscription_status = 'active'
+      AND subscription.status = 'active'
+      AND subscription.expires_at > now()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Verifica se o usuário autenticado é admin
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
@@ -166,10 +185,6 @@ CREATE POLICY "Public view active businesses"
   USING (is_active = true OR is_business_member(id) OR is_admin());
 
 DROP POLICY IF EXISTS "Members can update their business" ON public.businesses;
-CREATE POLICY "Members can update their business"
-  ON public.businesses FOR UPDATE
-  USING (is_business_member(id) OR is_admin())
-  WITH CHECK (is_business_member(id) OR is_admin());
 
 -- POLÍTICAS: PRODUCTS
 DROP POLICY IF EXISTS "Public view available products" ON public.products;
@@ -180,8 +195,8 @@ CREATE POLICY "Public view available products"
 DROP POLICY IF EXISTS "Members can manage products" ON public.products;
 CREATE POLICY "Members can manage products"
   ON public.products FOR ALL
-  USING (is_business_member(business_id) OR is_admin())
-  WITH CHECK (is_business_member(business_id) OR is_admin());
+  USING (can_manage_business(business_id))
+  WITH CHECK (can_manage_business(business_id));
 
 -- POLÍTICAS: PROMOTIONS
 DROP POLICY IF EXISTS "Public view promotions" ON public.promotions;
@@ -192,8 +207,8 @@ CREATE POLICY "Public view promotions"
 DROP POLICY IF EXISTS "Members can manage promotions" ON public.promotions;
 CREATE POLICY "Members can manage promotions"
   ON public.promotions FOR ALL
-  USING (is_business_member(business_id) OR is_admin())
-  WITH CHECK (is_business_member(business_id) OR is_admin());
+  USING (can_manage_business(business_id))
+  WITH CHECK (can_manage_business(business_id));
 
 -- POLÍTICAS: BUSINESS_MEMBERS
 DROP POLICY IF EXISTS "Users can view their memberships" ON public.business_members;
@@ -203,9 +218,6 @@ CREATE POLICY "Users can view their memberships"
 
 -- POLÍTICAS: BUSINESS_REQUESTS
 DROP POLICY IF EXISTS "Public can insert business requests" ON public.business_requests;
-CREATE POLICY "Public can insert business requests"
-  ON public.business_requests FOR INSERT
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Admins can manage requests" ON public.business_requests;
 CREATE POLICY "Admins can manage requests"

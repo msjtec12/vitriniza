@@ -174,6 +174,8 @@ export interface BusinessRequest {
   category_name?: string;
   neighborhood_id?: string;
   neighborhood_name?: string;
+  city_name?: string;
+  state_code?: string;
   address?: string;
   interest_type: 'local_free' | 'pro';
   message?: string;
@@ -260,7 +262,6 @@ export interface Business {
   promotions?: Promotion[];
   distance_km?: number;
   owner_id?: string;
-  password?: string;
   created_at: string;
   updated_at: string;
 }
