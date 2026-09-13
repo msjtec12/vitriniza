@@ -269,7 +269,7 @@ export default function HomePage() {
               href="/para-empresas"
               className="px-6 py-3 rounded-2xl bg-white hover:bg-stone-50 text-[#0E3B43] border border-[#4FA6A6]/40 text-xs font-bold shadow-sm transition-all"
             >
-              Cadastre seu negócio
+              Receba uma prévia grátis
             </Link>
           </div>
         </div>
@@ -743,7 +743,7 @@ export default function HomePage() {
                 href="/para-empresas"
                 className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-bold shadow-lg transition-all active:scale-95 text-center"
               >
-                <span>Cadastrar meu negócio</span>
+                <span>Ver meu negócio na Vitriniza</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
