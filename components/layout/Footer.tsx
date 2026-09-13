@@ -76,7 +76,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-[#F8F6F0]/75">
               <li>
                 <Link href="/para-empresas" className="text-[#F49C6B] font-bold hover:underline">
-                  Cadastrar meu Negócio →
+                  Receber prévia gratuita →
                 </Link>
               </li>
               <li>

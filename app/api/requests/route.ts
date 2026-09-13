@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = (await req.json()) as RequestBody;
-    const ownerName = cleanText(body.owner_name, 120);
+    const ownerName = cleanText(body.owner_name, 120) || 'A confirmar';
     const businessName = cleanText(body.business_name, 160);
     const whatsapp = cleanText(body.whatsapp, 30).replace(/[^\d+]/g, '');
     const email = cleanText(body.email, 254).toLowerCase();
@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
     const message = cleanText(body.message, 1_000);
     const interestType = body.interest_type === 'local_free' ? 'local_free' : 'pro';
 
-    if (ownerName.length < 2 || businessName.length < 2 || whatsapp.length < 10) {
+    if (businessName.length < 2 || whatsapp.replace(/\D/g, '').length < 10) {
       return NextResponse.json(
-        { success: false, error: 'Responsável, negócio e WhatsApp válido são obrigatórios.' },
+        { success: false, error: 'Negócio e WhatsApp válido são obrigatórios.' },
         { status: 400 }
       );
     }
@@ -76,7 +76,10 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         requestId: requestRecord.id,
-        message: 'Recebemos sua solicitação. Entraremos em contato para confirmar as informações.',
+        message:
+          interestType === 'pro'
+            ? 'Recebemos seu pedido de prévia. Entraremos em contato pelo WhatsApp.'
+            : 'Recebemos sua solicitação de cadastro local.',
       },
       { status: 201 }
     );

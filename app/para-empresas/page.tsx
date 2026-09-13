@@ -3,50 +3,53 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  Check,
-  Sparkles,
   ArrowRight,
+  BadgeCheck,
+  Check,
+  ChevronRight,
+  Clock3,
+  Eye,
+  MapPin,
   MessageCircle,
-  TrendingUp,
-  Store,
   QrCode,
-  Users,
-  Flame,
-  ShieldCheck,
-  X,
   Send,
-  HelpCircle,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Store,
+  Wifi,
+  Zap,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
-import { formatCurrency, buildWhatsAppUrl } from '@/lib/utils';
-import { WhatsAppSolidIcon } from '@/components/ui/Icons';
+import { buildWhatsAppUrl, formatCurrency } from '@/lib/utils';
+import { InstagramIcon, WhatsAppSolidIcon } from '@/components/ui/Icons';
+
+type InterestType = 'local_free' | 'pro';
+
+const founderPrice = 29.9;
 
 export default function ParaEmpresasPage() {
   const settings = store.getPlatformSettings();
-  const proPrice = settings.pro_plan?.price || settings.plan_prices.pro || 49.90;
-
+  const regularPrice = settings.pro_plan?.price || settings.plan_prices.pro || 49.9;
   const [form, setForm] = useState({
-    interest_type: 'pro' as 'local_free' | 'pro',
+    interest_type: 'pro' as InterestType,
     businessName: '',
-    ownerName: '',
     whatsapp: '',
-    email: '',
     instagram: '',
-    neighborhood: '',
-    city: '',
-    state: 'SP',
-    category: 'Alimentação & Gastronomia',
-    address: '',
-    message: '',
   });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.businessName || !form.ownerName || !form.whatsapp || !form.neighborhood || !form.city || form.state.length !== 2) {
-      alert('Preencha estabelecimento, responsável, WhatsApp, bairro, cidade e UF.');
+  const selectInterest = (interestType: InterestType) => {
+    setForm((current) => ({ ...current, interest_type: interestType }));
+    window.setTimeout(() => document.querySelector('#previa')?.scrollIntoView({ behavior: 'smooth' }), 0);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (form.businessName.trim().length < 2 || form.whatsapp.replace(/\D/g, '').length < 10) {
+      alert('Informe o nome do negócio e um WhatsApp válido com DDD.');
       return;
     }
 
@@ -57,21 +60,18 @@ export default function ParaEmpresasPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          owner_name: form.ownerName,
           business_name: form.businessName,
           whatsapp: form.whatsapp,
-          email: form.email,
           instagram: form.instagram,
-          category_name: form.category,
-          neighborhood_name: form.neighborhood,
-          city_name: form.city,
-          state_code: form.state,
-          address: form.address,
           interest_type: form.interest_type,
-          message: form.message,
+          message:
+            form.interest_type === 'pro'
+              ? 'Solicitação de prévia gratuita da Vitriniza Pro.'
+              : 'Solicitação de Cadastro Local gratuito.',
         }),
       });
       const result = (await response.json()) as { success?: boolean; error?: string };
+
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Não foi possível enviar a solicitação.');
       }
@@ -79,559 +79,263 @@ export default function ParaEmpresasPage() {
       setSubmitted(true);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Tente novamente.';
-      alert('Erro ao enviar solicitação: ' + message);
+      alert(`Erro ao enviar solicitação: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleOpenDirectWhatsApp = () => {
+  const handleOpenWhatsApp = () => {
     const masterPhone = settings.contact_whatsapp || '11987654321';
-    const typeLabel = form.interest_type === 'pro' ? 'Vitriniza Pro' : 'Cadastro Local Gratuito';
+    const isPro = form.interest_type === 'pro';
     const message =
-      `Olá Equipe Vitriniza! Acabei de enviar uma solicitação para cadastrar meu negócio:\n\n` +
-      `🏢 Estabelecimento: *${form.businessName || 'Meu Comércio'}*\n` +
-      `👤 Responsável: *${form.ownerName || 'Responsável'}*\n` +
-      `📱 WhatsApp: *${form.whatsapp || 'WhatsApp'}*\n` +
-      `📍 Local: *${form.neighborhood}, ${form.city}/${form.state}*\n` +
-      `🏷️ Categoria: *${form.category}*\n` +
-      `⭐ Interesse: *${typeLabel}*`;
+      `Olá, equipe Vitriniza! Enviei uma solicitação pelo site.\n\n` +
+      `🏪 Negócio: *${form.businessName || 'Meu negócio'}*\n` +
+      `📱 WhatsApp: *${form.whatsapp || 'A informar'}*\n` +
+      (form.instagram ? `📷 Instagram: *${form.instagram}*\n` : '') +
+      `✨ Interesse: *${isPro ? 'Prévia gratuita da Vitriniza Pro' : 'Cadastro Local gratuito'}*`;
 
-    const url = buildWhatsAppUrl(masterPhone, message);
-    window.open(url, '_blank');
+    window.open(buildWhatsAppUrl(masterPhone, message), '_blank', 'noopener,noreferrer');
   };
 
-  const benefits = [
-    {
-      icon: MessageCircle,
-      title: 'Vendas Diretas no WhatsApp',
-      desc: 'Sem taxas abusivas ou comissões por venda. O morador clica e fala direto no seu celular para pedir, tirar dúvidas ou agendar.',
-    },
-    {
-      icon: Store,
-      title: 'Vitrine Digital Completa',
-      desc: 'Sua página oficial com logo, fotos, horários de funcionamento, cardápio/catálogo e endereço com rota no Google Maps.',
-    },
-    {
-      icon: Sparkles,
-      title: 'Divulgação de Ofertas no Bairro',
-      desc: 'Publique promoções exclusivas para atrair moradores vizinhos nos dias de menor movimento.',
-    },
-    {
-      icon: TrendingUp,
-      title: 'Métricas Reais de Desempenho',
-      desc: 'Acompanhe quantas pessoas viram sua vitrine, clicaram no seu WhatsApp e solicitaram rota até seu endereço.',
-    },
-    {
-      icon: QrCode,
-      title: 'QR Code de Balcão & Display',
-      desc: 'Baixe a arte pronta da placa de mesa/balcão para imprimir ou solicite o display físico em acrílico para o seu estabelecimento.',
-    },
-    {
-      icon: Users,
-      title: 'Fortalecimento do Comércio Local',
-      desc: 'Faça parte da rede que conecta quem mora a quem empreende e produz na mesma região.',
-    },
+  const included = [
+    'Página profissional com link próprio',
+    'Catálogo de produtos ou serviços',
+    'Botão direto para o WhatsApp',
+    'Localização, horários e redes sociais',
+    'Promoções e ofertas em destaque',
+    'QR Code e arte pronta para o balcão',
+    'Painel simples para atualizar pelo celular',
+    'Métricas de acessos, cliques e rotas',
   ];
 
   return (
-    <div className="pb-20 space-y-16 sm:space-y-24 bg-[#F8F6F0]">
-      {/* Hero Section */}
-      <section className="relative pt-12 pb-16 sm:py-20 bg-gradient-to-b from-[#F8F6F0] via-white to-[#F8F6F0] border-b border-[#E8E4DA]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4FA6A6]/15 border border-[#4FA6A6]/30 shadow-2xs mb-6">
-            <Sparkles className="w-4 h-4 text-[#E36845]" />
-            <span className="text-xs font-black text-[#0E3B43]">
-              Para Comerciantes, Autônomos e Prestadores de Serviço
-            </span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-3xl mx-auto leading-tight mb-6">
-            Seu negócio merece ser encontrado <span className="text-[#E36845]">pelos moradores do bairro.</span>
-          </h1>
-
-          <p className="text-sm sm:text-lg text-[#537379] max-w-2xl mx-auto mb-8 leading-relaxed font-medium">
-            Conecte sua empresa a moradores que procuram produtos, serviços e profissionais perto de casa. Escolha a presença ideal para o seu estabelecimento:
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a
-              href="#opcoes"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-base font-black shadow-lg transition-all active:scale-95 cursor-pointer"
-            >
-              <span>Quero minha Vitrine</span>
-              <ArrowRight className="w-5 h-5" />
-            </a>
-            <a
-              href={`https://wa.me/55${settings.contact_whatsapp}?text=${encodeURIComponent('Olá! Gostaria de saber mais sobre a Vitriniza para o meu comércio.')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white hover:bg-stone-50 border border-[#4FA6A6]/40 text-[#0E3B43] text-base font-bold shadow-xs transition-all cursor-pointer"
-            >
-              <WhatsAppSolidIcon className="w-5 h-5 text-emerald-600" />
-              <span>Falar com a equipe no WhatsApp</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Plan Comparison Section (2 Options Only) */}
-      <section id="opcoes" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold uppercase tracking-wider mb-2">
-            <span>Modelos de Presença Comercial</span>
-          </div>
-          <h2 className="text-2xl sm:text-4xl font-black text-[#0E3B43] tracking-tight mb-3">
-            Escolha como sua empresa vai participar
-          </h2>
-          <p className="text-xs sm:text-sm text-[#537379]">
-            Opções transparentes e sem burocracia para comércios de todos os portes.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-          {/* OPTION 1: CADASTRO LOCAL */}
-          <div className="p-7 sm:p-9 rounded-3xl bg-white border-2 border-[#E8E4DA] card-shadow flex flex-col justify-between hover:border-[#4FA6A6]/40 transition-all">
-            <div>
-              <div className="inline-block px-3 py-1 rounded-full bg-stone-100 text-xs font-bold text-[#537379] uppercase tracking-wider mb-4">
-                Presença Básica
-              </div>
-              <h3 className="font-black text-2xl sm:text-3xl text-[#0E3B43] mb-2">Cadastro Local</h3>
-              <div className="flex items-baseline gap-1 mb-4">
-                <span className="text-4xl font-black text-[#0E3B43]">Gratuito</span>
-              </div>
-              <p className="text-xs sm:text-sm text-[#537379] mb-6 leading-relaxed font-medium">
-                Apareça na Vitriniza e seja encontrado por moradores da região através das buscas e do portal do bairro.
-              </p>
-
-              <div className="space-y-4 mb-8">
-                <div className="text-xs font-black text-[#0E3B43] uppercase tracking-wider">O que está incluso:</div>
-                <ul className="space-y-3 text-xs sm:text-sm text-[#0E3B43]">
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Presença no portal da sua cidade e do seu bairro</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Botão direto para seu WhatsApp de atendimento</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Endereço completo e rota no Google Maps</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Horário de funcionamento e informações principais</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Aparece nas buscas por categoria e bairro</span>
-                  </li>
-                </ul>
-
-                <div className="pt-2 border-t border-stone-100">
-                  <ul className="space-y-2 text-xs text-[#537379]">
-                    <li className="flex items-center gap-2">
-                      <span className="text-stone-400 font-bold">—</span>
-                      <span>Sem painel de gerenciamento próprio</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-stone-400 font-bold">—</span>
-                      <span>Sem publicação de ofertas e promoções</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-stone-400 font-bold">—</span>
-                      <span>Sem métricas e relatórios de cliques</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
+    <main className="overflow-hidden bg-[#F8F6F0] pb-20 text-[#0E3B43]">
+      <section className="relative border-b border-[#E8E4DA] bg-[#0E3B43] py-14 sm:py-20 lg:py-24">
+        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_20%_20%,#4FA6A6_0,transparent_35%),radial-gradient(circle_at_80%_70%,#E36845_0,transparent_30%)]" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.08fr_.92fr] lg:px-8">
+          <div>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black text-[#F8F6F0] backdrop-blur">
+              <Sparkles className="h-4 w-4 text-[#F49C6B]" />
+              Prévia gratuita em até 24 horas
             </div>
 
-            <a
-              href="#formulario"
-              onClick={() => setForm((prev) => ({ ...prev, interest_type: 'local_free' }))}
-              className="w-full py-4 rounded-2xl bg-[#F8F6F0] hover:bg-stone-200 border border-[#E8E4DA] text-[#0E3B43] text-sm font-black text-center block transition-all cursor-pointer"
-            >
-              Solicitar Cadastro Local
-            </a>
-          </div>
+            <h1 className="max-w-3xl text-4xl font-black leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">
+              Transforme seu Instagram e WhatsApp em uma{' '}
+              <span className="text-[#F49C6B]">vitrine que vende 24 horas.</span>
+            </h1>
 
-          {/* OPTION 2: VITRINIZA PRO */}
-          <div className="relative p-7 sm:p-9 rounded-3xl bg-[#0E3B43] text-[#F8F6F0] card-shadow flex flex-col justify-between shadow-2xl border-2 border-[#E36845]">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#E36845] text-white text-xs font-black uppercase tracking-wider shadow-md flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 fill-current" />
-              <span>Vitrine Completa & Painel Próprio</span>
-            </div>
+            <p className="mt-6 max-w-2xl text-base font-medium leading-relaxed text-[#F8F6F0]/80 sm:text-lg">
+              Nós montamos uma prévia do seu negócio. Você vê tudo funcionando e só ativa se gostar — sem cartão e sem compromisso.
+            </p>
 
-            <div>
-              <div className="inline-block px-3 py-1 rounded-full bg-[#4FA6A6]/20 text-xs font-bold text-[#4FA6A6] uppercase tracking-wider mb-4 mt-1">
-                Plano Oficial
-              </div>
-              <h3 className="font-black text-2xl sm:text-3xl text-white mb-2">Vitriniza Pro</h3>
-              <div className="flex items-baseline gap-1.5 mb-4">
-                <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(proPrice)}</span>
-                <span className="text-xs text-[#F8F6F0]/70 font-medium">/mês</span>
-              </div>
-              <p className="text-xs sm:text-sm text-[#F8F6F0]/85 mb-6 leading-relaxed font-medium">
-                Tenha sua vitrine completa, administre tudo pelo seu painel exclusivo e receba ferramentas para vender mais no bairro.
-              </p>
-
-              <div className="space-y-4 mb-8">
-                <div className="text-xs font-black text-[#4FA6A6] uppercase tracking-wider">Tudo do Cadastro Local, mais:</div>
-                <ul className="space-y-3 text-xs sm:text-sm text-white">
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>Painel do Comerciante exclusivo</strong> para gerenciar tudo pelo celular</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>Catálogo de produtos & serviços</strong> ilimitado com fotos e preços</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>Publicação contínua de OFERTAS 🔥</strong> com destaque na página inicial</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>QR Code com Logo</strong> e arte pronta do display de balcão/mesa</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>Gerador de artes</strong> prontas para Instagram Stories e WhatsApp Status</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>Métricas em tempo real:</strong> acessos, cliques no WhatsApp e rotas</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-[#4FA6A6] shrink-0 mt-0.5" />
-                    <span><strong>Avaliações e depoimentos</strong> verificados de moradores</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <a
-              href="#formulario"
-              onClick={() => setForm((prev) => ({ ...prev, interest_type: 'pro' }))}
-              className="w-full py-4 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-black text-center block transition-all shadow-lg active:scale-95 cursor-pointer"
-            >
-              Quero minha Vitrine Pro
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-2xl sm:text-3xl font-black text-[#0E3B43] tracking-tight mb-3">
-            Vantagens de estar na Vitriniza
-          </h2>
-          <p className="text-xs sm:text-sm text-[#537379]">
-            A vitrine digital feita sob medida para a dinâmica de comércio de bairro.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {benefits.map((b, idx) => {
-            const Icon = b.icon;
-            return (
-              <div
-                key={idx}
-                className="p-6 sm:p-7 rounded-3xl bg-white border border-[#4FA6A6]/20 card-shadow space-y-3"
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => selectInterest('pro')}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#E36845] px-7 py-4 text-sm font-black text-white shadow-xl transition hover:bg-[#F49C6B] active:scale-95"
               >
-                <div className="w-12 h-12 rounded-2xl bg-[#4FA6A6]/15 flex items-center justify-center text-[#0E3B43]">
-                  <Icon className="w-6 h-6 text-[#E36845]" />
-                </div>
-                <h3 className="font-black text-lg text-[#0E3B43]">{b.title}</h3>
-                <p className="text-xs sm:text-sm text-[#537379] leading-relaxed">{b.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Unified Interest Form */}
-      <section id="formulario" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#4FA6A6]/20 card-shadow space-y-8">
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E36845]/15 text-[#E36845] text-xs font-black uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Solicitação de Participação</span>
+                Quero ver minha prévia grátis
+                <ArrowRight className="h-5 w-5" />
+              </button>
+              <Link
+                href="/sp/sao-paulo/guaianases/teste"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-7 py-4 text-sm font-bold text-white transition hover:bg-white/15"
+              >
+                <Eye className="h-5 w-5 text-[#4FA6A6]" />
+                Ver uma vitrine funcionando
+              </Link>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-[#0E3B43]">
-              Cadastre sua Empresa na Vitriniza
-            </h2>
-            <p className="text-xs sm:text-sm text-[#537379] max-w-xl mx-auto">
-              Preencha os dados abaixo. Nossa equipe entrará em contato para confirmar as informações e ativar sua presença no portal.
-            </p>
+
+            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-white/70">
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#4FA6A6]" /> Sem cartão</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#4FA6A6]" /> Sem fidelidade</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-[#4FA6A6]" /> Atendimento pelo WhatsApp</span>
+            </div>
           </div>
 
-          {submitted ? (
-            <div className="p-8 rounded-3xl bg-[#F8F6F0] border-2 border-[#4FA6A6]/40 text-center space-y-5 animate-in fade-in">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-                <Check className="w-8 h-8" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-2xl font-black text-[#0E3B43]">Recebemos sua solicitação!</h3>
-                <p className="text-sm text-[#537379] max-w-md mx-auto">
-                  Entraremos em contato pelo WhatsApp <strong>{form.whatsapp}</strong> para confirmar as informações e publicar sua vitrine.
-                </p>
-              </div>
-
-              <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleOpenDirectWhatsApp}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-black shadow-md transition-all cursor-pointer"
-                >
-                  <WhatsAppSolidIcon className="w-4 h-4" />
-                  <span>Falar com o Admin no WhatsApp Agora</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSubmitted(false)}
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer"
-                >
-                  Enviar outra solicitação
-                </button>
+          <div className="relative mx-auto w-full max-w-md">
+            <div className="absolute -left-8 top-12 h-40 w-40 rounded-full bg-[#4FA6A6]/30 blur-3xl" />
+            <div className="relative rounded-[2.5rem] border-[9px] border-[#173F45] bg-white p-3 shadow-2xl">
+              <div className="overflow-hidden rounded-[1.9rem] bg-[#F8F6F0]">
+                <div className="h-36 bg-gradient-to-br from-[#4FA6A6] to-[#0E3B43] p-5 text-white">
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#E36845] shadow-lg">
+                      <Store className="h-7 w-7" />
+                    </div>
+                    <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-[10px] font-black text-emerald-100">ABERTO AGORA</span>
+                  </div>
+                  <h2 className="mt-4 text-xl font-black">Seu negócio aqui</h2>
+                </div>
+                <div className="space-y-4 p-5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#537379]">
+                    <MapPin className="h-4 w-4 text-[#E36845]" /> Seu bairro • Sua cidade
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-emerald-600 px-3 py-3 text-center text-xs font-black text-white">Chamar no WhatsApp</div>
+                    <div className="rounded-xl bg-white px-3 py-3 text-center text-xs font-black shadow-sm">Como chegar</div>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs font-black uppercase tracking-wide">Produtos e serviços</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, 2, 3].map((item) => (
+                        <div key={item} className="space-y-2 rounded-xl bg-white p-2 shadow-sm">
+                          <div className="aspect-square rounded-lg bg-gradient-to-br from-[#E8E4DA] to-[#4FA6A6]/30" />
+                          <div className="h-1.5 w-4/5 rounded bg-[#0E3B43]/20" />
+                          <div className="h-1.5 w-1/2 rounded bg-[#E36845]/50" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Type Selector Toggle */}
-              <div className="space-y-2">
-                <label className="block text-xs font-black text-[#0E3B43] uppercase tracking-wider">
-                  Tipo de Presença Desejado *
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, interest_type: 'local_free' })}
-                    className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                      form.interest_type === 'local_free'
-                        ? 'border-[#0E3B43] bg-[#0E3B43]/5 text-[#0E3B43]'
-                        : 'border-[#E8E4DA] bg-white text-[#537379] hover:border-stone-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-sm">Cadastro Local</span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-stone-200 text-stone-700">Grátis</span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed">Presença básica no portal, busca e WhatsApp.</p>
-                  </button>
+            <div className="absolute -bottom-5 -left-4 rounded-2xl bg-white p-4 shadow-xl sm:-left-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E36845]/15 text-[#E36845]"><QrCode className="h-5 w-5" /></div>
+                <div><p className="text-xs font-black">Link + QR Code</p><p className="text-[10px] text-[#537379]">Prontos para divulgar</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, interest_type: 'pro' })}
-                    className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between relative ${
-                      form.interest_type === 'pro'
-                        ? 'border-[#E36845] bg-[#E36845]/5 text-[#0E3B43]'
-                        : 'border-[#E8E4DA] bg-white text-[#537379] hover:border-stone-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-sm text-[#0E3B43] flex items-center gap-1">
-                        <span>Vitriniza Pro</span>
-                        <Sparkles className="w-3.5 h-3.5 text-[#E36845]" />
-                      </span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-[#E36845] text-white">
-                        {formatCurrency(proPrice)}/mês
-                      </span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed">Vitrine completa com painel, catálogo, ofertas e display balcão.</p>
-                  </button>
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto mb-10 max-w-2xl text-center">
+          <span className="text-xs font-black uppercase tracking-[0.2em] text-[#E36845]">Simples do começo ao fim</span>
+          <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Você não precisa montar nada sozinho</h2>
+          <p className="mt-3 text-sm leading-relaxed text-[#537379]">Primeiro mostramos o resultado. Depois você decide se quer ativar.</p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
+          {[
+            { icon: InstagramIcon, number: '1', title: 'Envie seu contato', text: 'Informe nome, WhatsApp e o Instagram do negócio, se tiver.' },
+            { icon: Smartphone, number: '2', title: 'Receba a prévia', text: 'Montamos sua vitrine e enviamos o link para você avaliar pelo celular.' },
+            { icon: Zap, number: '3', title: 'Ative se gostar', text: 'Aprovou? Ativamos a página, o painel e seu material de divulgação.' },
+          ].map(({ icon: Icon, number, title, text }) => (
+            <article key={number} className="relative rounded-3xl border border-[#4FA6A6]/20 bg-white p-7 shadow-sm">
+              <span className="absolute right-5 top-4 text-5xl font-black text-[#0E3B43]/5">{number}</span>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#4FA6A6]/15 text-[#0E3B43]"><Icon className="h-6 w-6" /></div>
+              <h3 className="mt-5 text-lg font-black">{title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#537379]">{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-[#E8E4DA] bg-white py-16 sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
+          <div className="self-center">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#E36845]/10 px-3 py-1.5 text-xs font-black text-[#E36845]"><BadgeCheck className="h-4 w-4" /> Condição de lançamento</span>
+            <h2 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl">Uma presença digital completa por menos de R$ 1 por dia.</h2>
+            <p className="mt-4 text-sm leading-relaxed text-[#537379]">A oferta de fundador vale para as 30 primeiras empresas e permanece enquanto a assinatura estiver ativa.</p>
+            <div className="mt-7 flex items-end gap-3">
+              <span className="pb-1 text-lg font-bold text-[#537379] line-through">{formatCurrency(regularPrice)}</span>
+              <span className="text-5xl font-black text-[#E36845]">{formatCurrency(founderPrice)}</span>
+              <span className="pb-2 text-sm font-bold text-[#537379]">/mês</span>
+            </div>
+            <button type="button" onClick={() => selectInterest('pro')} className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E36845] px-7 py-4 text-sm font-black text-white shadow-lg transition hover:bg-[#F49C6B] sm:w-auto">
+              Quero minha prévia gratuita <ArrowRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="rounded-3xl bg-[#0E3B43] p-7 text-white shadow-xl sm:p-9">
+            <h3 className="text-xl font-black">Tudo que sua empresa recebe</h3>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {included.map((item) => (
+                <div key={item} className="flex items-start gap-2.5 text-sm text-white/85">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#4FA6A6]" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-7 rounded-2xl border border-[#F49C6B]/30 bg-[#E36845]/10 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E36845] text-white"><Wifi className="h-5 w-5" /></div>
+                <div>
+                  <p className="font-black text-[#F49C6B]">Placa inteligente QR + NFC</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/75">Adicional opcional por valor único de R$ 80. Direciona para sua vitrine, WhatsApp ou página para avaliação honesta no Google.</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-              {/* Form Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.businessName}
-                    onChange={(e) => setForm({ ...form, businessName: e.target.value })}
-                    placeholder="Ex: Pizzaria Don Giovanni"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
+      <section id="previa" className="mx-auto max-w-4xl scroll-mt-24 px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="overflow-hidden rounded-[2rem] border border-[#4FA6A6]/25 bg-white shadow-xl">
+          <div className="bg-[#0E3B43] px-6 py-8 text-center text-white sm:px-10">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black"><Clock3 className="h-4 w-4 text-[#F49C6B]" /> Leva menos de 1 minuto</span>
+            <h2 className="mt-4 text-3xl font-black">{form.interest_type === 'pro' ? 'Peça sua prévia gratuita' : 'Solicite o Cadastro Local'}</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-white/75">{form.interest_type === 'pro' ? 'Você receberá o link pelo WhatsApp para ver como seu negócio pode ficar.' : 'Cadastre as informações básicas do seu negócio gratuitamente no portal.'}</p>
+          </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Responsável / Proprietário *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.ownerName}
-                    onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
-                    placeholder="Ex: Carlos Silva"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Comercial (com DDD) *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={form.whatsapp}
-                    onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                    placeholder="Ex: 11987654321"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">E-mail de Contato</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="Ex: contato@sualoja.com.br"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Categoria / Ramo de Atuação *</label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  >
-                    <option value="Alimentação & Gastronomia">Alimentação & Gastronomia</option>
-                    <option value="Comércio & Lojas">Comércio & Lojas</option>
-                    <option value="Beleza & Estética">Beleza & Estética</option>
-                    <option value="Saúde & Bem-Estar">Saúde & Bem-Estar</option>
-                    <option value="Serviços Residenciais">Serviços Residenciais / Reformas</option>
-                    <option value="Automotivo">Automotivo</option>
-                    <option value="Pet Shop & Veterinária">Pet Shop & Veterinária</option>
-                    <option value="Outros Serviços">Outros Serviços</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.neighborhood}
-                    onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
-                    placeholder="Ex: Guaianases"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Cidade *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    placeholder="Ex: São Paulo"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Estado (UF) *</label>
-                  <input
-                    type="text"
-                    required
-                    minLength={2}
-                    maxLength={2}
-                    value={form.state}
-                    onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })}
-                    placeholder="SP"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0] uppercase"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço / Ponto de Referência</label>
-                  <input
-                    type="text"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    placeholder="Ex: Rua Salvador Gianetti, 450 - próximo à estação"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (@usuario)</label>
-                  <input
-                    type="text"
-                    value={form.instagram}
-                    onChange={(e) => setForm({ ...form, instagram: e.target.value })}
-                    placeholder="Ex: @suapizzaria"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Mensagem ou Observações (Opcional)</label>
-                  <textarea
-                    rows={3}
-                    value={form.message}
-                    onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    placeholder="Conte um pouco sobre o seu comércio ou produtos que deseja divulgar..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-4 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-black shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Enviando solicitação...' : 'Enviar solicitação de cadastro'}</span>
+          <div className="p-6 sm:p-10">
+            {submitted ? (
+              <div className="py-4 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check className="h-8 w-8" /></div>
+                <h3 className="mt-5 text-2xl font-black">Pedido recebido!</h3>
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-[#537379]">Vamos falar com você pelo WhatsApp <strong>{form.whatsapp}</strong>{form.interest_type === 'pro' ? ' para preparar sua prévia.' : ' para confirmar seu cadastro.'}</p>
+                <button type="button" onClick={handleOpenWhatsApp} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-black text-white transition hover:bg-emerald-700 sm:w-auto">
+                  <WhatsAppSolidIcon className="h-5 w-5" /> Continuar no WhatsApp
                 </button>
-                <p className="text-[11px] text-[#537379] text-center mt-3">
-                  Ao enviar, seus dados serão encaminhados à equipe da Vitriniza para análise e ativação manual.
-                </p>
               </div>
-            </form>
-          )}
-        </div>
-      </section>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F8F6F0] p-1.5">
+                  <button type="button" onClick={() => setForm((current) => ({ ...current, interest_type: 'pro' }))} className={`rounded-xl px-3 py-3 text-xs font-black transition ${form.interest_type === 'pro' ? 'bg-[#E36845] text-white shadow-sm' : 'text-[#537379] hover:bg-white'}`}>Prévia Pro grátis</button>
+                  <button type="button" onClick={() => setForm((current) => ({ ...current, interest_type: 'local_free' }))} className={`rounded-xl px-3 py-3 text-xs font-black transition ${form.interest_type === 'local_free' ? 'bg-[#0E3B43] text-white shadow-sm' : 'text-[#537379] hover:bg-white'}`}>Cadastro Local</button>
+                </div>
 
-      {/* FAQ */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-xl mx-auto mb-8">
-          <h2 className="text-xl sm:text-2xl font-black text-[#0E3B43]">Dúvidas Frequentes</h2>
-        </div>
+                <div>
+                  <label htmlFor="businessName" className="mb-1.5 block text-xs font-black">Nome do negócio *</label>
+                  <input id="businessName" required maxLength={160} value={form.businessName} onChange={(event) => setForm((current) => ({ ...current, businessName: event.target.value }))} placeholder="Ex.: Pizzaria da Vila" className="w-full rounded-xl border border-[#E8E4DA] bg-[#F8F6F0] px-4 py-3.5 text-sm outline-none transition focus:border-[#E36845] focus:ring-2 focus:ring-[#E36845]/10" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="whatsapp" className="mb-1.5 block text-xs font-black">WhatsApp com DDD *</label>
+                    <input id="whatsapp" required inputMode="tel" maxLength={30} value={form.whatsapp} onChange={(event) => setForm((current) => ({ ...current, whatsapp: event.target.value }))} placeholder="(11) 99999-9999" className="w-full rounded-xl border border-[#E8E4DA] bg-[#F8F6F0] px-4 py-3.5 text-sm outline-none transition focus:border-[#E36845] focus:ring-2 focus:ring-[#E36845]/10" />
+                  </div>
+                  <div>
+                    <label htmlFor="instagram" className="mb-1.5 block text-xs font-black">Instagram, se tiver</label>
+                    <input id="instagram" maxLength={80} value={form.instagram} onChange={(event) => setForm((current) => ({ ...current, instagram: event.target.value }))} placeholder="@seunegocio" className="w-full rounded-xl border border-[#E8E4DA] bg-[#F8F6F0] px-4 py-3.5 text-sm outline-none transition focus:border-[#E36845] focus:ring-2 focus:ring-[#E36845]/10" />
+                  </div>
+                </div>
 
-        <div className="space-y-4">
-          <div className="p-5 rounded-2xl bg-white border border-[#E8E4DA] space-y-1.5">
-            <h4 className="font-bold text-sm text-[#0E3B43]">Qual a diferença entre o Cadastro Local e a Vitriniza Pro?</h4>
-            <p className="text-xs text-[#537379] leading-relaxed">
-              O <strong>Cadastro Local</strong> é gratuito e serve para seu comércio aparecer nas buscas e no portal com endereço, horários e WhatsApp. O <strong>Vitriniza Pro</strong> libera o painel para você mesmo cadastrar fotos, produtos, publicar ofertas, receber o display de balcão com QR Code e acompanhar métricas de acessos.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-[#E8E4DA] space-y-1.5">
-            <h4 className="font-bold text-sm text-[#0E3B43]">Posso começar com o Cadastro Local e virar Pro depois?</h4>
-            <p className="text-xs text-[#537379] leading-relaxed">
-              Sim! Quando você decidir assinar a Vitriniza Pro, sua vitrine existente é promovida mantendo o mesmo link, fotos e histórico sem nenhuma interrupção.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-[#E8E4DA] space-y-1.5">
-            <h4 className="font-bold text-sm text-[#0E3B43]">Como funciona a cobrança da Vitriniza Pro?</h4>
-            <p className="text-xs text-[#537379] leading-relaxed">
-              O plano Pro custa {formatCurrency(proPrice)} por mês. O pagamento é feito diretamente via Pix ou transferência, sem fidelidade ou contratos complicados.
-            </p>
+                <button type="submit" disabled={isSubmitting} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E36845] px-6 py-4 text-sm font-black text-white shadow-lg transition hover:bg-[#F49C6B] disabled:cursor-not-allowed disabled:opacity-60">
+                  {isSubmitting ? 'Enviando...' : form.interest_type === 'pro' ? 'Quero receber minha prévia' : 'Solicitar cadastro gratuito'}
+                  <Send className="h-4 w-4" />
+                </button>
+                <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-[#537379]"><ShieldCheck className="h-4 w-4 text-emerald-600" /> Seus dados serão usados apenas para este atendimento.</p>
+              </form>
+            )}
           </div>
         </div>
       </section>
-    </div>
+
+      <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 text-center"><h2 className="text-2xl font-black sm:text-3xl">Dúvidas frequentes</h2></div>
+        <div className="space-y-3">
+          {[
+            ['Preciso pagar para ver a prévia?', 'Não. Montamos a prévia sem cobrança e você só ativa a assinatura se gostar do resultado.'],
+            ['O que acontece depois que eu enviar?', 'Entramos em contato pelo WhatsApp, confirmamos algumas informações e enviamos o link da sua vitrine para aprovação.'],
+            ['Posso ficar apenas no cadastro gratuito?', 'Sim. O Cadastro Local mantém as informações básicas, WhatsApp, endereço e horários. Catálogo, ofertas, painel e métricas fazem parte do Pro.'],
+            ['Existe fidelidade?', 'Não. O plano é mensal e pode ser cancelado. A condição de fundador permanece enquanto a assinatura estiver ativa.'],
+            ['A placa QR/NFC está incluída?', 'A arte digital do QR Code está incluída no Pro. A placa física inteligente é opcional e tem valor único de R$ 80.'],
+          ].map(([question, answer]) => (
+            <details key={question} className="group rounded-2xl border border-[#E8E4DA] bg-white p-5 open:border-[#4FA6A6]/40">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-black">{question}<ChevronRight className="h-5 w-5 shrink-0 text-[#E36845] transition group-open:rotate-90" /></summary>
+              <p className="mt-3 pr-8 text-sm leading-relaxed text-[#537379]">{answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col items-center justify-between gap-6 rounded-3xl bg-[#E36845] p-7 text-white shadow-xl sm:flex-row sm:p-10">
+          <div><p className="text-xs font-black uppercase tracking-widest text-white/70">Ainda ficou com dúvida?</p><h2 className="mt-2 text-2xl font-black">Fale diretamente com a equipe Vitriniza.</h2></div>
+          <a href={buildWhatsAppUrl(settings.contact_whatsapp || '11987654321', 'Olá! Quero entender melhor como funciona a Vitriniza para o meu negócio.')} target="_blank" rel="noopener noreferrer" className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-[#0E3B43] transition hover:bg-[#F8F6F0] sm:w-auto"><MessageCircle className="h-5 w-5 text-emerald-600" /> Falar no WhatsApp</a>
+        </div>
+      </section>
+    </main>
   );
 }
