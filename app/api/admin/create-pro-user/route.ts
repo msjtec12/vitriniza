@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { checkRateLimit, getRequestIp } from '@/lib/security/rate-limit.mjs';
-import { SITE_URL } from '@/lib/site';
 
 type CreateProUserBody = {
   email?: unknown;
@@ -12,6 +11,7 @@ type CreateProUserBody = {
   price?: unknown;
   startsAt?: unknown;
   expiresAt?: unknown;
+  password?: unknown;
 };
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
     const expiresAt =
       cleanText(body.expiresAt, 40) ||
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const password = cleanText(body.password, 128);
 
-    if (!isValidEmail(email) || name.length < 2 || !businessId) {
+    if (!isValidEmail(email) || name.length < 2 || !businessId || password.length < 8) {
       return NextResponse.json(
-        { success: false, error: 'E-mail, nome e estabelecimento válidos são obrigatórios.' },
+        { success: false, error: 'E-mail, nome, estabelecimento e senha com pelo menos 8 caracteres são obrigatórios.' },
         { status: 400 }
       );
     }
@@ -96,7 +97,6 @@ export async function POST(req: NextRequest) {
 
     let userId = existingProfile?.id as string | undefined;
     let accountCreated = false;
-    let accessLink = '';
 
     if (!userId) {
       const { data: authUsers, error: usersError } = await admin.auth.admin.listUsers({
@@ -108,25 +108,29 @@ export async function POST(req: NextRequest) {
     }
 
     if (!userId) {
-      const { data: inviteData, error: inviteError } = await admin.auth.admin.generateLink({
-        type: 'invite',
+      const { data: createData, error: createError } = await admin.auth.admin.createUser({
         email,
-        options: {
-          data: { full_name: name, phone: whatsapp, business_id: businessId },
-          redirectTo: `${SITE_URL}/recuperar-senha`,
-        },
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: name, phone: whatsapp, business_id: businessId },
       });
 
-      if (inviteError || !inviteData.user || !inviteData.properties?.action_link) {
+      if (createError || !createData.user) {
         return NextResponse.json(
-          { success: false, error: inviteError?.message || 'Não foi possível criar o acesso do comerciante.' },
+          { success: false, error: createError?.message || 'Não foi possível criar o acesso do comerciante.' },
           { status: 409 }
         );
       }
 
-      userId = inviteData.user.id;
+      userId = createData.user.id;
       accountCreated = true;
-      accessLink = inviteData.properties.action_link;
+    } else {
+      const { error: passwordError } = await admin.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: name, phone: whatsapp, business_id: businessId },
+      });
+      if (passwordError) throw passwordError;
     }
 
     const now = new Date().toISOString();
@@ -211,27 +215,14 @@ export async function POST(req: NextRequest) {
     });
     if (auditError) throw auditError;
 
-    if (!accessLink) {
-      const { data: accessData, error: accessError } = await admin.auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: { redirectTo: `${SITE_URL}/recuperar-senha` },
-      });
-      if (accessError || !accessData.properties?.action_link) {
-        throw accessError || new Error('Não foi possível gerar o link de ativação.');
-      }
-      accessLink = accessData.properties.action_link;
-    }
-
     return NextResponse.json({
       success: true,
       userId,
       businessId,
       accountCreated,
-      accessLink,
       message: accountCreated
-        ? 'Conta criada e vinculada. Envie o link de ativação ao proprietário.'
-        : 'Conta existente vinculada. Envie o link para o proprietário definir uma nova senha.',
+        ? 'Conta criada e vinculada. O proprietário já pode entrar com a senha definida.'
+        : 'Conta existente vinculada e senha atualizada.',
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro interno ao criar conta Pro.';

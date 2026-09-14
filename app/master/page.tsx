@@ -62,7 +62,6 @@ import {
 import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr, buildWhatsAppUrl } from '@/lib/utils';
 import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 import { supabase } from '@/lib/supabase/client';
-import { getAuthHeaders } from '@/lib/auth/client';
 
 export default function MasterAdminPage() {
   // SECURITY AUTHENTICATION STATE
@@ -121,6 +120,8 @@ export default function MasterAdminPage() {
     listing_type: 'local_free' as ListingType,
     owner_name: '',
     owner_email: '',
+    owner_password: '',
+    owner_password_confirmation: '',
   });
 
   // Modal: Convert to Pro
@@ -133,10 +134,12 @@ export default function MasterAdminPage() {
     price: 49.9,
     startsAt: new Date().toISOString().split('T')[0],
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    password: '',
+    passwordConfirmation: '',
   });
   const [createdAccess, setCreatedAccess] = useState<{
     email: string;
-    accessLink: string;
+    password: string;
     accountCreated: boolean;
   } | null>(null);
 
@@ -361,6 +364,8 @@ export default function MasterAdminPage() {
       price: settings.pro_plan?.price || 49.9,
       startsAt: new Date().toISOString().split('T')[0],
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      password: '',
+      passwordConfirmation: '',
     });
     setCreatedAccess(null);
     setIsConvertModalOpen(true);
@@ -374,26 +379,25 @@ export default function MasterAdminPage() {
     price: number;
     startsAt: string;
     expiresAt: string;
+    password: string;
   }) => {
-    const response = await fetch('/api/admin/create-pro-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-      body: JSON.stringify(payload),
+    if (!supabase) throw new Error('O serviço de autenticação está indisponível.');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente no painel Master.');
+    const { data, error } = await supabase.functions.invoke('create-pro-user', {
+      body: payload,
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const result = (await response.json()) as {
+    const result = (data || {}) as {
       success?: boolean;
       error?: string;
-      accessLink?: string;
       accountCreated?: boolean;
     };
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Falha ao criar conta Pro.');
-    }
-    if (!result.accessLink) {
-      throw new Error('Conta vinculada, mas o link de ativação não foi gerado.');
+    if (error || !result.success) {
+      throw new Error(result.error || error?.message || 'Falha ao criar conta Pro.');
     }
     return {
-      accessLink: result.accessLink,
       accountCreated: Boolean(result.accountCreated),
     };
   };
@@ -403,6 +407,10 @@ export default function MasterAdminPage() {
     if (!convertingBiz) return;
     if (!convertForm.ownerName || !convertForm.email) {
       alert('Por favor, preencha o nome do responsável e e-mail para liberação do acesso.');
+      return;
+    }
+    if (convertForm.password.length < 8 || convertForm.password !== convertForm.passwordConfirmation) {
+      alert('A senha deve ter pelo menos 8 caracteres e a confirmação deve ser igual.');
       return;
     }
 
@@ -415,10 +423,11 @@ export default function MasterAdminPage() {
         price: Number(convertForm.price),
         startsAt: convertForm.startsAt,
         expiresAt: convertForm.expiresAt,
+        password: convertForm.password,
       });
       setCreatedAccess({
         email: convertForm.email,
-        accessLink: result.accessLink,
+        password: convertForm.password,
         accountCreated: result.accountCreated,
       });
       await store.ensureCloudSynced(true);
@@ -431,16 +440,20 @@ export default function MasterAdminPage() {
 
   const handleCopyAccessLink = async () => {
     if (!createdAccess) return;
-    await navigator.clipboard.writeText(createdAccess.accessLink);
-    alert('Link de ativação copiado.');
+    await navigator.clipboard.writeText(
+      `E-mail: ${createdAccess.email}\nSenha temporária: ${createdAccess.password}\nAcesso: ${window.location.origin}/login`
+    );
+    alert('Dados de acesso copiados.');
   };
 
   const handleSendAccessByWhatsApp = () => {
     if (!createdAccess || !convertingBiz) return;
     const message =
       `Olá! Seu acesso ao painel da Vitriniza para *${convertingBiz.name}* foi liberado.\n\n` +
-      `Acesse este link para criar sua senha:\n${createdAccess.accessLink}\n\n` +
-      'Este link é pessoal. Não compartilhe com outras pessoas.';
+      `Acesso: ${window.location.origin}/login\n` +
+      `E-mail: ${createdAccess.email}\n` +
+      `Senha temporária: ${createdAccess.password}\n\n` +
+      'Por segurança, não compartilhe estes dados com outras pessoas.';
     window.open(buildWhatsAppUrl(convertForm.whatsapp || convertingBiz.whatsapp, message), '_blank', 'noopener,noreferrer');
   };
 
@@ -572,8 +585,14 @@ export default function MasterAdminPage() {
       .replace(/^-+|-+$/g, '');
 
     const requestedPro = createForm.listing_type === 'paid';
-    if (requestedPro && (!createForm.owner_email || !createForm.owner_name)) {
-      alert('Informe o nome e o e-mail do responsável para criar o acesso ao painel.');
+    if (
+      requestedPro &&
+      (!createForm.owner_email ||
+        !createForm.owner_name ||
+        createForm.owner_password.length < 8 ||
+        createForm.owner_password !== createForm.owner_password_confirmation)
+    ) {
+      alert('Informe responsável, e-mail e uma senha de pelo menos 8 caracteres com confirmação igual.');
       return;
     }
 
@@ -624,6 +643,7 @@ export default function MasterAdminPage() {
           price: settings.pro_plan?.price || 49.9,
           startsAt,
           expiresAt,
+          password: createForm.owner_password,
         });
         setConvertingBiz(newBiz);
         setConvertForm({
@@ -633,10 +653,12 @@ export default function MasterAdminPage() {
           price: settings.pro_plan?.price || 49.9,
           startsAt,
           expiresAt,
+          password: createForm.owner_password,
+          passwordConfirmation: createForm.owner_password,
         });
         setCreatedAccess({
           email: createForm.owner_email,
-          accessLink: result.accessLink,
+          password: createForm.owner_password,
           accountCreated: result.accountCreated,
         });
         setIsConvertModalOpen(true);
@@ -1463,6 +1485,34 @@ export default function MasterAdminPage() {
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Senha temporária *</label>
+                      <input
+                        type="password"
+                        minLength={8}
+                        required
+                        autoComplete="new-password"
+                        value={createForm.owner_password}
+                        onChange={(e) => setCreateForm({ ...createForm, owner_password: e.target.value })}
+                        placeholder="Mínimo de 8 caracteres"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Confirmar senha *</label>
+                      <input
+                        type="password"
+                        minLength={8}
+                        required
+                        autoComplete="new-password"
+                        value={createForm.owner_password_confirmation}
+                        onChange={(e) => setCreateForm({ ...createForm, owner_password_confirmation: e.target.value })}
+                        placeholder="Repita a senha"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
+                      />
+                    </div>
                   </>
                 )}
 
@@ -1664,14 +1714,14 @@ export default function MasterAdminPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Link pessoal para criar a senha</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Dados de acesso</label>
                   <textarea
                     readOnly
-                    rows={4}
-                    value={createdAccess.accessLink}
+                    rows={3}
+                    value={`E-mail: ${createdAccess.email}\nSenha temporária: ${createdAccess.password}\nAcesso: ${typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login'}`}
                     className="w-full resize-none px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-[#F8F6F0] text-[11px] text-[#0E3B43] outline-none"
                   />
-                  <p className="mt-1.5 text-[11px] text-amber-700">Envie somente ao proprietário. O link permite definir a senha da conta.</p>
+                  <p className="mt-1.5 text-[11px] text-amber-700">Envie somente ao proprietário. Oriente-o a guardar a senha em local seguro.</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
@@ -1679,7 +1729,7 @@ export default function MasterAdminPage() {
                     onClick={handleCopyAccessLink}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0E3B43] px-4 py-3 text-xs font-black text-white"
                   >
-                    <Copy className="w-4 h-4" /> Copiar link
+                    <Copy className="w-4 h-4" /> Copiar acesso
                   </button>
                   <button
                     type="button"
@@ -1735,6 +1785,35 @@ export default function MasterAdminPage() {
                   onChange={(e) => setConvertForm({ ...convertForm, whatsapp: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Senha temporária *</label>
+                  <input
+                    type="password"
+                    minLength={8}
+                    required
+                    autoComplete="new-password"
+                    value={convertForm.password}
+                    onChange={(e) => setConvertForm({ ...convertForm, password: e.target.value })}
+                    placeholder="Mínimo de 8 caracteres"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Confirmar senha *</label>
+                  <input
+                    type="password"
+                    minLength={8}
+                    required
+                    autoComplete="new-password"
+                    value={convertForm.passwordConfirmation}
+                    onChange={(e) => setConvertForm({ ...convertForm, passwordConfirmation: e.target.value })}
+                    placeholder="Repita a senha"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
