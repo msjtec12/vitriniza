@@ -517,8 +517,8 @@ class VitrinizaStore {
   }
 
   // --- ASYNC CLOUD DISPATCH HELPERS ---
-  private async syncBusinessToCloud(biz: Business) {
-    if (!supabase) return;
+  private async syncBusinessToCloud(biz: Business): Promise<boolean> {
+    if (!supabase) return false;
     try {
       // 1. Ensure Category exists in Supabase categories table first!
       const cat = biz.category || this.categories.find((c) => c.id === biz.category_id);
@@ -575,10 +575,20 @@ class VitrinizaStore {
       const { error } = await supabase.from('businesses').upsert(cleanBiz, { onConflict: 'id' });
       if (error) {
         console.warn('[Supabase Biz Sync Error]', error.message);
+        return false;
       }
+      return true;
     } catch (err) {
       console.warn('[Supabase Biz Sync Failed]', err);
+      return false;
     }
+  }
+
+  public async persistBusinessToCloud(id: string): Promise<boolean> {
+    this.ensureHydrated();
+    const business = this.businesses.find((item) => item.id === id);
+    if (!business) return false;
+    return this.syncBusinessToCloud(business);
   }
 
   private async syncDeleteBusinessFromCloud(id: string) {
@@ -1774,104 +1784,6 @@ class VitrinizaStore {
     this.syncBusinessToCloud(newBusiness);
 
     return { success: true, business: newBusiness };
-  }
-
-  /**
-   * CONVERSÃO DE CADASTRO LOCAL PARA PRO:
-   * Mantém o mesmo business_id, slug, fotos, reviews e SEO.
-   * Promove listing_type para 'paid', cria membership e ativa assinatura.
-   */
-  public async convertToPro(
-    businessId: string,
-    options: {
-      ownerName: string;
-      email: string;
-      whatsapp?: string;
-      price?: number;
-      startsAt?: string;
-      expiresAt?: string;
-      adminUserId?: string;
-    }
-  ): Promise<{ success: boolean; subscription?: Subscription; error?: string }> {
-    this.ensureHydrated();
-    const biz = this.businesses.find((b) => b.id === businessId);
-    if (!biz) return { success: false, error: 'Estabelecimento não encontrado.' };
-
-    const adminUserId = options.adminUserId || 'master_admin';
-    const price = options.price || this.settings.pro_plan?.price || 49.90;
-    const startsAt = options.startsAt || new Date().toISOString();
-    const expiresAt = options.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    const subId = `sub-${Date.now()}`;
-    const newSub: Subscription = {
-      id: subId,
-      business_id: businessId,
-      plan_id: 'pro',
-      plan_name: this.settings.pro_plan?.name || 'Vitriniza Pro',
-      price,
-      interval: 'monthly',
-      status: 'active',
-      starts_at: startsAt,
-      expires_at: expiresAt,
-      payment_confirmed_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const existingSubIndex = this.subscriptions.findIndex((s) => s.business_id === businessId);
-    if (existingSubIndex >= 0) {
-      this.subscriptions[existingSubIndex] = newSub;
-    } else {
-      this.subscriptions.unshift(newSub);
-    }
-
-    // Criar membro proprietário
-    const userId = `usr-${Date.now()}`;
-    const newMember: BusinessMember = {
-      id: `bm-${Date.now()}`,
-      user_id: userId,
-      business_id: businessId,
-      role: 'owner',
-      user_email: options.email,
-      user_name: options.ownerName,
-      created_at: new Date().toISOString(),
-    };
-    this.businessMembers.unshift(newMember);
-
-    // Atualizar negócio existente
-    this.updateBusiness(businessId, {
-      listing_type: 'paid',
-      ownership_status: 'claimed',
-      owner_user_id: userId,
-      plan_id: 'pro',
-      plan_status: 'active',
-      subscription_id: subId,
-      subscription_status: 'active',
-      is_active: true,
-      whatsapp: options.whatsapp || biz.whatsapp,
-    });
-
-    this.logAudit(
-      'business_converted_to_pro',
-      biz.id,
-      biz.name,
-      { email: options.email, ownerName: options.ownerName, price, expiresAt },
-      adminUserId
-    );
-
-    this.saveToStorage();
-    this.notifyListeners();
-
-    if (supabase) {
-      try {
-        await supabase.from('subscriptions').upsert(newSub);
-        await supabase.from('business_members').upsert(newMember);
-      } catch (err) {
-        console.warn('[Supabase Convert Pro Error]', err);
-      }
-    }
-
-    return { success: true, subscription: newSub };
   }
 
   public getSubscriptions(): Subscription[] {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { checkRateLimit, getRequestIp } from '@/lib/security/rate-limit.mjs';
+import { SITE_URL } from '@/lib/site';
 
 type CreateProUserBody = {
   email?: unknown;
@@ -94,14 +95,29 @@ export async function POST(req: NextRequest) {
     if (profileLookupError) throw profileLookupError;
 
     let userId = existingProfile?.id as string | undefined;
-    let inviteSent = false;
+    let accountCreated = false;
+    let accessLink = '';
 
     if (!userId) {
-      const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: name, phone: whatsapp, business_id: businessId },
+      const { data: authUsers, error: usersError } = await admin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1_000,
+      });
+      if (usersError) throw usersError;
+      userId = authUsers.users.find((user) => user.email?.toLowerCase() === email)?.id;
+    }
+
+    if (!userId) {
+      const { data: inviteData, error: inviteError } = await admin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: {
+          data: { full_name: name, phone: whatsapp, business_id: businessId },
+          redirectTo: `${SITE_URL}/recuperar-senha`,
+        },
       });
 
-      if (inviteError || !inviteData.user) {
+      if (inviteError || !inviteData.user || !inviteData.properties?.action_link) {
         return NextResponse.json(
           { success: false, error: inviteError?.message || 'Não foi possível criar o acesso do comerciante.' },
           { status: 409 }
@@ -109,11 +125,11 @@ export async function POST(req: NextRequest) {
       }
 
       userId = inviteData.user.id;
-      inviteSent = true;
+      accountCreated = true;
+      accessLink = inviteData.properties.action_link;
     }
 
     const now = new Date().toISOString();
-    const subscriptionId = `sub_${crypto.randomUUID()}`;
 
     const { error: profileError } = await admin.from('profiles').upsert({
       id: userId,
@@ -131,8 +147,18 @@ export async function POST(req: NextRequest) {
     );
     if (memberError) throw memberError;
 
-    const { error: subscriptionError } = await admin.from('subscriptions').insert({
-      id: subscriptionId,
+    const { data: existingSubscription, error: subscriptionLookupError } = await admin
+      .from('subscriptions')
+      .select('id')
+      .eq('business_id', businessId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (subscriptionLookupError) throw subscriptionLookupError;
+
+    const subscriptionId = existingSubscription?.id || `sub_${crypto.randomUUID()}`;
+    const subscriptionRecord = {
       business_id: businessId,
       plan_id: 'pro',
       plan_name: 'Vitriniza Pro',
@@ -142,10 +168,17 @@ export async function POST(req: NextRequest) {
       starts_at: new Date(startsAt).toISOString(),
       expires_at: new Date(expiresAt).toISOString(),
       payment_confirmed_at: now,
-      created_at: now,
       updated_at: now,
-    });
-    if (subscriptionError) throw subscriptionError;
+    };
+
+    const subscriptionResult = existingSubscription
+      ? await admin.from('subscriptions').update(subscriptionRecord).eq('id', subscriptionId)
+      : await admin.from('subscriptions').insert({
+          id: subscriptionId,
+          ...subscriptionRecord,
+          created_at: now,
+        });
+    if (subscriptionResult.error) throw subscriptionResult.error;
 
     const { data: updatedBusiness, error: updateError } = await admin
       .from('businesses')
@@ -173,17 +206,32 @@ export async function POST(req: NextRequest) {
       business_id: businessId,
       business_name: business.name,
       action: 'business_converted_to_pro',
-      metadata: { email, name, price, inviteSent, subscriptionId },
+      metadata: { email, name, price, accountCreated, subscriptionId },
       created_at: now,
     });
     if (auditError) throw auditError;
+
+    if (!accessLink) {
+      const { data: accessData, error: accessError } = await admin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: `${SITE_URL}/recuperar-senha` },
+      });
+      if (accessError || !accessData.properties?.action_link) {
+        throw accessError || new Error('Não foi possível gerar o link de ativação.');
+      }
+      accessLink = accessData.properties.action_link;
+    }
 
     return NextResponse.json({
       success: true,
       userId,
       businessId,
-      inviteSent,
-      message: 'Conta Vitriniza Pro criada e vinculada com sucesso.',
+      accountCreated,
+      accessLink,
+      message: accountCreated
+        ? 'Conta criada e vinculada. Envie o link de ativação ao proprietário.'
+        : 'Conta existente vinculada. Envie o link para o proprietário definir uma nova senha.',
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro interno ao criar conta Pro.';

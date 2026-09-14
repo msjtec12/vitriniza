@@ -134,6 +134,11 @@ export default function MasterAdminPage() {
     startsAt: new Date().toISOString().split('T')[0],
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   });
+  const [createdAccess, setCreatedAccess] = useState<{
+    email: string;
+    accessLink: string;
+    accountCreated: boolean;
+  } | null>(null);
 
   // Modal: Pitch Summary ("Oferecer Pro")
   const [isPitchModalOpen, setIsPitchModalOpen] = useState(false);
@@ -357,7 +362,40 @@ export default function MasterAdminPage() {
       startsAt: new Date().toISOString().split('T')[0],
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     });
+    setCreatedAccess(null);
     setIsConvertModalOpen(true);
+  };
+
+  const createProAccess = async (payload: {
+    businessId: string;
+    email: string;
+    name: string;
+    whatsapp: string;
+    price: number;
+    startsAt: string;
+    expiresAt: string;
+  }) => {
+    const response = await fetch('/api/admin/create-pro-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json()) as {
+      success?: boolean;
+      error?: string;
+      accessLink?: string;
+      accountCreated?: boolean;
+    };
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Falha ao criar conta Pro.');
+    }
+    if (!result.accessLink) {
+      throw new Error('Conta vinculada, mas o link de ativação não foi gerado.');
+    }
+    return {
+      accessLink: result.accessLink,
+      accountCreated: Boolean(result.accountCreated),
+    };
   };
 
   const handleExecuteConvert = async (e: React.FormEvent) => {
@@ -369,33 +407,41 @@ export default function MasterAdminPage() {
     }
 
     try {
-        await fetch('/api/admin/create-pro-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-          body: JSON.stringify({
-            email: convertForm.email,
-            name: convertForm.ownerName,
-            whatsapp: convertForm.whatsapp,
-            businessId: convertingBiz.id,
-            price: Number(convertForm.price),
-            startsAt: convertForm.startsAt,
-            expiresAt: convertForm.expiresAt,
-          }),
-        }).then(async (response) => {
-          const result = (await response.json()) as { success?: boolean; error?: string };
-          if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Falha ao criar conta Pro.');
-          }
-        });
+      const result = await createProAccess({
+        email: convertForm.email,
+        name: convertForm.ownerName,
+        whatsapp: convertForm.whatsapp,
+        businessId: convertingBiz.id,
+        price: Number(convertForm.price),
+        startsAt: convertForm.startsAt,
+        expiresAt: convertForm.expiresAt,
+      });
+      setCreatedAccess({
+        email: convertForm.email,
+        accessLink: result.accessLink,
+        accountCreated: result.accountCreated,
+      });
       await store.ensureCloudSynced(true);
-      alert(`✓ Estabelecimento "${convertingBiz.name}" convertido para Vitriniza Pro com sucesso!`);
-      setIsConvertModalOpen(false);
-      setConvertingBiz(null);
       refreshData();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Falha ao criar conta Pro.';
       alert(message);
     }
+  };
+
+  const handleCopyAccessLink = async () => {
+    if (!createdAccess) return;
+    await navigator.clipboard.writeText(createdAccess.accessLink);
+    alert('Link de ativação copiado.');
+  };
+
+  const handleSendAccessByWhatsApp = () => {
+    if (!createdAccess || !convertingBiz) return;
+    const message =
+      `Olá! Seu acesso ao painel da Vitriniza para *${convertingBiz.name}* foi liberado.\n\n` +
+      `Acesse este link para criar sua senha:\n${createdAccess.accessLink}\n\n` +
+      'Este link é pessoal. Não compartilhe com outras pessoas.';
+    window.open(buildWhatsAppUrl(convertForm.whatsapp || convertingBiz.whatsapp, message), '_blank', 'noopener,noreferrer');
   };
 
   // --- ACTIONS: COMMERCIAL PITCH ("OFERECER PRO") ---
@@ -477,7 +523,11 @@ export default function MasterAdminPage() {
     e.preventDefault();
     if (!editingBizId) return;
 
-    store.updateBusiness(editingBizId, {
+    const currentBusiness = businesses.find((business) => business.id === editingBizId);
+    if (!currentBusiness) return;
+    const needsAccess = editBizForm.listing_type === 'paid' && !currentBusiness.owner_user_id;
+
+    const savedBusiness = store.updateBusiness(editingBizId, {
       name: editBizForm.name,
       category_id: editBizForm.category_id,
       neighborhood_id: editBizForm.neighborhood_id,
@@ -488,8 +538,8 @@ export default function MasterAdminPage() {
       whatsapp: editBizForm.whatsapp,
       instagram: editBizForm.instagram,
       short_description: editBizForm.short_description,
-      listing_type: editBizForm.listing_type,
-      plan_id: editBizForm.listing_type === 'paid' ? 'pro' : 'free',
+      listing_type: needsAccess ? currentBusiness.listing_type : editBizForm.listing_type,
+      plan_id: needsAccess ? currentBusiness.plan_id : editBizForm.listing_type === 'paid' ? 'pro' : 'free',
       is_active: editBizForm.is_active,
       is_featured: editBizForm.is_featured,
       is_verified: editBizForm.is_verified,
@@ -502,6 +552,9 @@ export default function MasterAdminPage() {
     store.logAudit('business_updated', editingBizId, editBizForm.name, { updated: editBizForm });
     refreshData();
     setIsEditBizModalOpen(false);
+    if (needsAccess && savedBusiness) {
+      handleOpenConvertModal(savedBusiness, '', '', editBizForm.whatsapp);
+    }
   };
 
   const handleCreateBusiness = async (e: React.FormEvent) => {
@@ -518,6 +571,12 @@ export default function MasterAdminPage() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
+    const requestedPro = createForm.listing_type === 'paid';
+    if (requestedPro && (!createForm.owner_email || !createForm.owner_name)) {
+      alert('Informe o nome e o e-mail do responsável para criar o acesso ao painel.');
+      return;
+    }
+
     const newBiz = store.createBusiness({
       name: createForm.name,
       slug: slug || `comercio-${Date.now()}`,
@@ -532,13 +591,13 @@ export default function MasterAdminPage() {
       whatsapp: createForm.whatsapp,
       short_description: createForm.short_description || `${matchingCat?.name} em ${matchingNeigh?.name}`,
       description: createForm.description || createForm.short_description || `${matchingCat?.name} em ${matchingNeigh?.name}`,
-      listing_type: createForm.listing_type,
-      ownership_status: createForm.listing_type === 'paid' ? 'claimed' : 'unclaimed',
-      plan_id: createForm.listing_type === 'paid' ? 'pro' : 'free',
+      listing_type: 'local_free',
+      ownership_status: 'unclaimed',
+      plan_id: 'free',
       plan_status: 'active',
       is_active: true,
       is_verified: true,
-      is_featured: createForm.listing_type === 'paid',
+      is_featured: false,
       cover_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
       logo_url: '/logo.png',
       payment_methods: ['Pix', 'Cartão de Crédito', 'Dinheiro'],
@@ -547,15 +606,50 @@ export default function MasterAdminPage() {
       dine_in_available: false,
     });
 
-    if (createForm.listing_type === 'paid' && createForm.owner_email) {
-      await store.convertToPro(newBiz.id, {
-        ownerName: createForm.owner_name || createForm.name,
-        email: createForm.owner_email,
-        whatsapp: createForm.whatsapp,
-      });
+    if (requestedPro) {
+      const persisted = await store.persistBusinessToCloud(newBiz.id);
+      if (!persisted) {
+        alert('O cadastro foi salvo localmente, mas não chegou ao Supabase. Tente novamente antes de liberar o acesso.');
+        return;
+      }
+
+      try {
+        const startsAt = new Date().toISOString().split('T')[0];
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const result = await createProAccess({
+          businessId: newBiz.id,
+          email: createForm.owner_email,
+          name: createForm.owner_name,
+          whatsapp: createForm.whatsapp,
+          price: settings.pro_plan?.price || 49.9,
+          startsAt,
+          expiresAt,
+        });
+        setConvertingBiz(newBiz);
+        setConvertForm({
+          ownerName: createForm.owner_name,
+          email: createForm.owner_email,
+          whatsapp: createForm.whatsapp,
+          price: settings.pro_plan?.price || 49.9,
+          startsAt,
+          expiresAt,
+        });
+        setCreatedAccess({
+          email: createForm.owner_email,
+          accessLink: result.accessLink,
+          accountCreated: result.accountCreated,
+        });
+        setIsConvertModalOpen(true);
+        await store.ensureCloudSynced(true);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Falha ao criar conta Pro.';
+        alert(`O estabelecimento foi cadastrado, mas o acesso não foi criado: ${message}`);
+        handleOpenConvertModal(newBiz, createForm.owner_name, createForm.owner_email, createForm.whatsapp);
+        return;
+      }
     }
 
-    alert(`✓ Estabelecimento "${newBiz.name}" cadastrado com sucesso!`);
+    if (!requestedPro) alert(`✓ Estabelecimento "${newBiz.name}" cadastrado com sucesso!`);
     refreshData();
     setActiveTab('businesses');
   };
@@ -1115,27 +1209,29 @@ export default function MasterAdminPage() {
 
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {!isPro && (
+                              {!b.owner_user_id && (
                                 <>
                                   <button
                                     type="button"
                                     onClick={() => handleOpenConvertModal(b)}
                                     className="px-2.5 py-1 rounded-lg bg-[#E36845] hover:bg-[#F49C6B] text-white text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer shadow-xs"
-                                    title="Converter Cadastro Local para Plano Pro com painel liberado"
+                                    title={isPro ? 'Criar e vincular conta de acesso ao painel' : 'Converter Cadastro Local para Plano Pro com painel liberado'}
                                   >
                                     <Sparkles className="w-3 h-3" />
-                                    <span>Converter Pro</span>
+                                    <span>{isPro ? 'Criar acesso' : 'Converter Pro'}</span>
                                   </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenPitch(b)}
-                                    className="px-2.5 py-1 rounded-lg bg-[#4FA6A6]/20 hover:bg-[#4FA6A6] text-[#0E3B43] hover:text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                                    title="Ver métricas de acessos e gerar mensagem de prospecção via WhatsApp"
-                                  >
-                                    <TrendingUp className="w-3 h-3" />
-                                    <span>Oferecer Pro</span>
-                                  </button>
+                                  {!isPro && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenPitch(b)}
+                                      className="px-2.5 py-1 rounded-lg bg-[#4FA6A6]/20 hover:bg-[#4FA6A6] text-[#0E3B43] hover:text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                      title="Ver métricas de acessos e gerar mensagem de prospecção via WhatsApp"
+                                    >
+                                      <TrendingUp className="w-3 h-3" />
+                                      <span>Oferecer Pro</span>
+                                    </button>
+                                  )}
                                 </>
                               )}
 
@@ -1559,6 +1655,53 @@ export default function MasterAdminPage() {
               <p className="text-[11px] text-[#4FA6A6] font-bold">✓ Nenhum dado, foto ou histórico de SEO será alterado.</p>
             </div>
 
+            {createdAccess ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                  <p className="font-black">✓ Acesso ao painel liberado</p>
+                  <p className="mt-1 text-xs">
+                    {createdAccess.accountCreated ? 'A conta foi criada' : 'A conta existente foi vinculada'} para <strong>{createdAccess.email}</strong>.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Link pessoal para criar a senha</label>
+                  <textarea
+                    readOnly
+                    rows={4}
+                    value={createdAccess.accessLink}
+                    className="w-full resize-none px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-[#F8F6F0] text-[11px] text-[#0E3B43] outline-none"
+                  />
+                  <p className="mt-1.5 text-[11px] text-amber-700">Envie somente ao proprietário. O link permite definir a senha da conta.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyAccessLink}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0E3B43] px-4 py-3 text-xs font-black text-white"
+                  >
+                    <Copy className="w-4 h-4" /> Copiar link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendAccessByWhatsApp}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black text-white"
+                  >
+                    <WhatsAppSolidIcon className="w-4 h-4" /> Enviar pelo WhatsApp
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsConvertModalOpen(false);
+                    setConvertingBiz(null);
+                    setCreatedAccess(null);
+                  }}
+                  className="w-full rounded-xl bg-stone-100 px-4 py-2.5 text-xs font-bold text-stone-600"
+                >
+                  Concluir
+                </button>
+              </div>
+            ) : (
             <form onSubmit={handleExecuteConvert} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Proprietário / Responsável *</label>
@@ -1633,6 +1776,7 @@ export default function MasterAdminPage() {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}
@@ -1801,6 +1945,15 @@ export default function MasterAdminPage() {
                 </div>
               </div>
 
+              {editingBizId &&
+                editBizForm.listing_type === 'paid' &&
+                !businesses.find((business) => business.id === editingBizId)?.owner_user_id && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+                    <p className="font-black">Este negócio ainda não possui conta de acesso.</p>
+                    <p className="mt-1">Ao salvar, será aberta a etapa para informar o responsável, o e-mail e gerar o link de criação da senha.</p>
+                  </div>
+                )}
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E8E4DA]">
                 <button
                   type="button"
@@ -1813,7 +1966,11 @@ export default function MasterAdminPage() {
                   type="submit"
                   className="px-6 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold cursor-pointer"
                 >
-                  Salvar Alterações
+                  {editingBizId &&
+                  editBizForm.listing_type === 'paid' &&
+                  !businesses.find((business) => business.id === editingBizId)?.owner_user_id
+                    ? 'Salvar e criar acesso'
+                    : 'Salvar Alterações'}
                 </button>
               </div>
             </form>
