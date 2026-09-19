@@ -738,7 +738,7 @@ export default function MerchantPanelPage() {
   const catalogLabel = getDynamicCatalogLabel(business.category?.slug, business.category?.name);
   const limits: PlanLimits = store.getPlanLimits(business.plan_id);
   const stats = store.getBusinessStats(business.id);
-  const businessPublicUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const businessPublicUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`;
   const completeness = calculateCompleteness(business);
 
   // Simulated chart data
@@ -817,7 +817,9 @@ export default function MerchantPanelPage() {
                   {friendlyPlanName}
                 </span>
               </div>
-              <span className="text-[11px] text-[#537379] block truncate">{business.neighborhood?.name || 'Guaianases'} - SP</span>
+              <span className="text-[11px] text-[#537379] block truncate">
+                {[business.neighborhood?.name, business.city?.name || 'SP'].filter(Boolean).join(' - ')}
+              </span>
             </div>
           </div>
 
@@ -909,10 +911,10 @@ export default function MerchantPanelPage() {
               </div>
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 block">
-                  🏅 NEGÓCIO FUNDADOR DE GUAIANASES
+                  🏅 NEGÓCIO FUNDADOR LOCAL
                 </span>
                 <p className="text-xs sm:text-sm font-bold text-[#0E3B43]">
-                  Você faz parte dos primeiros negócios parceiros da Vitriniza Guaianases.
+                  Você faz parte dos primeiros negócios parceiros da Vitriniza na sua região.
                 </p>
               </div>
             </div>
@@ -1034,7 +1036,7 @@ export default function MerchantPanelPage() {
               <div className="space-y-6">
                 <div>
                   <h3 className="font-black text-xl text-[#0E3B43]">Visão Geral da Sua Vitrine</h3>
-                  <p className="text-xs text-[#537379]">Desempenho e acessos dos moradores de Guaianases nos últimos 30 dias</p>
+                  <p className="text-xs text-[#537379]">Desempenho e acessos dos clientes da sua região nos últimos 30 dias</p>
                 </div>
 
                 {/* 5 Real Metrics Cards */}
@@ -1137,7 +1139,7 @@ export default function MerchantPanelPage() {
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#4FA6A6]/20 card-shadow space-y-6">
                 <div>
                   <h3 className="font-black text-xl text-[#0E3B43]">Minha Vitrine & Perfil</h3>
-                  <p className="text-xs text-[#537379]">Informações públicas exibidas para os clientes em Guaianases</p>
+                  <p className="text-xs text-[#537379]">Informações públicas exibidas para os clientes no seu bairro e cidade</p>
                 </div>
 
                 <form onSubmit={handleSaveProfile} className="space-y-6">
@@ -1355,7 +1357,7 @@ export default function MerchantPanelPage() {
                           type="text"
                           value={profileForm.address}
                           onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
-                          placeholder="Ex: Rua Salvador Gianetti, 500 - Guaianases"
+                          placeholder="Ex: Rua das Flores, 500 - Centro"
                           className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white min-h-[44px]"
                         />
                       </div>
@@ -1417,7 +1419,7 @@ export default function MerchantPanelPage() {
                         type="text"
                         value={profileForm.short_description}
                         onChange={(e) => setProfileForm({ ...profileForm, short_description: e.target.value })}
-                        placeholder="Ex: A melhor pizza no forno a lenha de Guaianases com entrega rápida."
+                        placeholder="Ex: A melhor pizza no forno a lenha do bairro com entrega rápida."
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] mb-3 min-h-[44px]"
                       />
 
@@ -1549,7 +1551,7 @@ export default function MerchantPanelPage() {
                       <Flame className="w-10 h-10 mx-auto text-[#E36845]/40" />
                       <h4 className="font-black text-xs text-[#0E3B43]">Nenhuma oferta ativa no momento</h4>
                       <p className="text-xs text-[#537379]">
-                        Crie uma oferta promocional para aparecer no carrossel de ofertas da Vitriniza Guaianases!
+                        Crie uma oferta promocional para aparecer no carrossel de ofertas da sua região!
                       </p>
                     </div>
                   )}
@@ -1573,7 +1575,7 @@ export default function MerchantPanelPage() {
                     businessSlug={business.slug}
                     businessLogoUrl={business.logo_url}
                     businessUrl={businessPublicUrl}
-                    neighborhoodName={business.neighborhood?.name || 'Guaianases'}
+                    neighborhoodName={business.neighborhood?.name || ''}
                     categoryName={business.category?.name}
                     variant="full_hub"
                     onToast={showToast}

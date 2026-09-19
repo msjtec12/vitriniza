@@ -86,7 +86,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       businesses.forEach((biz) => {
         if (!biz.latitude || !biz.longitude) return;
 
-        const businessUrl = `/${biz.state_id.toLowerCase()}/${biz.city?.slug || 'sao-paulo'}/${biz.neighborhood?.slug || 'guaianases'}/${biz.slug}`;
+        const businessUrl = `/${biz.state_id.toLowerCase()}/${biz.city?.slug || 'sao-paulo'}/${biz.neighborhood?.slug || 'bairro'}/${biz.slug}`;
 
         const popupContent = `
           <div style="font-family: sans-serif; min-width: 200px; padding: 6px;">

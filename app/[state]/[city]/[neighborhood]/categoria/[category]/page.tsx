@@ -10,12 +10,23 @@ import { BusinessCard } from '@/components/ui/BusinessCard';
 
 export default function CategorySEOPage() {
   const params = useParams();
-  const neighborhoodSlug = (params.neighborhood as string) || 'guaianases';
+  const neighborhoodSlug = (params.neighborhood as string) || '';
   const categorySlug = params.category as string;
+  const citySlug = (params.city as string) || '';
+  const stateUf = ((params.state as string) || 'sp').toUpperCase();
+
+  const formatSlugName = (slug: string) => {
+    if (!slug) return '';
+    return slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
-  const [neighborhoodName, setNeighborhoodName] = useState('Guaianases');
+  const [neighborhoodName, setNeighborhoodName] = useState(() => formatSlugName(neighborhoodSlug) || 'Bairro');
+  const cityName = formatSlugName(citySlug) || 'São Paulo';
 
   useEffect(() => {
     const neighs = store.getNeighborhoods();
@@ -40,7 +51,7 @@ export default function CategorySEOPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-xs text-[#537379] flex items-center gap-1.5 font-medium">
           <Link href="/" className="hover:text-[#E36845] transition-colors">Início</Link>
           <ChevronRight className="w-3 h-3" />
-          <Link href={`/sp/sao-paulo/${neighborhoodSlug}`} className="hover:text-[#E36845] transition-colors">{neighborhoodName}</Link>
+          <Link href={`/${stateUf.toLowerCase()}/${citySlug || 'sao-paulo'}/${neighborhoodSlug}`} className="hover:text-[#E36845] transition-colors">{neighborhoodName}</Link>
           <ChevronRight className="w-3 h-3" />
           <span className="font-bold text-[#0E3B43]">{category?.name || categorySlug}</span>
         </div>
@@ -51,7 +62,7 @@ export default function CategorySEOPage() {
         <div className="p-8 rounded-3xl bg-gradient-to-b from-white to-[#F8F6F0] border border-[#4FA6A6]/20 card-shadow">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FA6A6]/15 text-xs font-bold text-[#0E3B43] border border-[#4FA6A6]/30 mb-3">
             <MapPin className="w-3.5 h-3.5 text-[#E36845]" />
-            <span>{neighborhoodName} (São Paulo)</span>
+            <span>{neighborhoodName} ({cityName}/{stateUf})</span>
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-[#0E3B43] tracking-tight mb-2">

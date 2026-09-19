@@ -21,8 +21,8 @@ export const SocialShareCardGenerator: React.FC<SocialShareCardGeneratorProps> =
   const qrRef = useRef<HTMLDivElement>(null);
 
   const fullUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`
-    : `https://vitriniza.vercel.app/sp/sao-paulo/guaianases/${business.slug}`;
+    ? `${window.location.origin}/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`
+    : `https://vitriniza.vercel.app/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`;
 
   const handleCopyLink = () => {
     if (navigator.clipboard) {
@@ -34,7 +34,7 @@ export const SocialShareCardGenerator: React.FC<SocialShareCardGeneratorProps> =
   };
 
   const handleShareWhatsApp = () => {
-    const text = `Conheça a vitrine digital da *${business.name}* na Vitriniza Guaianases! Veja nossos produtos, serviços e horários:\n${fullUrl}`;
+    const text = `Conheça a vitrine digital da *${business.name}* na Vitriniza! Veja nossos produtos, serviços e horários:\n${fullUrl}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -91,7 +91,10 @@ export const SocialShareCardGenerator: React.FC<SocialShareCardGeneratorProps> =
 
       ctx.fillStyle = '#537379';
       ctx.font = 'bold 28px sans-serif';
-      ctx.fillText(`${business.neighborhood?.name || 'Guaianases'} • São Paulo/SP`, 540, 470);
+      const locationText = business.neighborhood?.name
+        ? `${business.neighborhood.name} • ${business.city?.name || 'São Paulo'}/${business.state_id?.toUpperCase() || 'SP'}`
+        : `${business.city?.name || 'São Paulo'}/${business.state_id?.toUpperCase() || 'SP'}`;
+      ctx.fillText(locationText, 540, 470);
 
       // Draw QR Code from hidden element
       const qrCanvas = qrRef.current?.querySelector('canvas');
@@ -176,7 +179,7 @@ export const SocialShareCardGenerator: React.FC<SocialShareCardGeneratorProps> =
             <div className="bg-[#F8F6F0] rounded-2xl p-4 text-[#0E3B43] space-y-2 shadow-lg">
               <h5 className="font-black text-sm uppercase truncate">{business.name}</h5>
               <p className="text-[10px] font-bold text-[#537379]">
-                {business.neighborhood?.name || 'Guaianases'} - SP
+                {[business.neighborhood?.name, business.city?.name || 'SP'].filter(Boolean).join(' - ')}
               </p>
 
               <div className="w-28 h-28 mx-auto bg-white p-2 rounded-xl shadow-xs flex items-center justify-center">
@@ -192,7 +195,7 @@ export const SocialShareCardGenerator: React.FC<SocialShareCardGeneratorProps> =
             </div>
 
             <div className="text-[10px] text-[#A3C6C4] font-medium">
-              vitriniza.vercel.app • Guaianases
+              vitriniza.com.br • Descoberta Local
             </div>
           </div>
         </div>

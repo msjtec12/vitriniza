@@ -191,7 +191,7 @@ export default function MasterAdminPage() {
     location_name: '',
     postal_code: '08410-000',
     address: '',
-    neighborhood_name: 'Guaianases',
+    neighborhood_name: 'Centro',
     city_name: 'São Paulo',
     event_date: new Date().toISOString().split('T')[0],
     start_time: '10:00',
@@ -212,10 +212,10 @@ export default function MasterAdminPage() {
     heroBgUrl:
       settings.hero_bg_url ||
       'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1800&auto=format&fit=crop&q=80',
-    heroTitle: settings.hero_title || 'Descubra o melhor perto de você.',
+    heroTitle: settings.hero_title || 'O comércio do seu bairro em uma nova vitrine digital.',
     heroSubtitle:
       settings.hero_subtitle ||
-      'Encontre comércios, profissionais, serviços e promoções no seu bairro e fale diretamente pelo WhatsApp.',
+      'Encontre comércios, profissionais, serviços e promoções perto de você e fale diretamente pelo WhatsApp.',
   });
 
   // Validate the administrator session against Supabase Auth and the profiles table.
@@ -600,7 +600,7 @@ export default function MasterAdminPage() {
       name: createForm.name,
       slug: slug || `comercio-${Date.now()}`,
       category_id: createForm.category_id || categories[0]?.id || 'cat-alimentacao',
-      neighborhood_id: createForm.neighborhood_id || neighborhoods[0]?.id || 'neigh-guaianases',
+      neighborhood_id: createForm.neighborhood_id || neighborhoods[0]?.id || 'neigh-centro',
       city_id: 'city-sp',
       state_id: 'SP',
       address: createForm.address,
@@ -1036,7 +1036,7 @@ export default function MasterAdminPage() {
                         <p><strong>WhatsApp:</strong> {formatPhone(req.whatsapp)}</p>
                         {req.email && <p><strong>E-mail:</strong> {req.email}</p>}
                         {req.instagram && <p><strong>Instagram:</strong> @{req.instagram}</p>}
-                        <p><strong>Bairro:</strong> {req.neighborhood_name || 'Guaianases'} • {req.category_name}</p>
+                        <p><strong>Bairro:</strong> {req.neighborhood_name || 'Comércio Local'} • {req.category_name}</p>
                         {req.address && <p><strong>Endereço:</strong> {req.address}</p>}
                       </div>
 
@@ -1051,7 +1051,7 @@ export default function MasterAdminPage() {
                       <a
                         href={buildWhatsAppUrl(
                           req.whatsapp,
-                          `Olá ${req.owner_name}! Recebemos sua solicitação para cadastrar "${req.business_name}" na Vitriniza (${req.neighborhood_name || 'Guaianases'}). Podemos confirmar as informações para ativar sua vitrine?`
+                          `Olá ${req.owner_name}! Recebemos sua solicitação para cadastrar "${req.business_name}" na Vitriniza (${req.neighborhood_name || 'sua região'}). Podemos confirmar as informações para ativar sua vitrine?`
                         )}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -1174,7 +1174,7 @@ export default function MasterAdminPage() {
                           </td>
 
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-[#0E3B43]">{b.neighborhood?.name || 'Guaianases'}</div>
+                            <div className="font-bold text-[#0E3B43]">{b.neighborhood?.name || 'Comércio Local'}</div>
                             <div className="text-[11px] text-[#4FA6A6] font-semibold">{b.category?.name}</div>
                           </td>
 
@@ -1267,7 +1267,7 @@ export default function MasterAdminPage() {
                               </button>
 
                               <Link
-                                href={`/${b.state_id?.toLowerCase() || 'sp'}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'guaianases'}/${b.slug}`}
+                                href={`/${b.state_id?.toLowerCase() || 'sp'}/${b.city?.slug || 'sao-paulo'}/${b.neighborhood?.slug || 'bairro'}/${b.slug}`}
                                 target="_blank"
                                 className="p-1.5 rounded-lg bg-[#F8F6F0] hover:bg-[#4FA6A6]/20 text-[#0E3B43]"
                                 title="Ver vitrine pública"
@@ -1329,7 +1329,7 @@ export default function MasterAdminPage() {
                         <tr key={sub.id} className="hover:bg-[#F8F6F0]/60 transition-colors">
                           <td className="py-3.5 px-4">
                             <div className="font-black text-sm text-[#0E3B43]">{biz?.name || sub.business_id}</div>
-                            <div className="text-[11px] text-[#537379]">{biz?.neighborhood?.name || 'Guaianases'}</div>
+                            <div className="text-[11px] text-[#537379]">{biz?.neighborhood?.name || 'Comércio Local'}</div>
                           </td>
 
                           <td className="py-3.5 px-4 font-bold text-[#0E3B43]">{sub.plan_name}</td>
@@ -1701,7 +1701,7 @@ export default function MasterAdminPage() {
 
             <div className="p-3.5 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs text-[#0E3B43] space-y-1">
               <p><strong>Empresa:</strong> {convertingBiz.name}</p>
-              <p><strong>URL Pública Preservada:</strong> /{convertingBiz.state_id?.toLowerCase() || 'sp'}/sao-paulo/{convertingBiz.neighborhood?.slug || 'guaianases'}/{convertingBiz.slug}</p>
+              <p><strong>URL Pública Preservada:</strong> /{convertingBiz.state_id?.toLowerCase() || 'sp'}/{convertingBiz.city?.slug || 'sao-paulo'}/{convertingBiz.neighborhood?.slug || 'bairro'}/{convertingBiz.slug}</p>
               <p className="text-[11px] text-[#4FA6A6] font-bold">✓ Nenhum dado, foto ou histórico de SEO será alterado.</p>
             </div>
 

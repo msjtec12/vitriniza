@@ -79,7 +79,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="O que você procura em Guaianases?"
+            placeholder="O que você procura no seu bairro?"
             className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white border border-[#4FA6A6]/40 focus:border-[#E36845] text-sm text-[#0E3B43] placeholder:text-[#537379] outline-none transition-all shadow-2xs"
           />
         </div>
@@ -110,7 +110,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="O que você procura em Guaianases?"
+              placeholder="Pizzaria, mecânico, salão de beleza..."
               className="w-full bg-transparent text-sm sm:text-base font-semibold text-[#0E3B43] placeholder:text-[#537379]/60 outline-none truncate"
             />
           </div>
@@ -128,10 +128,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               onChange={(e) => setNeighborhood(e.target.value)}
               className="w-full bg-transparent text-sm sm:text-base font-semibold text-[#0E3B43] outline-none cursor-pointer"
             >
-              <option value="">Todas as regiões (SP)</option>
+              <option value="">Todas as regiões / cidades</option>
               {neighborhoods.map((n) => (
                 <option key={n.id} value={n.slug}>
-                  {n.name} - São Paulo
+                  {n.name} - {n.city?.name || 'São Paulo'} ({n.city?.state_id || 'SP'})
                 </option>
               ))}
             </select>

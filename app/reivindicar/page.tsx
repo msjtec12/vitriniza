@@ -171,7 +171,7 @@ function ReivindicarContent() {
 
               {business && (
                 <Link
-                  href={`/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`}
+                  href={`/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white hover:bg-stone-50 border border-[#E8E4DA] text-[#0E3B43] text-sm font-bold shadow-xs transition-all"
                 >
                   <Store className="w-4 h-4 text-[#4FA6A6]" />
@@ -209,7 +209,7 @@ function ReivindicarContent() {
                     <div className="flex items-center gap-2 text-xs text-[#537379] mt-0.5">
                       <span className="text-[#4FA6A6] font-bold">{business.category?.name || 'Comércio Local'}</span>
                       <span>•</span>
-                      <span>{business.neighborhood?.name || 'Guaianases'}</span>
+                      <span>{business.neighborhood?.name || 'Comércio Local'}</span>
                     </div>
                   </div>
                 </div>

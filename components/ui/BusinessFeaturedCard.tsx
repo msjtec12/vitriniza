@@ -13,7 +13,7 @@ interface BusinessFeaturedCardProps {
 }
 
 export const BusinessFeaturedCard: React.FC<BusinessFeaturedCardProps> = ({ business }) => {
-  const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`;
   const whatsappUrl = buildWhatsAppUrl(
     business.whatsapp,
     getBusinessWhatsAppMessage(business.name, 'general')

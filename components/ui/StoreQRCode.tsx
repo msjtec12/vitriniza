@@ -23,7 +23,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
   businessName,
   businessLogoUrl,
   businessUrl,
-  neighborhoodName = 'Guaianases',
+  neighborhoodName = '',
   categoryName,
   size = 140,
   showDownloadBtn = true,
@@ -50,7 +50,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
     if (navigator.share) {
       navigator.share({
         title: `${businessName} na Vitriniza`,
-        text: `Conheça ${businessName} em ${neighborhoodName}! Veja produtos e contatos:\n${fullUrl}`,
+        text: `Conheça ${businessName}${neighborhoodName ? ' (' + neighborhoodName + ')' : ''}! Veja produtos e contatos:\n${fullUrl}`,
         url: fullUrl,
       }).catch(() => {});
     } else {
@@ -113,7 +113,8 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
     if (categoryName || neighborhoodName) {
       ctx.fillStyle = '#537379';
       ctx.font = '600 20px sans-serif';
-      ctx.fillText(`${categoryName || 'Comércio Local'} • ${neighborhoodName} (SP)`, w / 2, 295);
+      const locBadge = [categoryName, neighborhoodName].filter(Boolean).join(' • ');
+      ctx.fillText(locBadge, w / 2, 295);
     }
 
     // 4. White Card for QR Code
@@ -154,7 +155,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
   };
 
   const handleRequestPhysicalStand = () => {
-    const text = `Olá! Sou do comércio *${businessName}* em Guaianases e gostaria de solicitar a *Placa Física de Balcão* da Vitriniza para o meu estabelecimento.`;
+    const text = `Olá! Sou do comércio *${businessName}*${neighborhoodName ? ' em ' + neighborhoodName : ''} e gostaria de solicitar a *Placa Física de Balcão* da Vitriniza para o meu estabelecimento.`;
     const whatsappUrl = `https://wa.me/5511999999999?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, '_blank');
   };

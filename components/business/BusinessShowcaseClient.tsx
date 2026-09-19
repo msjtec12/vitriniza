@@ -118,10 +118,10 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
           </p>
           <div className="pt-2">
             <Link
-              href="/sp/sao-paulo/guaianases"
+              href="/buscar"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer"
             >
-              <span>Explorar Guaianases</span>
+              <span>Explorar Comércios & Bairros</span>
               <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
@@ -131,7 +131,7 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
   }
 
   const openStatus = store.isBusinessOpenNow(business.hours);
-  const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`;
   const generalWhatsappUrl = buildWhatsAppUrl(
     business.whatsapp,
     getBusinessWhatsAppMessage(business.name, 'general')
@@ -142,7 +142,7 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
       const favs: string[] = JSON.parse(localStorage.getItem('vitriniza_favorites') || '[]');
       let updated: string[];
       if (favs.includes(business.id)) {
-        updated = favs.filter((id) => id !== business.id);
+        updated = favs.filter((id: string) => id !== business.id);
         setIsFavorite(false);
       } else {
         updated = [...favs, business.id];
@@ -162,9 +162,9 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
   const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const hasPhysicalAddress = !business.is_online_only && business.address && business.address.trim().length > 0;
 
-  const addressQueryString = `${business.address || ''}, ${business.number || ''}, ${business.neighborhood?.name || ''}, ${business.city?.name || 'São Paulo'} - SP, CEP ${business.postal_code || ''}`;
+  const addressQueryString = `${business.address || ''}, ${business.number || ''}, ${business.neighborhood?.name || ''}, ${business.city?.name || 'São Paulo'} - ${business.state_id?.toUpperCase() || 'SP'}, CEP ${business.postal_code || ''}`;
   const gpsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    `${business.name} ${business.address} ${business.number} ${business.neighborhood?.name || ''} ${business.city?.name || 'São Paulo'} SP`
+    `${business.name} ${business.address} ${business.number} ${business.neighborhood?.name || ''} ${business.city?.name || 'São Paulo'} ${business.state_id?.toUpperCase() || 'SP'}`
   )}`;
 
   return (
@@ -174,8 +174,8 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-xs text-[#537379] flex items-center gap-1.5 flex-wrap font-medium">
           <Link href="/" className="hover:text-[#E36845] transition-colors">Início</Link>
           <ChevronRight className="w-3 h-3" />
-          <Link href={`/sp/sao-paulo/${business.neighborhood?.slug || 'guaianases'}`} className="hover:text-[#E36845] transition-colors">
-            {business.neighborhood?.name || 'Guaianases'}
+          <Link href={`/${(business.state_id || 'sp').toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}`} className="hover:text-[#E36845] transition-colors">
+            {business.neighborhood?.name || 'Bairro'}
           </Link>
           <ChevronRight className="w-3 h-3" />
           <Link href={`/buscar?categoria=${business.category?.slug}`} className="hover:text-[#E36845] transition-colors">
@@ -267,7 +267,7 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
 
                   <div className="flex items-center gap-1 font-semibold text-[#0E3B43]">
                     <MapPin className="w-3.5 h-3.5 text-[#E36845]" />
-                    <span>{business.neighborhood?.name || 'Guaianases'} - SP</span>
+                    <span>{[business.neighborhood?.name, business.city?.name || 'SP'].filter(Boolean).join(' - ')}</span>
                   </div>
 
                   {openStatus && (
@@ -553,7 +553,7 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
 
               <p className="text-xs text-[#0E3B43]/85 leading-relaxed font-medium">
                 {business.address}, {business.number}
-                {business.complement && ` (${business.complement})`} - {business.neighborhood?.name || 'Guaianases'}, {business.city?.name || 'São Paulo'} - SP
+                {business.complement && ` (${business.complement})`} - {business.neighborhood?.name || 'Bairro'}, {business.city?.name || 'São Paulo'} - {business.state_id?.toUpperCase() || 'SP'}
                 <br />
                 <span className="text-[#537379]">CEP: {business.postal_code}</span>
               </p>
@@ -587,7 +587,7 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
                 <span>Área de Atendimento</span>
               </h3>
               <p className="text-xs text-[#537379] leading-relaxed">
-                Este profissional realiza atendimentos 100% online ou deslocamento direto ao endereço do cliente em <strong>{business.neighborhood?.name || 'Guaianases'} e região</strong>.
+                Este profissional realiza atendimentos 100% online ou deslocamento direto ao endereço do cliente em <strong>{business.neighborhood?.name ? `${business.neighborhood.name} e região` : 'sua região e cidades vizinhas'}</strong>.
               </p>
             </div>
           )}

@@ -59,7 +59,7 @@ export default function HomePage() {
   const [nearbyBusinesses, setNearbyBusinesses] = useState<Business[]>([]);
   const [locating, setLocating] = useState<boolean>(false);
   const [locationStatusText, setLocationStatusText] = useState<string>(
-    'Localização padrão: Centro de Guaianases (SP)'
+    'Mostrando estabelecimentos locais. Ative o GPS para ver os mais próximos de você.'
   );
 
   const [platformSettings, setPlatformSettings] = useState(() => store.getPlatformSettings());
@@ -193,7 +193,7 @@ export default function HomePage() {
       },
       () => {
         setLocating(false);
-        alert('Não foi possível obter sua localização. Exibindo região de Guaianases.');
+        alert('Não foi possível obter sua localização. Exibindo estabelecimentos cadastrados.');
       }
     );
   };
@@ -244,12 +244,12 @@ export default function HomePage() {
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-4xl mx-auto leading-tight mb-4 drop-shadow-md">
-            Guaianases está ganhando uma <span className="text-[#E36845] drop-shadow-sm">nova vitrine.</span>
+            O comércio do seu bairro em uma <span className="text-[#E36845] drop-shadow-sm">nova vitrine digital.</span>
           </h1>
 
           {/* Subtext */}
           <p className="text-sm sm:text-lg text-[#0E3B43] font-bold max-w-xl mx-auto mb-8 leading-relaxed drop-shadow-xs bg-white/70 backdrop-blur-xs py-2 px-5 rounded-2xl border border-white/50 inline-block shadow-sm">
-            Descubra comércios, serviços, profissionais e ofertas do seu bairro em poucos cliques.
+            Descubra comércios, serviços, profissionais e ofertas perto de você em poucos cliques.
           </p>
 
           {/* Dual Search Bar */}
@@ -258,10 +258,10 @@ export default function HomePage() {
           {/* Action CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
             <Link
-              href="/sp/sao-paulo/guaianases"
+              href="/buscar"
               className="px-6 py-3 rounded-2xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-black shadow-md flex items-center gap-2 transition-all active:scale-95"
             >
-              <span>Explorar Guaianases</span>
+              <span>Explorar Comércios & Bairros</span>
               <ArrowRight className="w-4 h-4 text-[#E36845]" />
             </Link>
 
@@ -283,7 +283,7 @@ export default function HomePage() {
               O que você está procurando?
             </h2>
             <p className="text-xs sm:text-sm text-[#537379]">
-              Encontre lojas, prestadores de serviço e profissionais em Guaianases
+              Encontre lojas, prestadores de serviço e profissionais perto de você
             </p>
           </div>
 
@@ -429,9 +429,9 @@ export default function HomePage() {
               <Flame className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-black text-sm text-[#0E3B43]">Novas ofertas de Guaianases estão chegando.</h3>
+              <h3 className="font-black text-sm text-[#0E3B43]">Novas ofertas da sua região estão chegando.</h3>
               <p className="text-xs text-[#537379] max-w-md mx-auto mt-1">
-                Conhece um comércio no bairro que tem ótimas ofertas? Indique para a Vitriniza ou publique sua loja!
+                Conhece um comércio perto de você que tem ótimas ofertas? Indique para a Vitriniza ou publique sua loja!
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -760,7 +760,7 @@ export default function HomePage() {
       <RecommendBusinessModal
         isOpen={isRecommendOpen}
         onClose={() => setIsRecommendOpen(false)}
-        defaultNeighborhood="Guaianases"
+        defaultNeighborhood=""
       />
     </div>
   );

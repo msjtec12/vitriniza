@@ -22,7 +22,7 @@ import { triggerPwaInstall } from '@/components/ui/PwaInstallPrompt';
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const [favCount, setFavCount] = useState(0);
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState('Guaianases');
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState('Todas as Regiões');
   const [isRegionMenuOpen, setIsRegionMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState('/logo.png');
 
@@ -85,32 +85,48 @@ export const Navbar: React.FC = () => {
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] transition-all shadow-2xs cursor-pointer"
             >
               <MapPin className="w-3.5 h-3.5 text-[#E36845]" />
-              <span>{selectedNeighborhood} - SP</span>
+              <span>{selectedNeighborhood}</span>
               <ChevronDown className="w-3 h-3 text-[#537379]" />
             </button>
 
             {isRegionMenuOpen && (
-              <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl border border-[#E8E4DA] shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+              <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl border border-[#E8E4DA] shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 max-h-80 overflow-y-auto">
                 <span className="block px-3 py-1 text-[10px] font-bold text-[#537379] uppercase">
                   Selecione sua Região
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedNeighborhood('Todas as Regiões');
+                    setIsRegionMenuOpen(false);
+                  }}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer mb-1 border-b border-stone-100',
+                    selectedNeighborhood === 'Todas as Regiões'
+                      ? 'bg-[#E36845] text-white font-bold'
+                      : 'text-[#0E3B43] hover:bg-[#F8F6F0]'
+                  )}
+                >
+                  <span>🌐 Todas as Regiões</span>
+                </button>
                 {neighborhoods.map((n) => (
-                  <button
+                  <Link
                     key={n.id}
+                    href={`/${(n.city?.state_id || 'sp').toLowerCase()}/${n.city?.slug || 'sao-paulo'}/${n.slug}`}
                     onClick={() => {
-                      setSelectedNeighborhood(n.name);
+                      setSelectedNeighborhood(`${n.name} (${n.city?.name || 'SP'})`);
                       setIsRegionMenuOpen(false);
                     }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer',
-                      selectedNeighborhood === n.name
-                        ? 'bg-[#E36845] text-white font-bold'
+                      selectedNeighborhood.includes(n.name)
+                        ? 'bg-[#0E3B43] text-white font-bold'
                         : 'text-[#0E3B43] hover:bg-[#F8F6F0]'
                     )}
                   >
                     <span>{n.name}</span>
-                    <span className="text-[10px] opacity-75">São Paulo</span>
-                  </button>
+                    <span className="text-[10px] opacity-75">{n.city?.name || 'São Paulo'}</span>
+                  </Link>
                 ))}
               </div>
             )}

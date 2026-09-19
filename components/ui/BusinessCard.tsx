@@ -67,7 +67,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     store.logAnalyticsEvent(business.id, 'whatsapp_click');
   };
 
-  const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const businessUrl = `/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'bairro'}/${business.slug}`;
   const whatsappUrl = buildWhatsAppUrl(
     business.whatsapp,
     getBusinessWhatsAppMessage(business.name, 'general')
@@ -182,7 +182,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           <span>({business.reviews_count} avaliações)</span>
           <span>•</span>
           <span className="px-2 py-0.5 rounded-md bg-[#4FA6A6]/15 text-[#0E3B43] font-bold text-[11px]">
-            {business.neighborhood?.name || 'Guaianases'}
+            {business.neighborhood?.name || 'Comércio Local'}
           </span>
         </div>
 

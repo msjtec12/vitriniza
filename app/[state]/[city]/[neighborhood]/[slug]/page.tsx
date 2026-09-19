@@ -29,11 +29,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const neighborhoodName = business.neighborhood?.name || 'Guaianases';
-  const cityName = business.city?.name || 'São Paulo';
+  const formatSlugName = (slug: string) => {
+    if (!slug) return '';
+    return slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  const neighborhoodName = business.neighborhood?.name || formatSlugName(resolvedParams.neighborhood) || 'Bairro';
+  const cityName = business.city?.name || formatSlugName(resolvedParams.city) || 'Cidade';
+  const stateUf = (business.state_id || resolvedParams.state || 'sp').toLowerCase();
   const pageTitle = `${business.name} em ${neighborhoodName} | Vitriniza`;
   const pageDescription = `Conheça ${business.name} em ${neighborhoodName}, ${cityName}. Veja produtos, ofertas, endereço, horário e fale diretamente pelo WhatsApp.`;
-  const pageUrl = `${SITE_URL}/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`;
+  const pageUrl = `${SITE_URL}/${stateUf}/${business.city?.slug || resolvedParams.city || 'cidade'}/${business.neighborhood?.slug || resolvedParams.neighborhood || 'bairro'}/${business.slug}`;
   const shareImage = business.cover_url || business.logo_url || `${SITE_URL}/logo.png`;
 
   return {
@@ -79,13 +88,13 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
     (process.env.NODE_ENV !== 'production' ? store.getBusinessBySlug(resolvedParams.slug) : null);
 
   if (business) {
-    const canonicalState = business.state_id.toLowerCase();
-    const canonicalCity = business.city?.slug || 'sao-paulo';
-    const canonicalNeighborhood = business.neighborhood?.slug || 'guaianases';
+    const canonicalState = (business.state_id || resolvedParams.state).toLowerCase();
+    const canonicalCity = business.city?.slug || resolvedParams.city.toLowerCase();
+    const canonicalNeighborhood = business.neighborhood?.slug || resolvedParams.neighborhood.toLowerCase();
     if (
-      resolvedParams.state !== canonicalState ||
-      resolvedParams.city !== canonicalCity ||
-      resolvedParams.neighborhood !== canonicalNeighborhood
+      resolvedParams.state.toLowerCase() !== canonicalState ||
+      resolvedParams.city.toLowerCase() !== canonicalCity ||
+      resolvedParams.neighborhood.toLowerCase() !== canonicalNeighborhood
     ) {
       notFound();
     }
@@ -94,11 +103,21 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
   const reviews = business
     ? await getApprovedReviews(business.id)
     : [];
-  const neighborhoodName = business?.neighborhood?.name || 'Guaianases';
-  const cityName = business?.city?.name || 'São Paulo';
+
+  const formatSlugName = (slug: string) => {
+    if (!slug) return '';
+    return slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  const neighborhoodName = business?.neighborhood?.name || formatSlugName(resolvedParams.neighborhood) || 'Bairro';
+  const cityName = business?.city?.name || formatSlugName(resolvedParams.city) || 'Cidade';
+  const stateUf = (business?.state_id || resolvedParams.state || 'sp').toLowerCase();
   const pageUrl = business
-    ? `${SITE_URL}/${business.state_id.toLowerCase()}/${business.city?.slug || 'sao-paulo'}/${business.neighborhood?.slug || 'guaianases'}/${business.slug}`
-    : `${SITE_URL}/${resolvedParams.state}/${resolvedParams.city}/${resolvedParams.neighborhood}/${resolvedParams.slug}`;
+    ? `${SITE_URL}/${stateUf}/${business.city?.slug || resolvedParams.city || 'cidade'}/${business.neighborhood?.slug || resolvedParams.neighborhood || 'bairro'}/${business.slug}`
+    : `${SITE_URL}/${stateUf}/${resolvedParams.city}/${resolvedParams.neighborhood}/${resolvedParams.slug}`;
 
   // Structured Data Schema.org (LocalBusiness & BreadcrumbList)
   const jsonLd = business
@@ -114,7 +133,7 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
           '@type': 'PostalAddress',
           streetAddress: `${business.address || ''}, ${business.number || ''}`,
           addressLocality: neighborhoodName,
-          addressRegion: business.state_id,
+          addressRegion: (business.state_id || resolvedParams.state || 'SP').toUpperCase(),
           postalCode: business.postal_code || '08400-000',
           addressCountry: 'BR',
         },
@@ -146,7 +165,7 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
         '@type': 'ListItem',
         position: 3,
         name: neighborhoodName,
-        item: `${SITE_URL}/${resolvedParams.state}/${resolvedParams.city}/${resolvedParams.neighborhood}`,
+        item: `${SITE_URL}/${stateUf}/${business?.city?.slug || resolvedParams.city || 'cidade'}/${business?.neighborhood?.slug || resolvedParams.neighborhood || 'bairro'}`,
       },
       {
         '@type': 'ListItem',

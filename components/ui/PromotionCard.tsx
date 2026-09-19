@@ -61,7 +61,7 @@ export const PromotionCard: React.FC<PromotionCardProps> = ({ promotion }) => {
           </span>
           <div className="flex items-center gap-1 text-[#4FA6A6] mt-0.5 text-[11px] font-semibold">
             <MapPin className="w-3.5 h-3.5 text-[#F49C6B]" />
-            <span>{promotion.neighborhood_name || 'Guaianases'}</span>
+            <span>{promotion.neighborhood_name || 'Comércio Local'}</span>
           </div>
         </div>
       </div>

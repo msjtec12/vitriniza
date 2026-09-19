@@ -13,7 +13,7 @@ interface RecommendBusinessModalProps {
 export const RecommendBusinessModal: React.FC<RecommendBusinessModalProps> = ({
   isOpen,
   onClose,
-  defaultNeighborhood = 'Guaianases',
+  defaultNeighborhood = '',
 }) => {
   const [form, setForm] = useState({
     businessName: '',
@@ -69,7 +69,7 @@ export const RecommendBusinessModal: React.FC<RecommendBusinessModalProps> = ({
             <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto" />
             <h3 className="font-black text-xl text-[#0E3B43]">Indicação Enviada!</h3>
             <p className="text-xs text-[#537379]">
-              Obrigado por ajudar a fortalecer o comércio de Guaianases! Vamos entrar em contato com o estabelecimento.
+              Obrigado por ajudar a fortalecer o comércio local! Vamos entrar em contato com o estabelecimento.
             </p>
           </div>
         ) : (
@@ -81,7 +81,7 @@ export const RecommendBusinessModal: React.FC<RecommendBusinessModalProps> = ({
               </div>
               <h3 className="font-black text-2xl text-[#0E3B43]">Indicar um Negócio</h3>
               <p className="text-xs text-[#537379] leading-relaxed">
-                Conhece um restaurante, salão, encanador ou loja de Guaianases que deveria estar na Vitriniza? Indique abaixo!
+                Conhece um restaurante, salão, profissional ou loja que deveria estar na Vitriniza? Indique abaixo!
               </p>
             </div>
 
@@ -123,12 +123,12 @@ export const RecommendBusinessModal: React.FC<RecommendBusinessModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro / Cidade</label>
                   <input
                     type="text"
                     value={form.neighborhoodName}
                     onChange={(e) => setForm({ ...form, neighborhoodName: e.target.value })}
-                    placeholder="Guaianases"
+                    placeholder="Ex: Centro, Moema, Copacabana..."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] bg-[#F8F6F0]"
                   />
                 </div>

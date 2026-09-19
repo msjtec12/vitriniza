@@ -14,13 +14,24 @@ import { SearchBar } from '@/components/ui/SearchBar';
 
 export default function NeighborhoodHubPage() {
   const params = useParams();
-  const neighborhoodSlug = (params.neighborhood as string) || 'guaianases';
+  const neighborhoodSlug = (params.neighborhood as string) || '';
+  const citySlug = (params.city as string) || '';
+  const stateUf = ((params.state as string) || 'sp').toUpperCase();
+
+  const formatSlugName = (slug: string) => {
+    if (!slug) return '';
+    return slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [neighborhoodName, setNeighborhoodName] = useState('Guaianases');
+  const [neighborhoodName, setNeighborhoodName] = useState(() => formatSlugName(neighborhoodSlug) || 'Bairro');
+  const cityName = formatSlugName(citySlug) || 'São Paulo';
 
   useEffect(() => {
     const neighs = store.getNeighborhoods();
@@ -43,7 +54,7 @@ export default function NeighborhoodHubPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-xs text-[#537379] flex items-center gap-1.5 font-medium">
           <Link href="/" className="hover:text-[#E36845] transition-colors">Início</Link>
           <ChevronRight className="w-3 h-3" />
-          <Link href="/buscar" className="hover:text-[#E36845] transition-colors">São Paulo</Link>
+          <Link href="/buscar" className="hover:text-[#E36845] transition-colors">{cityName} ({stateUf})</Link>
           <ChevronRight className="w-3 h-3" />
           <span className="font-bold text-[#0E3B43]">{neighborhoodName}</span>
         </div>
