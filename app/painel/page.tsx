@@ -219,6 +219,7 @@ export default function MerchantPanelPage() {
 
   // Product modal
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -226,10 +227,12 @@ export default function MerchantPanelPage() {
     promo_price: '',
     category: '',
     image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+    is_available: true,
   });
 
   // Promotion modal
   const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
+  const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [promoForm, setPromoForm] = useState({
     title: '',
     description: '',
@@ -427,31 +430,8 @@ export default function MerchantPanelPage() {
     handleSaveAllChanges();
   };
 
-  const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!business || !supabase || !productForm.name || !productForm.price) return;
-
-    const { error } = await supabase.from('products').insert({
-      id: `prod_${crypto.randomUUID()}`,
-      business_id: business.id,
-      name: productForm.name.trim(),
-      description: productForm.description.trim(),
-      price: parseFloat(productForm.price),
-      promo_price: productForm.promo_price ? parseFloat(productForm.promo_price) : null,
-      category: productForm.category.trim() || 'Geral',
-      image_url: productForm.image_url,
-      is_available: true,
-      order_index: (business.products?.length || 0) + 1,
-    });
-    if (error) {
-      showToast('Não foi possível adicionar o item. Verifique sua assinatura e tente novamente.', 'error');
-      return;
-    }
-
-    await store.ensureCloudSynced(true);
-    loadActiveBusiness();
-
-    setIsProductModalOpen(false);
+  const handleOpenAddProduct = () => {
+    setEditingProduct(null);
     setProductForm({
       name: '',
       description: '',
@@ -459,48 +439,234 @@ export default function MerchantPanelPage() {
       promo_price: '',
       category: '',
       image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+      is_available: true,
     });
-    showToast('Item adicionado com sucesso ao seu catálogo!', 'success');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (p: Product) => {
+    setEditingProduct(p);
+    setProductForm({
+      name: p.name,
+      description: p.description || '',
+      price: p.price ? p.price.toString() : '',
+      promo_price: p.promo_price ? p.promo_price.toString() : '',
+      category: p.category || '',
+      image_url: p.image_url || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+      is_available: p.is_available !== false,
+    });
+    setIsProductModalOpen(true);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!business || !productForm.name || !productForm.price) return;
+
+    const parsedPrice = parseFloat(productForm.price);
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      showToast('Por favor, informe um preço válido.', 'error');
+      return;
+    }
+
+    const promoPrice = productForm.promo_price ? parseFloat(productForm.promo_price) : null;
+
+    if (editingProduct) {
+      let saved = false;
+
+      // 1. Try secure API route
+      try {
+        const res = await fetch('/api/merchant/products', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+          body: JSON.stringify({
+            businessId: business.id,
+            productId: editingProduct.id,
+            updates: {
+              name: productForm.name.trim(),
+              description: productForm.description.trim(),
+              price: parsedPrice,
+              promo_price: promoPrice,
+              category: productForm.category.trim() || 'Geral',
+              image_url: productForm.image_url,
+              is_available: productForm.is_available,
+            },
+          }),
+        });
+        const json = await res.json();
+        if (res.ok && json.success) saved = true;
+      } catch (err) {
+        console.warn('API update failed, trying direct Supabase', err);
+      }
+
+      // 2. Direct Supabase fallback
+      if (!saved && supabase) {
+        const { error } = await supabase
+          .from('products')
+          .update({
+            name: productForm.name.trim(),
+            description: productForm.description.trim(),
+            price: parsedPrice,
+            promo_price: promoPrice,
+            category: productForm.category.trim() || 'Geral',
+            image_url: productForm.image_url,
+            is_available: productForm.is_available,
+          })
+          .eq('id', editingProduct.id)
+          .eq('business_id', business.id);
+
+        if (!error) saved = true;
+      }
+
+      // 3. Local store update for instant reactivity
+      store.updateProduct(editingProduct.id, {
+        name: productForm.name.trim(),
+        description: productForm.description.trim(),
+        price: parsedPrice,
+        promo_price: promoPrice || undefined,
+        category: productForm.category.trim() || 'Geral',
+        image_url: productForm.image_url,
+        is_available: productForm.is_available,
+      });
+
+      await store.ensureCloudSynced(true);
+      loadActiveBusiness();
+      setIsProductModalOpen(false);
+      setEditingProduct(null);
+      showToast('Item atualizado com sucesso!', 'success');
+    } else {
+      const newId = `prod_${crypto.randomUUID()}`;
+      let created = false;
+
+      // 1. Try secure API route
+      try {
+        const res = await fetch('/api/merchant/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+          body: JSON.stringify({
+            businessId: business.id,
+            product: {
+              name: productForm.name.trim(),
+              description: productForm.description.trim(),
+              price: parsedPrice,
+              promo_price: promoPrice,
+              category: productForm.category.trim() || 'Geral',
+              image_url: productForm.image_url,
+              is_available: productForm.is_available,
+              order_index: (business.products?.length || 0) + 1,
+            },
+          }),
+        });
+        const json = await res.json();
+        if (res.ok && json.success) created = true;
+      } catch (err) {
+        console.warn('API add failed, trying direct Supabase', err);
+      }
+
+      // 2. Direct Supabase fallback
+      if (!created && supabase) {
+        const { error } = await supabase.from('products').insert({
+          id: newId,
+          business_id: business.id,
+          name: productForm.name.trim(),
+          description: productForm.description.trim(),
+          price: parsedPrice,
+          promo_price: promoPrice,
+          category: productForm.category.trim() || 'Geral',
+          image_url: productForm.image_url,
+          is_available: productForm.is_available,
+          order_index: (business.products?.length || 0) + 1,
+        });
+        if (!error) created = true;
+      }
+
+      // 3. Local store add for instant reactivity
+      store.createProduct({
+        id: newId,
+        business_id: business.id,
+        name: productForm.name.trim(),
+        description: productForm.description.trim(),
+        price: parsedPrice,
+        promo_price: promoPrice || undefined,
+        category: productForm.category.trim() || 'Geral',
+        image_url: productForm.image_url,
+        is_available: productForm.is_available,
+        order_index: (business.products?.length || 0) + 1,
+      });
+
+      await store.ensureCloudSynced(true);
+      loadActiveBusiness();
+      setIsProductModalOpen(false);
+      showToast('Item adicionado com sucesso ao seu catálogo!', 'success');
+    }
+
+    setProductForm({
+      name: '',
+      description: '',
+      price: '',
+      promo_price: '',
+      category: '',
+      image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+      is_available: true,
+    });
   };
 
   const handleDeleteProduct = async (prodId: string) => {
-    if (!business || !supabase) return;
-    const { error } = await supabase.from('products').delete().eq('id', prodId).eq('business_id', business.id);
-    if (error) {
-      showToast('Não foi possível remover o item.', 'error');
-      return;
+    if (!business) return;
+    if (!window.confirm('Tem certeza que deseja remover este item do catálogo?')) return;
+
+    try {
+      await fetch('/api/merchant/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ businessId: business.id, productId: prodId }),
+      });
+    } catch {
+      // Fallback
     }
+
+    if (supabase) {
+      await supabase.from('products').delete().eq('id', prodId).eq('business_id', business.id);
+    }
+
+    store.deleteProduct(prodId);
     await store.ensureCloudSynced(true);
     loadActiveBusiness();
     showToast('Item removido do catálogo.', 'info');
   };
 
-  const handleAddPromotion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!business || !supabase || !promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
+  const handleToggleProductAvailability = async (p: Product) => {
+    if (!business) return;
+    const nextState = !p.is_available;
 
-    const { error } = await supabase.from('promotions').insert({
-      id: `promo_${crypto.randomUUID()}`,
-      business_id: business.id,
-      title: promoForm.title.trim(),
-      description: promoForm.description.trim() || promoForm.title.trim(),
-      original_price: parseFloat(promoForm.original_price),
-      promo_price: parseFloat(promoForm.promo_price),
-      starts_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-      rules: promoForm.rules,
-      image_url: promoForm.image_url,
-      is_active: true,
-    });
-    if (error) {
-      showToast('Não foi possível publicar a oferta. Verifique sua assinatura e tente novamente.', 'error');
-      return;
+    try {
+      await fetch('/api/merchant/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({
+          businessId: business.id,
+          productId: p.id,
+          updates: { is_available: nextState },
+        }),
+      });
+    } catch {
+      // Fallback
     }
 
-    await store.ensureCloudSynced(true);
-    loadActiveBusiness();
+    if (supabase) {
+      await supabase
+        .from('products')
+        .update({ is_available: nextState })
+        .eq('id', p.id)
+        .eq('business_id', business.id);
+    }
 
-    setIsPromoModalOpen(false);
+    store.updateProduct(p.id, { is_available: nextState });
+    loadActiveBusiness();
+    showToast(nextState ? 'Item marcado como disponível.' : 'Item pausado / indisponível.', 'info');
+  };
+
+  const handleOpenAddPromotion = () => {
+    setEditingPromotion(null);
     setPromoForm({
       title: '',
       description: '',
@@ -509,18 +675,107 @@ export default function MerchantPanelPage() {
       rules: 'Válido enquanto durarem os estoques.',
       image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
     });
-    showToast('Oferta publicada com sucesso na Vitriniza!', 'success');
+    setIsPromoModalOpen(true);
+  };
+
+  const handleOpenEditPromotion = (pr: Promotion) => {
+    setEditingPromotion(pr);
+    setPromoForm({
+      title: pr.title,
+      description: pr.description || '',
+      original_price: pr.original_price ? pr.original_price.toString() : '',
+      promo_price: pr.promo_price ? pr.promo_price.toString() : '',
+      rules: pr.rules || 'Válido enquanto durarem os estoques.',
+      image_url: pr.image_url || 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+    });
+    setIsPromoModalOpen(true);
+  };
+
+  const handleSavePromotion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!business || !supabase || !promoForm.title || !promoForm.original_price || !promoForm.promo_price) return;
+
+    const originalPrice = parseFloat(promoForm.original_price);
+    const promoPrice = parseFloat(promoForm.promo_price);
+    if (Number.isNaN(originalPrice) || Number.isNaN(promoPrice)) {
+      showToast('Por favor, informe preços válidos.', 'error');
+      return;
+    }
+
+    if (editingPromotion) {
+      const { error } = await supabase
+        .from('promotions')
+        .update({
+          title: promoForm.title.trim(),
+          description: promoForm.description.trim() || promoForm.title.trim(),
+          original_price: originalPrice,
+          promo_price: promoPrice,
+          rules: promoForm.rules,
+          image_url: promoForm.image_url,
+        })
+        .eq('id', editingPromotion.id)
+        .eq('business_id', business.id);
+
+      if (error) {
+        showToast('Não foi possível salvar as alterações da oferta.', 'error');
+        return;
+      }
+      store.updatePromotion(editingPromotion.id, {
+        title: promoForm.title.trim(),
+        description: promoForm.description.trim() || promoForm.title.trim(),
+        original_price: originalPrice,
+        promo_price: promoPrice,
+        rules: promoForm.rules,
+        image_url: promoForm.image_url,
+      });
+      showToast('Oferta atualizada com sucesso!', 'success');
+    } else {
+      const newId = `promo_${crypto.randomUUID()}`;
+      const { error } = await supabase.from('promotions').insert({
+        id: newId,
+        business_id: business.id,
+        title: promoForm.title.trim(),
+        description: promoForm.description.trim() || promoForm.title.trim(),
+        original_price: originalPrice,
+        promo_price: promoPrice,
+        starts_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        rules: promoForm.rules,
+        image_url: promoForm.image_url,
+        is_active: true,
+      });
+
+      if (error) {
+        showToast('Não foi possível publicar a oferta. Verifique sua assinatura e tente novamente.', 'error');
+        return;
+      }
+      showToast('Oferta publicada com sucesso na Vitriniza!', 'success');
+    }
+
+    await store.ensureCloudSynced(true);
+    loadActiveBusiness();
+
+    setIsPromoModalOpen(false);
+    setEditingPromotion(null);
+    setPromoForm({
+      title: '',
+      description: '',
+      original_price: '',
+      promo_price: '',
+      rules: 'Válido enquanto durarem os estoques.',
+      image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
+    });
   };
 
   const handleDeletePromotion = async (promoId: string) => {
     if (!business || !supabase) return;
+    if (!window.confirm('Deseja realmente encerrar esta oferta?')) return;
     const { error } = await supabase.from('promotions').delete().eq('id', promoId).eq('business_id', business.id);
     if (error) {
       showToast('Não foi possível encerrar a oferta.', 'error');
       return;
     }
     await store.ensureCloudSynced(true);
-    loadActiveBusiness();
     showToast('Oferta encerrada.', 'info');
   };
 
@@ -1454,12 +1709,12 @@ export default function MerchantPanelPage() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h3 className="font-black text-xl text-[#0E3B43]">{catalogLabel}</h3>
-                    <p className="text-xs text-[#537379]">Adicione itens, fotos e preços para seus clientes</p>
+                    <p className="text-xs text-[#537379]">Adicione e edite itens, fotos e preços exibidos na sua vitrine</p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setIsProductModalOpen(true)}
+                    onClick={handleOpenAddProduct}
                     className="px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[44px]"
                   >
                     <Plus className="w-4 h-4 text-[#4FA6A6]" />
@@ -1470,22 +1725,74 @@ export default function MerchantPanelPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {business.products && business.products.length > 0 ? (
                     business.products.map((p) => (
-                      <div key={p.id} className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-[#E8E4DA]">
+                      <div
+                        key={p.id}
+                        className={`p-4 rounded-2xl bg-[#F8F6F0] border transition-all flex items-center gap-3 ${
+                          p.is_available === false ? 'opacity-60 border-stone-300' : 'border-[#E8E4DA]'
+                        }`}
+                      >
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0 border border-[#E8E4DA] relative">
                           <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                          {p.is_available === false && (
+                            <span className="absolute inset-0 bg-black/40 flex items-center justify-center text-[10px] font-black text-white uppercase tracking-wider">
+                              Pausado
+                            </span>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-black text-xs text-[#0E3B43] truncate">{p.name}</h4>
-                          <span className="font-black text-sm text-[#E36845]">{formatCurrency(p.price)}</span>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-black text-xs text-[#0E3B43] truncate">{p.name}</h4>
+                            {p.is_available === false && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                                Pausado
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-black text-sm text-[#E36845]">{formatCurrency(p.price)}</span>
+                            {p.promo_price && (
+                              <span className="text-[11px] text-stone-400 line-through">
+                                {formatCurrency(p.promo_price)}
+                              </span>
+                            )}
+                          </div>
+                          {p.description && (
+                            <p className="text-[11px] text-[#537379] line-clamp-1 truncate mt-0.5">
+                              {p.description}
+                            </p>
+                          )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteProduct(p.id)}
-                          className="p-2.5 rounded-xl text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer min-h-[40px]"
-                          title="Excluir item"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleProductAvailability(p)}
+                            className={`p-2 rounded-xl border transition-colors cursor-pointer min-h-[38px] ${
+                              p.is_available === false
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                : 'bg-white text-stone-400 border-[#E8E4DA] hover:text-[#0E3B43]'
+                            }`}
+                            title={p.is_available === false ? 'Reativar item no catálogo' : 'Pausar temporariamente'}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditProduct(p)}
+                            className="p-2 rounded-xl bg-white border border-[#E8E4DA] text-[#0E3B43] hover:bg-[#0E3B43] hover:text-white transition-all cursor-pointer min-h-[38px]"
+                            title="Editar item"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="p-2 rounded-xl bg-white border border-[#E8E4DA] text-stone-400 hover:text-red-500 hover:border-red-200 transition-colors cursor-pointer min-h-[38px]"
+                            title="Excluir item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -1512,7 +1819,7 @@ export default function MerchantPanelPage() {
 
                   <button
                     type="button"
-                    onClick={() => setIsPromoModalOpen(true)}
+                    onClick={handleOpenAddPromotion}
                     className="px-4 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[44px]"
                   >
                     <Flame className="w-4 h-4" />
@@ -1537,13 +1844,23 @@ export default function MerchantPanelPage() {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePromotion(pr.id)}
-                          className="px-3.5 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-red-500 hover:bg-red-50 cursor-pointer min-h-[38px]"
-                        >
-                          Encerrar Oferta
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditPromotion(pr)}
+                            className="px-3.5 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer min-h-[38px] flex items-center gap-1.5"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePromotion(pr.id)}
+                            className="px-3.5 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-red-500 hover:bg-red-50 cursor-pointer min-h-[38px]"
+                          >
+                            Encerrar
+                          </button>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -1733,18 +2050,22 @@ export default function MerchantPanelPage() {
           >
             <div className="flex items-center justify-between">
               <h3 className="font-black text-lg text-[#0E3B43]">
-                Adicionar {catalogLabel === 'Cardápio' ? 'Item ao Cardápio' : catalogLabel === 'Serviços' ? 'Serviço' : 'Produto'}
+                {editingProduct ? 'Editar ' : 'Adicionar '}
+                {catalogLabel === 'Cardápio' ? 'Item do Cardápio' : catalogLabel === 'Serviços' ? 'Serviço' : 'Produto'}
               </h3>
               <button
                 type="button"
-                onClick={() => setIsProductModalOpen(false)}
+                onClick={() => {
+                  setIsProductModalOpen(false);
+                  setEditingProduct(null);
+                }}
                 className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer min-h-[36px]"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleAddProduct} className="space-y-4">
+            <form onSubmit={handleSaveProduct} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Item *</label>
                 <input
@@ -1811,6 +2132,17 @@ export default function MerchantPanelPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-[#0E3B43] mb-1">Categoria ou Seção (Opcional)</label>
+                <input
+                  type="text"
+                  value={productForm.category}
+                  onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                  placeholder="Ex: Pizzas Salgadas, Bebidas, Cortes de Cabelo..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição / Ingredientes</label>
                 <textarea
                   rows={2}
@@ -1821,10 +2153,27 @@ export default function MerchantPanelPage() {
                 />
               </div>
 
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={productForm.is_available}
+                    onChange={(e) => setProductForm({ ...productForm, is_available: e.target.checked })}
+                    className="rounded text-[#E36845] focus:ring-[#E36845] h-4 w-4"
+                  />
+                  <span className="text-xs font-bold text-[#0E3B43]">
+                    Item disponível para os clientes (ativo na vitrine)
+                  </span>
+                </label>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsProductModalOpen(false)}
+                  onClick={() => {
+                    setIsProductModalOpen(false);
+                    setEditingProduct(null);
+                  }}
                   className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer min-h-[44px]"
                 >
                   Cancelar
@@ -1833,7 +2182,7 @@ export default function MerchantPanelPage() {
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer min-h-[44px]"
                 >
-                  Salvar Item
+                  {editingProduct ? 'Salvar Alterações' : 'Adicionar ao Catálogo'}
                 </button>
               </div>
             </form>
@@ -1845,7 +2194,10 @@ export default function MerchantPanelPage() {
       {isPromoModalOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
-          onClick={() => setIsPromoModalOpen(false)}
+          onClick={() => {
+            setIsPromoModalOpen(false);
+            setEditingPromotion(null);
+          }}
         >
           <div
             className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 border border-[#4FA6A6]/20 shadow-2xl animate-fade-in cursor-default"
@@ -1854,18 +2206,21 @@ export default function MerchantPanelPage() {
             <div className="flex items-center justify-between">
               <h3 className="font-black text-lg text-[#0E3B43] flex items-center gap-2">
                 <Flame className="w-5 h-5 text-[#E36845]" />
-                <span>Criar Oferta Especial 🔥</span>
+                <span>{editingPromotion ? 'Editar Oferta Especial' : 'Criar Oferta Especial 🔥'}</span>
               </h3>
               <button
                 type="button"
-                onClick={() => setIsPromoModalOpen(false)}
+                onClick={() => {
+                  setIsPromoModalOpen(false);
+                  setEditingPromotion(null);
+                }}
                 className="p-2 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer min-h-[36px]"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleAddPromotion} className="space-y-4">
+            <form onSubmit={handleSavePromotion} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#0E3B43] mb-1">Título da Oferta *</label>
                 <input
@@ -1946,7 +2301,10 @@ export default function MerchantPanelPage() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsPromoModalOpen(false)}
+                  onClick={() => {
+                    setIsPromoModalOpen(false);
+                    setEditingPromotion(null);
+                  }}
                   className="px-4 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#537379] hover:bg-stone-50 cursor-pointer min-h-[44px]"
                 >
                   Cancelar
@@ -1955,7 +2313,7 @@ export default function MerchantPanelPage() {
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-xs font-black shadow-md transition-all cursor-pointer min-h-[44px]"
                 >
-                  Publicar Oferta 🔥
+                  {editingPromotion ? 'Salvar Alterações' : 'Publicar Oferta 🔥'}
                 </button>
               </div>
             </form>
