@@ -77,7 +77,7 @@ export default function MerchantPanelPage() {
   const handleImageFileUpload = async (
     file: File,
     callback: (publicUrl: string) => void,
-    folder: 'profile' | 'products' | 'promotions'
+    folder: 'profile' | 'products' | 'promotions' | 'logos' | 'covers' = 'profile'
   ) => {
     if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
       showToast('Selecione uma imagem PNG, JPG ou WEBP.', 'error');
@@ -93,6 +93,35 @@ export default function MerchantPanelPage() {
     }
 
     try {
+      showToast('Processando e enviando imagem...', 'info');
+
+      // 1. Tentar upload via API segura do backend (/api/merchant/upload)
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('businessId', business.id);
+        formData.append('folder', folder === 'profile' ? 'logos' : folder);
+
+        const authHeaders = await getAuthHeaders();
+        const response = await fetch('/api/merchant/upload', {
+          method: 'POST',
+          headers: { ...authHeaders },
+          body: formData,
+        });
+
+        if (response.ok) {
+          const resJson = (await response.json()) as { success?: boolean; url?: string; error?: string };
+          if (resJson.success && resJson.url) {
+            callback(resJson.url);
+            showToast('✓ Imagem enviada com sucesso!', 'success');
+            return;
+          }
+        }
+      } catch (backendUploadErr) {
+        console.warn('[Backend upload attempt failed, trying fallback]', backendUploadErr);
+      }
+
+      // 2. Fallback de compressão no cliente
       const rawDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
@@ -129,18 +158,29 @@ export default function MerchantPanelPage() {
         canvas.toBlob(
           (result) => (result ? resolve(result) : reject(new Error('Falha ao compactar a imagem.'))),
           'image/jpeg',
-          0.8
+          0.85
         );
       });
 
-      const path = `${business.id}/${folder}/${crypto.randomUUID()}.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from('business-media')
-        .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-      if (uploadError) throw uploadError;
+      if (supabase) {
+        const path = `${business.id}/${folder}/${crypto.randomUUID()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('business-media')
+          .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
 
-      const { data } = supabase.storage.from('business-media').getPublicUrl(path);
-      callback(data.publicUrl);
+        if (!uploadError) {
+          const { data } = supabase.storage.from('business-media').getPublicUrl(path);
+          if (data?.publicUrl) {
+            callback(data.publicUrl);
+            showToast('✓ Imagem enviada com sucesso!', 'success');
+            return;
+          }
+        }
+      }
+
+      // Se nenhum storage funcionou, usa a URL em base64 segura para não perder a foto
+      callback(rawDataUrl);
+      showToast('✓ Imagem carregada localmente!', 'success');
     } catch (error: unknown) {
       showToast(error instanceof Error ? error.message : 'Falha ao enviar imagem.', 'error');
     }
@@ -178,12 +218,12 @@ export default function MerchantPanelPage() {
     const res = await fetchAddressByCep(cleanCep);
     setCepLoading(false);
     if (res) {
-      const matchedNeigh = store.ensureNeighborhood(res.bairro || 'São Paulo');
+      const loc = store.ensureLocation(res.bairro || 'Centro', res.localidade || 'São Paulo', res.uf || 'SP');
       setProfileForm((prev) => ({
         ...prev,
-        address: `${res.logradouro}, ${res.bairro} - ${res.localidade}/${res.uf}`,
+        address: `${res.logradouro ? res.logradouro + ', ' : ''}${res.bairro} - ${res.localidade}/${res.uf}`,
         postal_code: res.cep,
-        neighborhood_id: matchedNeigh.id,
+        neighborhood_id: loc.neighborhood.id,
       }));
       setCepMsg({
         text: `✓ CEP Localizado: ${res.logradouro}, Bairro ${res.bairro} (${res.localidade} - ${res.uf})`,

@@ -112,13 +112,16 @@ export default function MasterAdminPage() {
   // Manual business form
   const [createForm, setCreateForm] = useState({
     name: '',
-    category_id: '1',
-    neighborhood_id: '1',
+    category_id: '',
+    neighborhood_id: '',
+    neighborhood_name: '',
+    city_name: '',
+    state_uf: '',
     address: '',
     number: '',
-    postal_code: '08410-000',
-    phone: '1125550000',
-    whatsapp: '11999990000',
+    postal_code: '',
+    phone: '',
+    whatsapp: '',
     short_description: '',
     description: '',
     listing_type: 'local_free' as ListingType,
@@ -127,6 +130,8 @@ export default function MasterAdminPage() {
     owner_password: '',
     owner_password_confirmation: '',
   });
+  const [createCepLoading, setCreateCepLoading] = useState(false);
+  const [createCepMsg, setCreateCepMsg] = useState<{ text: string; success: boolean } | null>(null);
 
   // Modal: Convert to Pro
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
@@ -272,8 +277,7 @@ export default function MasterAdminPage() {
 
     setCreateForm((prev) => ({
       ...prev,
-      category_id: prev.category_id === '1' && cats.length > 0 ? cats[0].id : prev.category_id,
-      neighborhood_id: prev.neighborhood_id === '1' && neighs.length > 0 ? neighs[0].id : prev.neighborhood_id,
+      category_id: !prev.category_id && cats.length > 0 ? cats[0].id : prev.category_id,
     }));
   };
 
@@ -375,6 +379,36 @@ export default function MasterAdminPage() {
     setIsConvertModalOpen(true);
   };
 
+  const handleCreateFormCepLookup = async (cepInput: string) => {
+    const cleanCep = cepInput.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setCreateCepMsg({ text: 'Digite os 8 dígitos do CEP para localizar o endereço.', success: false });
+      return;
+    }
+    setCreateCepLoading(true);
+    setCreateCepMsg(null);
+    const res = await fetchAddressByCep(cleanCep);
+    setCreateCepLoading(false);
+    if (res) {
+      const loc = store.ensureLocation(res.bairro || 'Centro', res.localidade || 'São Paulo', res.uf || 'SP');
+      setCreateForm((prev) => ({
+        ...prev,
+        postal_code: res.cep,
+        address: res.logradouro || prev.address,
+        neighborhood_id: loc.neighborhood.id,
+        neighborhood_name: loc.neighborhood.name,
+        city_name: loc.city.name,
+        state_uf: loc.stateId,
+      }));
+      setCreateCepMsg({
+        text: `✓ Endereço localizado: ${res.logradouro ? res.logradouro + ', ' : ''}Bairro ${res.bairro} (${res.localidade}/${res.uf})`,
+        success: true,
+      });
+    } else {
+      setCreateCepMsg({ text: '⚠️ CEP não encontrado. Preencha o endereço e o bairro manualmente.', success: false });
+    }
+  };
+
   const createProAccess = async (payload: {
     businessId: string;
     email: string;
@@ -389,6 +423,29 @@ export default function MasterAdminPage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
     if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente no painel Master.');
+
+    // 1. Tentar rota de API local Next.js
+    try {
+      const res = await fetch('/api/admin/create-pro-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const result = (await res.json()) as { success?: boolean; error?: string; accountCreated?: boolean };
+        if (result.success) {
+          return { accountCreated: Boolean(result.accountCreated) };
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[Local API create-pro-user failed, trying edge function fallback]', apiErr);
+    }
+
+    // 2. Fallback para edge function
     const { data, error } = await supabase.functions.invoke('create-pro-user', {
       body: payload,
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -518,7 +575,7 @@ export default function MasterAdminPage() {
       neighborhood_id: biz.neighborhood_id,
       address: biz.address,
       number: biz.number || '',
-      postal_code: biz.postal_code || '08410-000',
+      postal_code: biz.postal_code || '',
       phone: biz.phone,
       whatsapp: biz.whatsapp,
       instagram: biz.instagram || '',
@@ -534,6 +591,27 @@ export default function MasterAdminPage() {
       cover_url: biz.cover_url || '/logo.png',
     });
     setIsEditBizModalOpen(true);
+  };
+
+  const handleEditBizCepLookup = async (cepInput: string) => {
+    const cleanCep = cepInput.replace(/\D/g, '');
+    if (cleanCep.length !== 8) {
+      setEditBizCepMsg('Digite os 8 dígitos do CEP.');
+      return;
+    }
+    const res = await fetchAddressByCep(cleanCep);
+    if (res) {
+      const loc = store.ensureLocation(res.bairro || 'Centro', res.localidade || 'São Paulo', res.uf || 'SP');
+      setEditBizForm((prev) => ({
+        ...prev,
+        postal_code: res.cep,
+        address: res.logradouro || prev.address,
+        neighborhood_id: loc.neighborhood.id,
+      }));
+      setEditBizCepMsg(`✓ ${res.logradouro ? res.logradouro + ', ' : ''}Bairro ${res.bairro} (${res.localidade}/${res.uf})`);
+    } else {
+      setEditBizCepMsg('⚠️ CEP não localizado no ViaCEP.');
+    }
   };
 
   const handleSaveEditBiz = (e: React.FormEvent) => {
@@ -576,10 +654,18 @@ export default function MasterAdminPage() {
 
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createForm.name || !createForm.address) return;
+    if (!createForm.name || !createForm.address) {
+      alert('Preencha o nome e o endereço do estabelecimento.');
+      return;
+    }
 
     const matchingCat = categories.find((c) => c.id === createForm.category_id) || categories[0];
-    const matchingNeigh = neighborhoods.find((n) => n.id === createForm.neighborhood_id) || neighborhoods[0];
+    const loc = store.ensureLocation(
+      createForm.neighborhood_name || 'Centro',
+      createForm.city_name || 'São Paulo',
+      createForm.state_uf || 'SP'
+    );
+    const matchingNeigh = loc.neighborhood;
 
     const slug = createForm.name
       .toLowerCase()
@@ -604,9 +690,9 @@ export default function MasterAdminPage() {
       name: createForm.name,
       slug: slug || `comercio-${Date.now()}`,
       category_id: createForm.category_id || categories[0]?.id || 'cat-alimentacao',
-      neighborhood_id: createForm.neighborhood_id || neighborhoods[0]?.id || 'neigh-centro',
-      city_id: 'city-sp',
-      state_id: 'SP',
+      neighborhood_id: loc.neighborhood.id,
+      city_id: loc.city.id,
+      state_id: loc.stateId,
       address: createForm.address,
       number: createForm.number || 'S/N',
       postal_code: createForm.postal_code,
@@ -1551,40 +1637,136 @@ export default function MasterAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Bairro *</label>
-                  <select
-                    value={createForm.neighborhood_id}
-                    onChange={(e) => setCreateForm({ ...createForm, neighborhood_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] bg-white text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
-                  >
-                    {neighborhoods.map((n) => (
-                      <option key={n.id} value={n.id}>{n.name} (São Paulo)</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua/Av) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={createForm.address}
-                    onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
-                    placeholder="Rua Salvador Gianetti"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
                   <input
                     type="text"
                     required
                     value={createForm.whatsapp}
                     onChange={(e) => setCreateForm({ ...createForm, whatsapp: e.target.value })}
-                    placeholder="11999998888"
+                    placeholder="Ex: 11999998888"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
                   />
+                </div>
+
+                {/* Bloco de Endereço e CEP */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">
+                      CEP do Estabelecimento (preenchimento automático)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={createForm.postal_code}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCreateForm({ ...createForm, postal_code: val });
+                          if (val.replace(/\D/g, '').length === 8) {
+                            handleCreateFormCepLookup(val);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (createForm.postal_code.replace(/\D/g, '').length === 8) {
+                            handleCreateFormCepLookup(createForm.postal_code);
+                          }
+                        }}
+                        placeholder="Ex: 08410-000"
+                        maxLength={9}
+                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCreateFormCepLookup(createForm.postal_code)}
+                        disabled={createCepLoading}
+                        className="px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#1a5560] text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {createCepLoading ? 'Buscando...' : '🔍 Buscar CEP'}
+                      </button>
+                    </div>
+
+                    {createCepMsg && (
+                      <div
+                        className={cn(
+                          'mt-2 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5',
+                          createCepMsg.success
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        )}
+                      >
+                        <span>{createCepMsg.text}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua / Avenida) *</label>
+                      <input
+                        type="text"
+                        required
+                        value={createForm.address}
+                        onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
+                        placeholder="Ex: Rua Salvador Gianetti"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Número</label>
+                      <input
+                        type="text"
+                        value={createForm.number}
+                        onChange={(e) => setCreateForm({ ...createForm, number: e.target.value })}
+                        placeholder="Ex: 123 ou S/N"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">
+                        Bairro (definido pelo CEP) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={createForm.neighborhood_name}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setCreateForm((prev) => ({
+                            ...prev,
+                            neighborhood_name: name,
+                          }));
+                        }}
+                        placeholder="Preenchido via CEP ou digite"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Cidade</label>
+                      <input
+                        type="text"
+                        value={createForm.city_name || 'São Paulo'}
+                        onChange={(e) => setCreateForm({ ...createForm, city_name: e.target.value })}
+                        placeholder="Ex: São Paulo"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Estado (UF)</label>
+                      <input
+                        type="text"
+                        maxLength={2}
+                        value={createForm.state_uf || 'SP'}
+                        onChange={(e) => setCreateForm({ ...createForm, state_uf: e.target.value.toUpperCase() })}
+                        placeholder="SP"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white uppercase font-mono"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2003,7 +2185,42 @@ export default function MasterAdminPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço</label>
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP (ViaCEP)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={editBizForm.postal_code}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditBizForm({ ...editBizForm, postal_code: val });
+                        if (val.replace(/\D/g, '').length === 8) {
+                          handleEditBizCepLookup(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editBizForm.postal_code.replace(/\D/g, '').length === 8) {
+                          handleEditBizCepLookup(editBizForm.postal_code);
+                        }
+                      }}
+                      placeholder="Ex: 08410-000"
+                      maxLength={9}
+                      className="flex-1 px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleEditBizCepLookup(editBizForm.postal_code)}
+                      className="px-3 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold"
+                    >
+                      Buscar
+                    </button>
+                  </div>
+                  {editBizCepMsg && (
+                    <p className="mt-1 text-[11px] text-emerald-700 font-medium">{editBizCepMsg}</p>
+                  )}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua, Número, Bairro)</label>
                   <input
                     type="text"
                     value={editBizForm.address}

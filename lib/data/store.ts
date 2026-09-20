@@ -542,14 +542,32 @@ class VitrinizaStore {
         }
       }
 
-      // 2. Ensure Neighborhood exists in Supabase neighborhoods table first!
+      // 2. Ensure City and Neighborhood exist in Supabase tables first!
+      const city = biz.city || this.cities.find((c) => c.id === biz.city_id);
+      if (city) {
+        try {
+          await supabase.from('cities').upsert(
+            {
+              id: city.id,
+              state_id: city.state_id || biz.state_id || 'SP',
+              name: city.name,
+              slug: city.slug,
+              active: city.active ?? true,
+            },
+            { onConflict: 'id' }
+          );
+        } catch (cityErr) {
+          console.warn('[Supabase City Upsert Warning]', cityErr);
+        }
+      }
+
       const neigh = biz.neighborhood || this.neighborhoods.find((n) => n.id === biz.neighborhood_id);
       if (neigh) {
         try {
           await supabase.from('neighborhoods').upsert(
             {
               id: neigh.id,
-              city_id: neigh.city_id || 'city-sp',
+              city_id: neigh.city_id || city?.id || 'city-sp',
               name: neigh.name,
               slug: neigh.slug,
               active: neigh.active,
@@ -563,13 +581,13 @@ class VitrinizaStore {
         }
       }
 
-      const { category, neighborhood, city, products, promotions, is_online_only, ...clean } = biz;
+      const { category, neighborhood, city: _c, products, promotions, is_online_only, ...clean } = biz;
       const cleanBiz = {
         ...clean,
         category_id: clean.category_id || 'cat-alimentacao',
-        neighborhood_id: clean.neighborhood_id || 'neigh-guaianases',
-        city_id: clean.city_id || 'city-sp',
-        state_id: clean.state_id || 'SP',
+        neighborhood_id: clean.neighborhood_id || neigh?.id || 'neigh-centro',
+        city_id: clean.city_id || city?.id || 'city-sp',
+        state_id: clean.state_id || city?.state_id || 'SP',
       };
 
       const { error } = await supabase.from('businesses').upsert(cleanBiz, { onConflict: 'id' });
@@ -1036,6 +1054,83 @@ class VitrinizaStore {
     }
 
     return result;
+  }
+
+  public ensureLocation(
+    bairroName: string,
+    cityName: string = 'São Paulo',
+    stateUf: string = 'SP'
+  ): {
+    neighborhood: Neighborhood;
+    city: City;
+    stateId: string;
+  } {
+    this.ensureHydrated();
+
+    const cleanUf = (stateUf || 'SP').trim().toUpperCase().slice(0, 2);
+    const cleanCityName = (cityName || 'São Paulo').trim();
+    const citySlug =
+      cleanCityName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '') || 'sao-paulo';
+    const cityId = `city-${citySlug}`;
+
+    const existingCity = this.cities.find(
+      (c) => c.slug === citySlug || c.id === cityId || c.name.toLowerCase().trim() === cleanCityName.toLowerCase()
+    );
+
+    const finalCity: City = existingCity || {
+      id: cityId,
+      state_id: cleanUf,
+      name: cleanCityName,
+      slug: citySlug,
+      active: true,
+      is_featured: false,
+    };
+
+    if (!existingCity) {
+      this.cities.push(finalCity);
+      this.saveToStorage();
+    }
+
+    const cleanBairroName = (bairroName || 'Centro').trim();
+    const neighSlug =
+      cleanBairroName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '') || 'centro';
+    const neighId = `neigh-${neighSlug}`;
+
+    let neighborhood = this.neighborhoods.find(
+      (n) =>
+        (n.slug === neighSlug || n.id === neighId || n.name.toLowerCase().trim() === cleanBairroName.toLowerCase()) &&
+        (n.city_id === finalCity.id || !n.city_id)
+    );
+
+    if (!neighborhood) {
+      neighborhood = {
+        id: neighId,
+        city_id: finalCity.id,
+        name: cleanBairroName,
+        slug: neighSlug,
+        active: true,
+        is_featured: true,
+        order_index: this.neighborhoods.length + 1,
+      };
+      this.neighborhoods.push(neighborhood);
+      this.saveToStorage();
+    }
+
+    return {
+      neighborhood,
+      city: finalCity,
+      stateId: cleanUf,
+    };
   }
 
   public ensureNeighborhood(bairroName: string, cityId: string = 'city-sp'): Neighborhood {

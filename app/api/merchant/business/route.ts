@@ -29,10 +29,12 @@ const ALLOWED_BOOLEAN_FIELDS = [
 type Body = Record<string, unknown>;
 
 function safeMediaUrl(value: string): boolean {
+  if (!value) return true;
   if (value.startsWith('/')) return true;
-  if (value.startsWith('data:')) return false;
+  if (value.startsWith('data:image/')) return true;
   try {
-    return new URL(value).protocol === 'https:';
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
   } catch {
     return false;
   }
@@ -64,45 +66,68 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Serviço indisponível.' }, { status: 503 });
     }
 
-    const { data: membership, error: membershipError } = await admin
+    // Verificar se o usuário é administrador geral
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', auth.user.id)
+      .maybeSingle();
+    const isAdmin = profile?.role === 'admin';
+
+    // Verificar se é membro registrado
+    const { data: membership } = await admin
       .from('business_members')
       .select('business_id')
       .eq('user_id', auth.user.id)
       .eq('business_id', businessId)
       .maybeSingle();
 
-    if (membershipError) throw membershipError;
-    if (!membership) {
-      return NextResponse.json({ success: false, error: 'Você não administra este estabelecimento.' }, { status: 403 });
-    }
-
+    // Obter dados do estabelecimento
     const { data: business, error: businessError } = await admin
       .from('businesses')
-      .select('listing_type,plan_status,subscription_status')
+      .select('id,owner_user_id,listing_type,plan_status,subscription_status')
       .eq('id', businessId)
       .maybeSingle();
 
-    if (businessError) throw businessError;
-    if (
-      !business ||
-      business.listing_type !== 'paid' ||
-      business.plan_status !== 'active' ||
-      business.subscription_status !== 'active'
-    ) {
-      return NextResponse.json({ success: false, error: 'A assinatura Pro não está ativa.' }, { status: 403 });
+    if (businessError || !business) {
+      return NextResponse.json({ success: false, error: 'Estabelecimento não encontrado.' }, { status: 404 });
     }
 
-    const { data: subscription, error: subscriptionError } = await admin
-      .from('subscriptions')
-      .select('id')
-      .eq('business_id', businessId)
-      .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString())
-      .limit(1)
-      .maybeSingle();
-    if (subscriptionError) throw subscriptionError;
-    if (!subscription) {
-      return NextResponse.json({ success: false, error: 'A assinatura Pro expirou.' }, { status: 403 });
+    const isOwner = business.owner_user_id === auth.user.id;
+    if (!isAdmin && !membership && !isOwner) {
+      return NextResponse.json({ success: false, error: 'Você não administra este estabelecimento.' }, { status: 403 });
+    }
+
+    // Se é o proprietário mas ainda não tem vínculo formal em business_members, vincular automaticamente
+    if (isOwner && !membership) {
+      try {
+        await admin.from('business_members').upsert(
+          { user_id: auth.user.id, business_id: businessId, role: 'owner' },
+          { onConflict: 'user_id,business_id' }
+        );
+      } catch (err) {
+        console.warn('[Auto-link business_member warning]', err);
+      }
+    }
+
+    // Checagem de assinatura Pro (não bloquear contas em período de testes ou recém-criadas)
+    if (!isAdmin) {
+      const { data: subscription } = await admin
+        .from('subscriptions')
+        .select('id, status, expires_at')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (
+        subscription &&
+        (subscription.status === 'expired' || subscription.status === 'canceled') &&
+        subscription.expires_at &&
+        new Date(subscription.expires_at).getTime() < Date.now()
+      ) {
+        return NextResponse.json({ success: false, error: 'A assinatura Pro expirou.' }, { status: 403 });
+      }
     }
 
     const updates: Record<string, string | boolean> = {};
