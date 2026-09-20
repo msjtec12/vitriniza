@@ -10,6 +10,7 @@ import {
   DollarSign,
   TrendingUp,
   MessageCircle,
+  Phone,
   Eye,
   Plus,
   Search,
@@ -62,8 +63,18 @@ import {
   AuditLog,
   ListingType,
   SubscriptionStatus,
+  BusinessHour,
 } from '@/types';
-import { formatCurrency, formatPhone, cn, fetchAddressByCep, formatDatePtBr, buildWhatsAppUrl } from '@/lib/utils';
+import {
+  formatCurrency,
+  formatPhone,
+  cn,
+  fetchAddressByCep,
+  formatDatePtBr,
+  buildWhatsAppUrl,
+  DEFAULT_BUSINESS_HOURS,
+  DAY_NAMES,
+} from '@/lib/utils';
 import { WhatsAppSolidIcon } from '@/components/ui/Icons';
 import { supabase } from '@/lib/supabase/client';
 
@@ -122,6 +133,8 @@ export default function MasterAdminPage() {
     postal_code: '',
     phone: '',
     whatsapp: '',
+    instagram: '',
+    website: '',
     short_description: '',
     description: '',
     listing_type: 'local_free' as ListingType,
@@ -129,6 +142,13 @@ export default function MasterAdminPage() {
     owner_email: '',
     owner_password: '',
     owner_password_confirmation: '',
+    logo_url: '',
+    cover_url: '',
+    delivery_available: true,
+    takeaway_available: true,
+    dine_in_available: false,
+    is_online_only: false,
+    hours: DEFAULT_BUSINESS_HOURS as BusinessHour[],
   });
   const [createCepLoading, setCreateCepLoading] = useState(false);
   const [createCepMsg, setCreateCepMsg] = useState<{ text: string; success: boolean } | null>(null);
@@ -166,18 +186,22 @@ export default function MasterAdminPage() {
   // Modal: Edit Business
   const [isEditBizModalOpen, setIsEditBizModalOpen] = useState(false);
   const [editingBizId, setEditingBizId] = useState<string | null>(null);
+  const [editModalTab, setEditModalTab] = useState<'geral' | 'fotos' | 'canais' | 'horarios' | 'sobre'>('geral');
   const [editBizCepMsg, setEditBizCepMsg] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [editBizForm, setEditBizForm] = useState({
     name: '',
     category_id: '',
     neighborhood_id: '',
     address: '',
     number: '',
-    postal_code: '08410-000',
+    postal_code: '',
     phone: '',
     whatsapp: '',
     instagram: '',
+    website: '',
     short_description: '',
+    description: '',
     listing_type: 'local_free' as ListingType,
     plan_id: 'free' as PlanTier,
     is_active: true,
@@ -185,9 +209,64 @@ export default function MasterAdminPage() {
     is_verified: false,
     is_founder: false,
     is_online_only: false,
+    delivery_available: true,
+    takeaway_available: true,
+    dine_in_available: false,
     logo_url: '',
     cover_url: '',
+    hours: DEFAULT_BUSINESS_HOURS as BusinessHour[],
   });
+
+  const handleUploadImageFile = async (file: File, callback: (url: string) => void, bizId?: string) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const { data: sessionData } = (await supabase?.auth.getSession()) || {};
+      const token = sessionData?.session?.access_token;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('businessId', bizId || 'master-upload');
+      formData.append('folder', 'logos');
+
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/merchant/upload', {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (res.ok) {
+        const json = (await res.json()) as { success?: boolean; url?: string };
+        if (json.success && json.url) {
+          callback(json.url);
+          setUploadingImage(false);
+          return;
+        }
+      }
+
+      // Fallback: FileReader
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          callback(reader.result);
+        }
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          callback(reader.result);
+        }
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Events management state
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -576,10 +655,12 @@ export default function MasterAdminPage() {
       address: biz.address,
       number: biz.number || '',
       postal_code: biz.postal_code || '',
-      phone: biz.phone,
-      whatsapp: biz.whatsapp,
+      phone: biz.phone || '',
+      whatsapp: biz.whatsapp || '',
       instagram: biz.instagram || '',
+      website: biz.website || '',
       short_description: biz.short_description || '',
+      description: biz.description || '',
       listing_type: biz.listing_type || (biz.plan_id === 'free' ? 'local_free' : 'paid'),
       plan_id: biz.plan_id,
       is_active: biz.is_active,
@@ -587,8 +668,12 @@ export default function MasterAdminPage() {
       is_verified: biz.is_verified,
       is_founder: Boolean(biz.is_founder),
       is_online_only: Boolean(biz.is_online_only),
-      logo_url: biz.logo_url || '/logo.png',
-      cover_url: biz.cover_url || '/logo.png',
+      delivery_available: biz.delivery_available !== false,
+      takeaway_available: biz.takeaway_available !== false,
+      dine_in_available: Boolean(biz.dine_in_available),
+      logo_url: biz.logo_url || '',
+      cover_url: biz.cover_url || '',
+      hours: biz.hours && biz.hours.length > 0 ? biz.hours : (DEFAULT_BUSINESS_HOURS as BusinessHour[]),
     });
     setIsEditBizModalOpen(true);
   };
@@ -614,7 +699,7 @@ export default function MasterAdminPage() {
     }
   };
 
-  const handleSaveEditBiz = (e: React.FormEvent) => {
+  const handleSaveEditBiz = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBizId) return;
 
@@ -632,7 +717,9 @@ export default function MasterAdminPage() {
       phone: editBizForm.phone,
       whatsapp: editBizForm.whatsapp,
       instagram: editBizForm.instagram,
+      website: editBizForm.website,
       short_description: editBizForm.short_description,
+      description: editBizForm.description,
       listing_type: needsAccess ? currentBusiness.listing_type : editBizForm.listing_type,
       plan_id: needsAccess ? currentBusiness.plan_id : editBizForm.listing_type === 'paid' ? 'pro' : 'free',
       is_active: editBizForm.is_active,
@@ -640,11 +727,16 @@ export default function MasterAdminPage() {
       is_verified: editBizForm.is_verified,
       is_founder: editBizForm.is_founder,
       is_online_only: editBizForm.is_online_only,
-      logo_url: editBizForm.logo_url,
-      cover_url: editBizForm.cover_url,
+      delivery_available: editBizForm.delivery_available,
+      takeaway_available: editBizForm.takeaway_available,
+      dine_in_available: editBizForm.dine_in_available,
+      logo_url: editBizForm.logo_url || '/logo.png',
+      cover_url: editBizForm.cover_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
+      hours: editBizForm.hours,
     });
 
     store.logAudit('business_updated', editingBizId, editBizForm.name, { updated: editBizForm });
+    void store.persistBusinessToCloud(editingBizId);
     refreshData();
     setIsEditBizModalOpen(false);
     if (needsAccess && savedBusiness) {
@@ -696,8 +788,10 @@ export default function MasterAdminPage() {
       address: createForm.address,
       number: createForm.number || 'S/N',
       postal_code: createForm.postal_code,
-      phone: createForm.phone,
+      phone: createForm.phone || createForm.whatsapp,
       whatsapp: createForm.whatsapp,
+      instagram: createForm.instagram,
+      website: createForm.website,
       short_description: createForm.short_description || `${matchingCat?.name} em ${matchingNeigh?.name}`,
       description: createForm.description || createForm.short_description || `${matchingCat?.name} em ${matchingNeigh?.name}`,
       listing_type: 'local_free',
@@ -707,12 +801,14 @@ export default function MasterAdminPage() {
       is_active: true,
       is_verified: true,
       is_featured: false,
-      cover_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
-      logo_url: '/logo.png',
+      cover_url: createForm.cover_url || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
+      logo_url: createForm.logo_url || '/logo.png',
       payment_methods: ['Pix', 'Cartão de Crédito', 'Dinheiro'],
-      delivery_available: true,
-      takeaway_available: true,
-      dine_in_available: false,
+      delivery_available: createForm.delivery_available,
+      takeaway_available: createForm.takeaway_available,
+      dine_in_available: createForm.dine_in_available,
+      is_online_only: createForm.is_online_only,
+      hours: createForm.hours,
     });
 
     if (requestedPro) {
@@ -762,6 +858,35 @@ export default function MasterAdminPage() {
     }
 
     if (!requestedPro) alert(`✓ Estabelecimento "${newBiz.name}" cadastrado com sucesso!`);
+    setCreateForm({
+      name: '',
+      category_id: '',
+      neighborhood_id: '',
+      neighborhood_name: '',
+      city_name: '',
+      state_uf: '',
+      address: '',
+      number: '',
+      postal_code: '',
+      phone: '',
+      whatsapp: '',
+      instagram: '',
+      website: '',
+      short_description: '',
+      description: '',
+      listing_type: 'local_free',
+      owner_name: '',
+      owner_email: '',
+      owner_password: '',
+      owner_password_confirmation: '',
+      logo_url: '',
+      cover_url: '',
+      delivery_available: true,
+      takeaway_available: true,
+      dine_in_available: false,
+      is_online_only: false,
+      hours: DEFAULT_BUSINESS_HOURS as BusinessHour[],
+    });
     refreshData();
     setActiveTab('businesses');
   };
@@ -1636,16 +1761,71 @@ export default function MasterAdminPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
-                  <input
-                    type="text"
-                    required
-                    value={createForm.whatsapp}
-                    onChange={(e) => setCreateForm({ ...createForm, whatsapp: e.target.value })}
-                    placeholder="Ex: 11999998888"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-[#F8F6F0]"
-                  />
+                {/* Bloco de Canais de Atendimento */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-black text-[#0E3B43] block">Canais de Atendimento</span>
+                      <span className="text-[11px] text-[#537379]">O WhatsApp é o canal direto principal de interação do cliente.</span>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Principal */}
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/90 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
+                        <WhatsAppSolidIcon className="w-4 h-4 fill-emerald-600" />
+                        <span>WhatsApp para Atendimento *</span>
+                      </label>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">
+                        Canal Principal
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.whatsapp}
+                      onChange={(e) => setCreateForm({ ...createForm, whatsapp: e.target.value })}
+                      placeholder="Ex: 11999998888"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 text-sm font-bold text-[#0E3B43] outline-none bg-white font-mono"
+                    />
+                  </div>
+
+                  {/* Canais Complementares */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo / 2º Contato</label>
+                      <input
+                        type="text"
+                        value={createForm.phone}
+                        onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                        placeholder="Ex: 1125550000"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (Opcional)</label>
+                      <input
+                        type="text"
+                        value={createForm.instagram}
+                        onChange={(e) => setCreateForm({ ...createForm, instagram: e.target.value })}
+                        placeholder="Ex: @minhaloja"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Website (Opcional)</label>
+                      <input
+                        type="text"
+                        value={createForm.website}
+                        onChange={(e) => setCreateForm({ ...createForm, website: e.target.value })}
+                        placeholder="Ex: https://meusite.com.br"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Bloco de Endereço e CEP */}
@@ -1765,6 +1945,338 @@ export default function MasterAdminPage() {
                         placeholder="SP"
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-sm text-[#0E3B43] outline-none bg-white uppercase font-mono"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco de Fotos (Logo & Capa) Opcionais */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
+                  <div>
+                    <span className="text-xs font-black text-[#0E3B43] block">Identidade Visual (Opcional)</span>
+                    <span className="text-[11px] text-[#537379]">Você pode adicionar fotos agora ou deixar para o comerciante enviar.</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Logo */}
+                    <div className="p-3.5 rounded-xl bg-white border border-[#E8E4DA] space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#0E3B43]">Logotipo / Ícone (Opcional)</label>
+                        {createForm.logo_url && (
+                          <button
+                            type="button"
+                            onClick={() => setCreateForm({ ...createForm, logo_url: '' })}
+                            className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
+                          >
+                            Remover
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-xl border border-[#E8E4DA] overflow-hidden bg-stone-50 flex items-center justify-center shrink-0">
+                          {createForm.logo_url ? (
+                            <img src={createForm.logo_url} alt="Logo preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <Building className="w-5 h-5 text-stone-300" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 space-y-1">
+                          <label className="inline-flex px-3 py-1.5 rounded-xl bg-[#F8F6F0] hover:bg-stone-200/80 border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] cursor-pointer">
+                            <span>{uploadingImage ? 'Enviando...' : '📁 Escolher Foto'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingImage}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadImageFile(f, (url) => setCreateForm((prev) => ({ ...prev, logo_url: url })));
+                              }}
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={createForm.logo_url}
+                            onChange={(e) => setCreateForm({ ...createForm, logo_url: e.target.value })}
+                            placeholder="Ou cole o link da foto"
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-stone-50 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Capa */}
+                    <div className="p-3.5 rounded-xl bg-white border border-[#E8E4DA] space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#0E3B43]">Foto de Capa / Banner (Opcional)</label>
+                        {createForm.cover_url && (
+                          <button
+                            type="button"
+                            onClick={() => setCreateForm({ ...createForm, cover_url: '' })}
+                            className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
+                          >
+                            Remover
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="h-16 rounded-xl border border-[#E8E4DA] overflow-hidden bg-stone-800">
+                          {createForm.cover_url ? (
+                            <img src={createForm.cover_url} alt="Capa preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white/40 text-[11px]">
+                              Banner padrão será usado se vazio
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <label className="px-3 py-1.5 rounded-xl bg-[#F8F6F0] hover:bg-stone-200/80 border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] cursor-pointer shrink-0">
+                            <span>{uploadingImage ? 'Enviando...' : '📷 Enviar Banner'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingImage}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadImageFile(f, (url) => setCreateForm((prev) => ({ ...prev, cover_url: url })));
+                              }}
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={createForm.cover_url}
+                            onChange={(e) => setCreateForm({ ...createForm, cover_url: e.target.value })}
+                            placeholder="Ou link direto da capa"
+                            className="flex-1 px-2.5 py-1.5 rounded-lg border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-stone-50 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco de Horários de Funcionamento (Opcional) */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-black text-[#0E3B43] block">Horário de Funcionamento (Opcional)</span>
+                      <span className="text-[11px] text-[#537379]">Selecione um perfil pronto com 1 clique ou ajuste os horários:</span>
+                    </div>
+                  </div>
+
+                  {/* Predefinições Rápidas */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCreateForm({
+                          ...createForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '08:00', close_time: '12:00', is_closed: true },
+                            { day_of_week: 1, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 2, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 3, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 4, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 5, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 6, open_time: '08:00', close_time: '13:00', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      Comercial (8h às 18h)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCreateForm({
+                          ...createForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '09:00', close_time: '14:00', is_closed: true },
+                            { day_of_week: 1, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 2, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 3, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 4, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 5, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 6, open_time: '09:00', close_time: '19:00', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      Geral (Seg-Sáb 9h-19h)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCreateForm({
+                          ...createForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 1, open_time: '18:00', close_time: '23:30', is_closed: true },
+                            { day_of_week: 2, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 3, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 4, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 5, open_time: '18:00', close_time: '00:00', is_closed: false },
+                            { day_of_week: 6, open_time: '18:00', close_time: '00:00', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      Noturno (18h-23h30)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCreateForm({
+                          ...createForm,
+                          hours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+                            day_of_week: day,
+                            open_time: '00:00',
+                            close_time: '23:59',
+                            is_closed: false,
+                          })),
+                        })
+                      }
+                      className="p-2 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      24 Horas (Todos os dias)
+                    </button>
+                  </div>
+
+                  {/* Tabela dos 7 dias da semana */}
+                  <div className="bg-white rounded-xl border border-[#E8E4DA] divide-y divide-[#E8E4DA]/60 overflow-hidden">
+                    {createForm.hours.map((h, idx) => (
+                      <div key={h.day_of_week} className="p-2.5 flex items-center justify-between gap-3 text-xs">
+                        <div className="w-24 font-bold text-[#0E3B43]">
+                          {DAY_NAMES[h.day_of_week] || `Dia ${h.day_of_week}`}
+                        </div>
+
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-stone-600">
+                          <input
+                            type="checkbox"
+                            checked={!h.is_closed}
+                            onChange={(e) => {
+                              const updated = [...createForm.hours];
+                              updated[idx] = { ...updated[idx], is_closed: !e.target.checked };
+                              setCreateForm({ ...createForm, hours: updated });
+                            }}
+                            className="w-4 h-4 rounded text-[#4FA6A6]"
+                          />
+                          <span>{h.is_closed ? 'Fechado' : 'Aberto'}</span>
+                        </label>
+
+                        {!h.is_closed ? (
+                          <div className="flex items-center gap-1.5 font-mono">
+                            <input
+                              type="time"
+                              value={h.open_time}
+                              onChange={(e) => {
+                                const updated = [...createForm.hours];
+                                updated[idx] = { ...updated[idx], open_time: e.target.value };
+                                setCreateForm({ ...createForm, hours: updated });
+                              }}
+                              className="px-2 py-1 rounded-lg border border-[#E8E4DA] text-xs text-[#0E3B43] bg-stone-50"
+                            />
+                            <span className="text-stone-400">às</span>
+                            <input
+                              type="time"
+                              value={h.close_time}
+                              onChange={(e) => {
+                                const updated = [...createForm.hours];
+                                updated[idx] = { ...updated[idx], close_time: e.target.value };
+                                setCreateForm({ ...createForm, hours: updated });
+                              }}
+                              className="px-2 py-1 rounded-lg border border-[#E8E4DA] text-xs text-[#0E3B43] bg-stone-50"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-stone-400 text-xs italic">Não abre neste dia</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bloco de Sobre & Modalidades */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                  <div>
+                    <span className="text-xs font-black text-[#0E3B43] block">Sobre o Estabelecimento (Opcional)</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Curta / Slogan (Bio)</label>
+                    <input
+                      type="text"
+                      value={createForm.short_description}
+                      onChange={(e) => setCreateForm({ ...createForm, short_description: e.target.value })}
+                      placeholder="Ex: A melhor pizza artesanal com massa de fermentação natural."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Completa</label>
+                    <textarea
+                      rows={3}
+                      value={createForm.description}
+                      onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                      placeholder="Conte um pouco sobre o comércio, especialidades, formas de atendimento..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
+
+                  {/* Modalidades de Atendimento */}
+                  <div className="pt-2">
+                    <span className="text-xs font-bold text-[#0E3B43] block mb-2">Modalidades de Atendimento:</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-bold text-[#0E3B43]">
+                      <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-xl border border-[#E8E4DA]">
+                        <input
+                          type="checkbox"
+                          checked={createForm.delivery_available}
+                          onChange={(e) => setCreateForm({ ...createForm, delivery_available: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#E36845]"
+                        />
+                        <span>🛵 Delivery</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-xl border border-[#E8E4DA]">
+                        <input
+                          type="checkbox"
+                          checked={createForm.takeaway_available}
+                          onChange={(e) => setCreateForm({ ...createForm, takeaway_available: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#4FA6A6]"
+                        />
+                        <span>🥡 Balcão</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-xl border border-[#E8E4DA]">
+                        <input
+                          type="checkbox"
+                          checked={createForm.dine_in_available}
+                          onChange={(e) => setCreateForm({ ...createForm, dine_in_available: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#0E3B43]"
+                        />
+                        <span>🍽️ Presencial</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer bg-white p-2.5 rounded-xl border border-[#E8E4DA]">
+                        <input
+                          type="checkbox"
+                          checked={createForm.is_online_only}
+                          onChange={(e) => setCreateForm({ ...createForm, is_online_only: e.target.checked })}
+                          className="w-4 h-4 rounded text-blue-600"
+                        />
+                        <span>🌐 100% Online</span>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -2136,131 +2648,633 @@ export default function MasterAdminPage() {
       {/* MODAL 3: EDIT BUSINESS */}
       {isEditBizModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full border border-[#4FA6A6]/30 shadow-2xl space-y-6 my-8">
-            <div className="flex items-center justify-between">
-              <h3 className="font-black text-lg text-[#0E3B43]">Editar Dados do Estabelecimento</h3>
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full border border-[#4FA6A6]/30 shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-[#E8E4DA] pb-4">
+              <div>
+                <h3 className="font-black text-lg text-[#0E3B43]">Editar Dados do Estabelecimento</h3>
+                <p className="text-xs text-[#537379]">Altere informações, fotos, horários e canais de atendimento.</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsEditBizModalOpen(false)}
-                className="p-1 rounded-full hover:bg-stone-100 text-stone-400"
+                className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditBiz} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editBizForm.name}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
+            {/* Abas do Modal de Edição */}
+            <div className="flex flex-wrap gap-1.5 p-1 bg-[#F8F6F0] rounded-2xl border border-[#E8E4DA] text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setEditModalTab('geral')}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+                  editModalTab === 'geral' ? 'bg-[#0E3B43] text-white shadow-xs' : 'text-[#537379] hover:text-[#0E3B43]'
+                )}
+              >
+                <Building className="w-3.5 h-3.5" />
+                <span>Geral & Endereço</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalTab('fotos')}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+                  editModalTab === 'fotos' ? 'bg-[#0E3B43] text-white shadow-xs' : 'text-[#537379] hover:text-[#0E3B43]'
+                )}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Logo & Capa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalTab('canais')}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+                  editModalTab === 'canais' ? 'bg-[#0E3B43] text-white shadow-xs' : 'text-[#537379] hover:text-[#0E3B43]'
+                )}
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Canais de Atendimento</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalTab('horarios')}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+                  editModalTab === 'horarios' ? 'bg-[#0E3B43] text-white shadow-xs' : 'text-[#537379] hover:text-[#0E3B43]'
+                )}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Horários</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalTab('sobre')}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+                  editModalTab === 'sobre' ? 'bg-[#0E3B43] text-white shadow-xs' : 'text-[#537379] hover:text-[#0E3B43]'
+                )}
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>Sobre & Opções</span>
+              </button>
+            </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Tipo de Presença</label>
-                  <select
-                    value={editBizForm.listing_type}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, listing_type: e.target.value as ListingType })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none bg-white"
-                  >
-                    <option value="local_free">Cadastro Local (Grátis)</option>
-                    <option value="paid">Vitriniza Pro (Pago)</option>
-                  </select>
-                </div>
+            <form onSubmit={handleSaveEditBiz} className="space-y-4 pt-1">
+              {/* ABA 1: GERAL & ENDEREÇO */}
+              {editModalTab === 'geral' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Nome do Estabelecimento *</label>
+                      <input
+                        type="text"
+                        required
+                        value={editBizForm.name}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, name: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp Comercial *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editBizForm.whatsapp}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, whatsapp: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Tipo de Presença</label>
+                      <select
+                        value={editBizForm.listing_type}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, listing_type: e.target.value as ListingType })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none bg-white"
+                      >
+                        <option value="local_free">Cadastro Local (Grátis - sem login)</option>
+                        <option value="paid">Vitriniza Pro (Plano com Painel)</option>
+                      </select>
+                    </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP (ViaCEP)</label>
-                  <div className="flex gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Categoria *</label>
+                      <select
+                        value={editBizForm.category_id}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, category_id: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none bg-white"
+                      >
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Endereço e CEP */}
+                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">CEP (ViaCEP)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editBizForm.postal_code}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditBizForm({ ...editBizForm, postal_code: val });
+                            if (val.replace(/\D/g, '').length === 8) {
+                              handleEditBizCepLookup(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            if (editBizForm.postal_code.replace(/\D/g, '').length === 8) {
+                              handleEditBizCepLookup(editBizForm.postal_code);
+                            }
+                          }}
+                          placeholder="Ex: 08410-000"
+                          maxLength={9}
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none font-mono bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleEditBizCepLookup(editBizForm.postal_code)}
+                          className="px-4 py-2.5 rounded-xl bg-[#0E3B43] text-white text-xs font-bold cursor-pointer"
+                        >
+                          Buscar
+                        </button>
+                      </div>
+                      {editBizCepMsg && (
+                        <p className="mt-1 text-[11px] text-emerald-700 font-medium">{editBizCepMsg}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua/Avenida) *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editBizForm.address}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, address: e.target.value })}
+                          className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#0E3B43] mb-1">Número</label>
+                        <input
+                          type="text"
+                          value={editBizForm.number}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, number: e.target.value })}
+                          placeholder="Ex: 123 ou S/N"
+                          className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ABA 2: FOTOS (LOGO & CAPA) */}
+              {editModalTab === 'fotos' && (
+                <div className="space-y-5">
+                  {/* Foto de Logo */}
+                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-[#0E3B43] block">Logotipo / Foto do Perfil (Opcional)</span>
+                        <span className="text-[11px] text-[#537379]">Exibida em formato circular nas vitrines e buscas.</span>
+                      </div>
+                      {editBizForm.logo_url && (
+                        <button
+                          type="button"
+                          onClick={() => setEditBizForm({ ...editBizForm, logo_url: '' })}
+                          className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                        >
+                          Remover logo
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl border-2 border-[#E8E4DA] overflow-hidden bg-white flex items-center justify-center shrink-0">
+                        {editBizForm.logo_url ? (
+                          <img src={editBizForm.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                        ) : (
+                          <Building className="w-6 h-6 text-stone-300" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <label className="px-3 py-1.5 rounded-xl bg-white border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs">
+                            <span>{uploadingImage ? 'Enviando...' : '📁 Escolher Foto'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingImage}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadImageFile(f, (url) => setEditBizForm((prev) => ({ ...prev, logo_url: url })), editingBizId || undefined);
+                              }}
+                            />
+                          </label>
+                          <span className="text-[11px] text-[#537379]">ou insira o link abaixo:</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={editBizForm.logo_url}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, logo_url: e.target.value })}
+                          placeholder="https://... ou caminho da imagem"
+                          className="w-full px-3 py-1.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Foto de Capa / Banner */}
+                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-[#0E3B43] block">Foto de Capa / Banner Principal (Opcional)</span>
+                        <span className="text-[11px] text-[#537379]">Banner retangular exibido no topo da página do comércio.</span>
+                      </div>
+                      {editBizForm.cover_url && (
+                        <button
+                          type="button"
+                          onClick={() => setEditBizForm({ ...editBizForm, cover_url: '' })}
+                          className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                        >
+                          Remover capa
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative h-28 rounded-2xl border-2 border-[#E8E4DA] overflow-hidden bg-stone-900">
+                      {editBizForm.cover_url ? (
+                        <img src={editBizForm.cover_url} alt="Capa" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white/50 text-xs font-bold">
+                          Nenhuma foto de capa definida
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <label className="px-3.5 py-2 rounded-xl bg-white border border-[#4FA6A6]/40 text-xs font-bold text-[#0E3B43] hover:bg-stone-50 cursor-pointer shadow-2xs">
+                        <span>{uploadingImage ? 'Enviando...' : '📷 Enviar Banner / Capa'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingImage}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadImageFile(f, (url) => setEditBizForm((prev) => ({ ...prev, cover_url: url })), editingBizId || undefined);
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        value={editBizForm.cover_url}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, cover_url: e.target.value })}
+                        placeholder="Link direto da imagem de capa (URL)"
+                        className="flex-1 px-3 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ABA 3: CANAIS DE ATENDIMENTO */}
+              {editModalTab === 'canais' && (
+                <div className="space-y-4">
+                  {/* WhatsApp Principal */}
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
+                        <WhatsAppSolidIcon className="w-4 h-4 fill-emerald-600" />
+                        <span>WhatsApp Comercial para Atendimento *</span>
+                      </label>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">
+                        Canal Principal
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800">
+                      Este é o número que os clientes acionam com 1 clique para fazer pedidos, tirar dúvidas ou pedir orçamentos.
+                    </p>
                     <input
                       type="text"
-                      value={editBizForm.postal_code}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditBizForm({ ...editBizForm, postal_code: val });
-                        if (val.replace(/\D/g, '').length === 8) {
-                          handleEditBizCepLookup(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (editBizForm.postal_code.replace(/\D/g, '').length === 8) {
-                          handleEditBizCepLookup(editBizForm.postal_code);
-                        }
-                      }}
-                      placeholder="Ex: 08410-000"
-                      maxLength={9}
-                      className="flex-1 px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none font-mono"
+                      required
+                      value={editBizForm.whatsapp}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, whatsapp: e.target.value })}
+                      placeholder="Ex: 11999998888"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 text-sm font-bold text-[#0E3B43] outline-none bg-white font-mono"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo / Secundário (Opcional)</label>
+                      <input
+                        type="text"
+                        value={editBizForm.phone}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, phone: e.target.value })}
+                        placeholder="Ex: 1125550000"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (Opcional)</label>
+                      <input
+                        type="text"
+                        value={editBizForm.instagram}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, instagram: e.target.value })}
+                        placeholder="Ex: @minhaloja"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Website / Link Externo (Opcional)</label>
+                      <input
+                        type="text"
+                        value={editBizForm.website}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, website: e.target.value })}
+                        placeholder="Ex: https://meusite.com.br"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ABA 4: HORÁRIOS DE ATENDIMENTO */}
+              {editModalTab === 'horarios' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-[#0E3B43] block">Horário de Funcionamento (Opcional)</span>
+                      <span className="text-[11px] text-[#537379]">Clique em um perfil pronto ou ajuste cada dia individualmente.</span>
+                    </div>
+                  </div>
+
+                  {/* Predefinições Rápidas */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button
                       type="button"
-                      onClick={() => handleEditBizCepLookup(editBizForm.postal_code)}
-                      className="px-3 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold"
+                      onClick={() =>
+                        setEditBizForm({
+                          ...editBizForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '08:00', close_time: '12:00', is_closed: true },
+                            { day_of_week: 1, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 2, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 3, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 4, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 5, open_time: '08:00', close_time: '18:00', is_closed: false },
+                            { day_of_week: 6, open_time: '08:00', close_time: '13:00', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-stone-50 hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
                     >
-                      Buscar
+                      Comercial (8h às 18h)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditBizForm({
+                          ...editBizForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '09:00', close_time: '14:00', is_closed: true },
+                            { day_of_week: 1, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 2, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 3, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 4, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 5, open_time: '09:00', close_time: '19:00', is_closed: false },
+                            { day_of_week: 6, open_time: '09:00', close_time: '19:00', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-stone-50 hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      Geral (Seg-Sáb 9h-19h)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditBizForm({
+                          ...editBizForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 1, open_time: '18:00', close_time: '23:00', is_closed: true },
+                            { day_of_week: 2, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 3, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 4, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 5, open_time: '18:00', close_time: '23:30', is_closed: false },
+                            { day_of_week: 6, open_time: '18:00', close_time: '23:30', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-stone-50 hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      Noturno (18h-23h30)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditBizForm({
+                          ...editBizForm,
+                          hours: [
+                            { day_of_week: 0, open_time: '00:00', close_time: '23:59', is_closed: false },
+                            { day_of_week: 1, open_time: '00:00', close_time: '23:59', is_closed: false },
+                            { day_of_week: 2, open_time: '00:00', close_time: '23:59', is_closed: false },
+                            { day_of_week: 3, open_time: '00:00', close_time: '23:59', is_closed: false },
+                            { day_of_week: 4, open_time: '00:00', close_time: '23:59', is_closed: false },
+                            { day_of_week: 5, open_time: '00:00', close_time: '23:59', is_closed: false },
+                            { day_of_week: 6, open_time: '00:00', close_time: '23:59', is_closed: false },
+                          ],
+                        })
+                      }
+                      className="p-2 rounded-xl bg-stone-50 hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                    >
+                      24 Horas
                     </button>
                   </div>
-                  {editBizCepMsg && (
-                    <p className="mt-1 text-[11px] text-emerald-700 font-medium">{editBizCepMsg}</p>
-                  )}
+
+                  {/* Editor dia a dia */}
+                  <div className="divide-y divide-[#E8E4DA] border border-[#E8E4DA] rounded-2xl bg-white overflow-hidden">
+                    {DAY_NAMES.map((dayName, dayIndex) => {
+                      const hourSetting = editBizForm.hours?.find((h) => h.day_of_week === dayIndex) || {
+                        day_of_week: dayIndex,
+                        open_time: '08:00',
+                        close_time: '18:00',
+                        is_closed: dayIndex === 0,
+                      };
+
+                      return (
+                        <div key={dayIndex} className="p-2.5 sm:px-4 flex items-center justify-between text-xs gap-3">
+                          <div className="w-28 sm:w-32 font-bold text-[#0E3B43]">{dayName}</div>
+
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!hourSetting.is_closed}
+                              onChange={(e) => {
+                                const isOpen = e.target.checked;
+                                const updatedHours = editBizForm.hours.map((h) =>
+                                  h.day_of_week === dayIndex ? { ...h, is_closed: !isOpen } : h
+                                );
+                                setEditBizForm({ ...editBizForm, hours: updatedHours });
+                              }}
+                              className="rounded text-emerald-600"
+                            />
+                            <span className={cn('text-[11px] font-bold', !hourSetting.is_closed ? 'text-emerald-700' : 'text-stone-400')}>
+                              {!hourSetting.is_closed ? 'Aberto' : 'Fechado'}
+                            </span>
+                          </label>
+
+                          {!hourSetting.is_closed ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="time"
+                                value={hourSetting.open_time}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const updatedHours = editBizForm.hours.map((h) =>
+                                    h.day_of_week === dayIndex ? { ...h, open_time: val } : h
+                                  );
+                                  setEditBizForm({ ...editBizForm, hours: updatedHours });
+                                }}
+                                className="px-2 py-1 rounded-lg border border-[#E8E4DA] text-xs font-mono"
+                              />
+                              <span className="text-[#537379]">às</span>
+                              <input
+                                type="time"
+                                value={hourSetting.close_time}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const updatedHours = editBizForm.hours.map((h) =>
+                                    h.day_of_week === dayIndex ? { ...h, close_time: val } : h
+                                  );
+                                  setEditBizForm({ ...editBizForm, hours: updatedHours });
+                                }}
+                                className="px-2 py-1 rounded-lg border border-[#E8E4DA] text-xs font-mono"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-stone-400 font-bold italic">Não abre</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+              )}
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-[#0E3B43] mb-1">Endereço (Rua, Número, Bairro)</label>
-                  <input
-                    type="text"
-                    value={editBizForm.address}
-                    onChange={(e) => setEditBizForm({ ...editBizForm, address: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none"
-                  />
+              {/* ABA 5: SOBRE & MODALIDADES */}
+              {editModalTab === 'sobre' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Curta / Slogan (Bio)</label>
+                    <input
+                      type="text"
+                      value={editBizForm.short_description}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, short_description: e.target.value })}
+                      placeholder="Ex: A melhor pizza artesanal com massa de fermentação natural do bairro."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#0E3B43] mb-1">Descrição Completa</label>
+                    <textarea
+                      rows={4}
+                      value={editBizForm.description}
+                      onChange={(e) => setEditBizForm({ ...editBizForm, description: e.target.value })}
+                      placeholder="Conte a história do estabelecimento, diferenciais, formas de atendimento..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none bg-white"
+                    />
+                  </div>
+
+                  {/* Modalidades de Atendimento */}
+                  <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-2">
+                    <span className="text-xs font-bold text-[#0E3B43] block">Modalidades de Atendimento:</span>
+                    <div className="grid grid-cols-2 gap-3 pt-1 text-xs font-bold text-[#0E3B43]">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editBizForm.delivery_available}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, delivery_available: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#E36845]"
+                        />
+                        <span>🛵 Oferece Delivery</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editBizForm.takeaway_available}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, takeaway_available: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#4FA6A6]"
+                        />
+                        <span>🥡 Retirada no Balcão</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editBizForm.dine_in_available}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, dine_in_available: e.target.checked })}
+                          className="w-4 h-4 rounded text-[#0E3B43]"
+                        />
+                        <span>🍽️ Atendimento Presencial</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editBizForm.is_online_only}
+                          onChange={(e) => setEditBizForm({ ...editBizForm, is_online_only: e.target.checked })}
+                          className="w-4 h-4 rounded text-blue-600"
+                        />
+                        <span>🌐 100% Online / Remoto</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Selos e Status */}
+                  <div className="flex flex-wrap items-center gap-4 pt-1">
+                    <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBizForm.is_active}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, is_active: e.target.checked })}
+                        className="w-4 h-4 rounded text-[#4FA6A6]"
+                      />
+                      <span>Ativo no Portal</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBizForm.is_featured}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, is_featured: e.target.checked })}
+                        className="w-4 h-4 rounded text-[#E36845]"
+                      />
+                      <span>★ Destaque</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBizForm.is_founder}
+                        onChange={(e) => setEditBizForm({ ...editBizForm, is_founder: e.target.checked })}
+                        className="w-4 h-4 rounded text-amber-500"
+                      />
+                      <span>🏅 Negócio Fundador</span>
+                    </label>
+                  </div>
                 </div>
-
-                <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-2">
-                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editBizForm.is_active}
-                      onChange={(e) => setEditBizForm({ ...editBizForm, is_active: e.target.checked })}
-                      className="w-4 h-4 rounded text-[#4FA6A6]"
-                    />
-                    <span>Ativo no Portal</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editBizForm.is_featured}
-                      onChange={(e) => setEditBizForm({ ...editBizForm, is_featured: e.target.checked })}
-                      className="w-4 h-4 rounded text-[#E36845]"
-                    />
-                    <span>★ Destaque</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-xs font-bold text-[#0E3B43] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editBizForm.is_founder}
-                      onChange={(e) => setEditBizForm({ ...editBizForm, is_founder: e.target.checked })}
-                      className="w-4 h-4 rounded text-amber-500"
-                    />
-                    <span>🏅 Negócio Fundador</span>
-                  </label>
-                </div>
-              </div>
+              )}
 
               {editingBizId &&
                 editBizForm.listing_type === 'paid' &&
@@ -2275,13 +3289,13 @@ export default function MasterAdminPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditBizModalOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-stone-100 text-stone-600 text-xs font-bold cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-stone-100 text-stone-600 text-xs font-bold cursor-pointer hover:bg-stone-200 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-xl bg-[#0E3B43] text-white text-xs font-bold cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#1a5560] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
                 >
                   {editingBizId &&
                   editBizForm.listing_type === 'paid' &&

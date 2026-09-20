@@ -118,3 +118,23 @@ export function formatDatePtBr(dateStr: string): string {
     return dateStr;
   }
 }
+
+export const DEFAULT_BUSINESS_HOURS = [
+  { day_of_week: 0, open_time: '09:00', close_time: '14:00', is_closed: true },
+  { day_of_week: 1, open_time: '08:00', close_time: '18:00', is_closed: false },
+  { day_of_week: 2, open_time: '08:00', close_time: '18:00', is_closed: false },
+  { day_of_week: 3, open_time: '08:00', close_time: '18:00', is_closed: false },
+  { day_of_week: 4, open_time: '08:00', close_time: '18:00', is_closed: false },
+  { day_of_week: 5, open_time: '08:00', close_time: '18:00', is_closed: false },
+  { day_of_week: 6, open_time: '08:00', close_time: '14:00', is_closed: false },
+];
+
+export const DAY_NAMES = [
+  'Domingo',
+  'Segunda-feira',
+  'Terça-feira',
+  'Quarta-feira',
+  'Quinta-feira',
+  'Sexta-feira',
+  'Sábado',
+];

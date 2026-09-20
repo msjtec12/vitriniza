@@ -57,8 +57,8 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { store } from '@/lib/data/store';
-import { Business, Product, Promotion, BusinessImage, Review, PlanLimits } from '@/types';
-import { formatCurrency, formatPhone, cn, fetchAddressByCep, buildWhatsAppUrl } from '@/lib/utils';
+import { Business, Product, Promotion, BusinessImage, Review, PlanLimits, BusinessHour } from '@/types';
+import { formatCurrency, formatPhone, cn, fetchAddressByCep, buildWhatsAppUrl, DEFAULT_BUSINESS_HOURS, DAY_NAMES } from '@/lib/utils';
 import { StoreQRCode } from '@/components/ui/StoreQRCode';
 import { SocialShareCardGenerator } from '@/components/merchant/SocialShareCardGenerator';
 import { supabase } from '@/lib/supabase/client';
@@ -255,6 +255,7 @@ export default function MerchantPanelPage() {
     takeaway_available: false,
     dine_in_available: false,
     is_online_only: false,
+    hours: DEFAULT_BUSINESS_HOURS as BusinessHour[],
   });
 
   // Product modal
@@ -354,6 +355,7 @@ export default function MerchantPanelPage() {
         takeaway_available: selected.takeaway_available || false,
         dine_in_available: selected.dine_in_available || false,
         is_online_only: selected.is_online_only || false,
+        hours: selected.hours && selected.hours.length > 0 ? selected.hours : (DEFAULT_BUSINESS_HOURS as BusinessHour[]),
       });
 
       setReviews(store.getReviews(selected.id));
@@ -447,6 +449,7 @@ export default function MerchantPanelPage() {
             takeaway_available: profileForm.takeaway_available,
             dine_in_available: profileForm.dine_in_available,
             is_online_only: profileForm.is_online_only,
+            hours: profileForm.hours,
           },
         }),
       });
@@ -1587,23 +1590,57 @@ export default function MerchantPanelPage() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">WhatsApp para Atendimento *</label>
+                    <div className="sm:col-span-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/90 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
+                          <WhatsAppSolidIcon className="w-4 h-4 fill-emerald-600" />
+                          <span>WhatsApp para Atendimento Oficial *</span>
+                        </label>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">
+                          Canal Principal
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800">
+                        Os clientes usam este botão diretamente na vitrine para falar com você com mensagem pronta.
+                      </p>
                       <input
                         type="text"
                         required
                         value={profileForm.whatsapp}
                         onChange={(e) => setProfileForm({ ...profileForm, whatsapp: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] min-h-[44px]"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 text-sm font-bold text-[#0E3B43] outline-none bg-white font-mono min-h-[44px]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo (Opcional)</label>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Telefone Fixo / 2º Contato (Opcional)</label>
                       <input
                         type="text"
                         value={profileForm.phone}
                         onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        placeholder="Ex: 1125550000"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Instagram (Opcional)</label>
+                      <input
+                        type="text"
+                        value={profileForm.instagram}
+                        onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
+                        placeholder="Ex: @minhaloja"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-[#0E3B43] mb-1">Website / Link Externo (Opcional)</label>
+                      <input
+                        type="text"
+                        value={profileForm.website}
+                        onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
+                        placeholder="Ex: https://meusite.com.br"
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none min-h-[44px]"
                       />
                     </div>
@@ -1728,6 +1765,158 @@ export default function MerchantPanelPage() {
                         placeholder="Conte mais sobre seu negócio, anos no bairro, diferenciais e serviços..."
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] outline-none focus:border-[#E36845] resize-y"
                       />
+                    </div>
+
+                    {/* HORÁRIOS DE FUNCIONAMENTO */}
+                    <div className="sm:col-span-2 p-5 sm:p-6 rounded-3xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-black text-xs uppercase tracking-wider text-[#0E3B43] flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-[#E36845]" />
+                            <span>Horários de Funcionamento</span>
+                          </h4>
+                          <p className="text-[11px] text-[#537379] mt-0.5">
+                            Defina seus horários para informar aos clientes quando sua loja está aberta.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Predefinições Rápidas */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProfileForm({
+                              ...profileForm,
+                              hours: [
+                                { day_of_week: 0, open_time: '08:00', close_time: '12:00', is_closed: true },
+                                { day_of_week: 1, open_time: '08:00', close_time: '18:00', is_closed: false },
+                                { day_of_week: 2, open_time: '08:00', close_time: '18:00', is_closed: false },
+                                { day_of_week: 3, open_time: '08:00', close_time: '18:00', is_closed: false },
+                                { day_of_week: 4, open_time: '08:00', close_time: '18:00', is_closed: false },
+                                { day_of_week: 5, open_time: '08:00', close_time: '18:00', is_closed: false },
+                                { day_of_week: 6, open_time: '08:00', close_time: '13:00', is_closed: false },
+                              ],
+                            })
+                          }
+                          className="p-2.5 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                        >
+                          Comercial (8h às 18h)
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProfileForm({
+                              ...profileForm,
+                              hours: [
+                                { day_of_week: 0, open_time: '09:00', close_time: '14:00', is_closed: true },
+                                { day_of_week: 1, open_time: '09:00', close_time: '19:00', is_closed: false },
+                                { day_of_week: 2, open_time: '09:00', close_time: '19:00', is_closed: false },
+                                { day_of_week: 3, open_time: '09:00', close_time: '19:00', is_closed: false },
+                                { day_of_week: 4, open_time: '09:00', close_time: '19:00', is_closed: false },
+                                { day_of_week: 5, open_time: '09:00', close_time: '19:00', is_closed: false },
+                                { day_of_week: 6, open_time: '09:00', close_time: '19:00', is_closed: false },
+                              ],
+                            })
+                          }
+                          className="p-2.5 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                        >
+                          Geral (Seg-Sáb 9h-19h)
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProfileForm({
+                              ...profileForm,
+                              hours: [
+                                { day_of_week: 0, open_time: '18:00', close_time: '23:30', is_closed: false },
+                                { day_of_week: 1, open_time: '18:00', close_time: '23:30', is_closed: true },
+                                { day_of_week: 2, open_time: '18:00', close_time: '23:30', is_closed: false },
+                                { day_of_week: 3, open_time: '18:00', close_time: '23:30', is_closed: false },
+                                { day_of_week: 4, open_time: '18:00', close_time: '23:30', is_closed: false },
+                                { day_of_week: 5, open_time: '18:00', close_time: '00:00', is_closed: false },
+                                { day_of_week: 6, open_time: '18:00', close_time: '00:00', is_closed: false },
+                              ],
+                            })
+                          }
+                          className="p-2.5 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                        >
+                          Noturno (18h-23h30)
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProfileForm({
+                              ...profileForm,
+                              hours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+                                day_of_week: day,
+                                open_time: '00:00',
+                                close_time: '23:59',
+                                is_closed: false,
+                              })),
+                            })
+                          }
+                          className="p-2.5 rounded-xl bg-white hover:bg-[#0E3B43] hover:text-white border border-[#E8E4DA] text-[11px] font-bold text-[#0E3B43] text-center transition-colors cursor-pointer"
+                        >
+                          24 Horas (Todos os dias)
+                        </button>
+                      </div>
+
+                      {/* Tabela dos 7 dias da semana */}
+                      <div className="bg-white rounded-2xl border border-[#E8E4DA] divide-y divide-[#E8E4DA]/60 overflow-hidden shadow-2xs">
+                        {(profileForm.hours || []).map((h, idx) => (
+                          <div key={h.day_of_week} className="p-3 flex items-center justify-between gap-3 text-xs">
+                            <div className="w-28 font-bold text-[#0E3B43]">
+                              {DAY_NAMES[h.day_of_week] || `Dia ${h.day_of_week}`}
+                            </div>
+
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-stone-600">
+                              <input
+                                type="checkbox"
+                                checked={!h.is_closed}
+                                onChange={(e) => {
+                                  const updated = [...(profileForm.hours || [])];
+                                  updated[idx] = { ...updated[idx], is_closed: !e.target.checked };
+                                  setProfileForm({ ...profileForm, hours: updated });
+                                }}
+                                className="w-4 h-4 rounded text-[#4FA6A6]"
+                              />
+                              <span>{h.is_closed ? 'Fechado' : 'Aberto'}</span>
+                            </label>
+
+                            {!h.is_closed ? (
+                              <div className="flex items-center gap-2 font-mono">
+                                <input
+                                  type="time"
+                                  value={h.open_time}
+                                  onChange={(e) => {
+                                    const updated = [...(profileForm.hours || [])];
+                                    updated[idx] = { ...updated[idx], open_time: e.target.value };
+                                    setProfileForm({ ...profileForm, hours: updated });
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] bg-[#F8F6F0]"
+                                />
+                                <span className="text-stone-400">às</span>
+                                <input
+                                  type="time"
+                                  value={h.close_time}
+                                  onChange={(e) => {
+                                    const updated = [...(profileForm.hours || [])];
+                                    updated[idx] = { ...updated[idx], close_time: e.target.value };
+                                    setProfileForm({ ...profileForm, hours: updated });
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl border border-[#E8E4DA] text-xs text-[#0E3B43] bg-[#F8F6F0]"
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-stone-400 text-xs italic">Não abre neste dia</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

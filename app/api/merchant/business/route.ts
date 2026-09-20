@@ -130,7 +130,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const updates: Record<string, string | boolean> = {};
+    const updates: Record<string, unknown> = {};
     for (const field of ALLOWED_TEXT_FIELDS) {
       const value = rawUpdates[field];
       if (typeof value === 'string') {
@@ -139,6 +139,14 @@ export async function PATCH(req: NextRequest) {
     }
     for (const field of ALLOWED_BOOLEAN_FIELDS) {
       if (typeof rawUpdates[field] === 'boolean') updates[field] = rawUpdates[field];
+    }
+
+    if (Array.isArray(rawUpdates.hours)) {
+      updates.hours = rawUpdates.hours;
+    }
+
+    if (Array.isArray(rawUpdates.payment_methods)) {
+      updates.payment_methods = rawUpdates.payment_methods;
     }
 
     for (const field of ['logo_url', 'cover_url'] as const) {

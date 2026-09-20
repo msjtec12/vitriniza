@@ -621,15 +621,47 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
             </h3>
 
             <div className="space-y-3 text-xs">
-              {(business.phone || business.whatsapp) && (
+              {business.whatsapp && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-emerald-800 font-bold text-[11px] uppercase tracking-wide">
+                      <WhatsAppSolidIcon className="w-4 h-4 fill-emerald-600" />
+                      <span>WhatsApp de Atendimento</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-600/15 text-emerald-800 text-[10px] font-black">
+                      Oficial
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <span className="text-sm font-black text-[#0E3B43] font-mono">
+                      {formatPhone(business.whatsapp)}
+                    </span>
+                    <a
+                      href={buildWhatsAppUrl(
+                        business.whatsapp,
+                        `Olá! Encontrei o perfil de ${business.name} na Vitriniza e gostaria de atendimento.`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => store.logAnalyticsEvent(business.id, 'whatsapp_click')}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition-colors cursor-pointer"
+                    >
+                      <WhatsAppSolidIcon className="w-3.5 h-3.5 fill-white" />
+                      <span>Conversar</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {business.phone && business.phone !== business.whatsapp && (
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA]">
-                  <span className="font-bold text-[#537379]">Telefone / Celular</span>
+                  <span className="font-bold text-[#537379]">Telefone Adicional</span>
                   <a
-                    href={`tel:${(business.phone || business.whatsapp).replace(/\D/g, '')}`}
+                    href={`tel:${business.phone.replace(/\D/g, '')}`}
                     onClick={() => store.logAnalyticsEvent(business.id, 'phone_click')}
                     className="font-black text-[#0E3B43] hover:text-[#E36845]"
                   >
-                    {formatPhone(business.phone || business.whatsapp)}
+                    {formatPhone(business.phone)}
                   </a>
                 </div>
               )}
