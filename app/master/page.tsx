@@ -41,7 +41,11 @@ import {
   UserCheck,
   RefreshCw,
   Send,
+  Download,
+  Smartphone,
+  Crown,
 } from 'lucide-react';
+import { triggerMasterPwaInstall } from '@/components/master/MasterPwaInstallPrompt';
 import { store } from '@/lib/data/store';
 import {
   Business,
@@ -789,7 +793,15 @@ export default function MasterAdminPage() {
             </button>
           </form>
 
-          <div className="pt-2 text-center">
+          <div className="pt-2 flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={() => triggerMasterPwaInstall()}
+              className="w-full py-2.5 px-3 rounded-xl bg-[#0E3B43]/5 hover:bg-[#0E3B43]/10 border border-[#0E3B43]/20 text-xs text-[#0E3B43] font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Crown className="w-3.5 h-3.5 text-[#E36845]" />
+              <span>Instalar App Master no Dispositivo</span>
+            </button>
             <Link href="/" className="text-xs text-[#537379] hover:text-[#0E3B43] font-semibold transition-colors">
               ← Voltar ao portal público
             </Link>
@@ -827,7 +839,16 @@ export default function MasterAdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => triggerMasterPwaInstall()}
+              title="Instalar App Master no seu dispositivo"
+              className="text-xs text-white font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E36845] hover:bg-[#F49C6B] shadow-sm transition-all cursor-pointer active:scale-95"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Baixar App Master</span>
+              <span className="sm:hidden">App</span>
+            </button>
             <button
               onClick={async () => {
                 await store.ensureCloudSynced(true);

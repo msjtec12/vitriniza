@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Smartphone, Download, X, Share, PlusSquare, CheckCircle2, Sparkles } from 'lucide-react';
 
 export const PwaInstallPrompt: React.FC = () => {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [showIosModal, setShowIosModal] = useState(false);
@@ -11,6 +13,9 @@ export const PwaInstallPrompt: React.FC = () => {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
+    if (pathname?.startsWith('/master')) {
+      return;
+    }
     // Detect if already running in standalone PWA mode
     if (typeof window !== 'undefined') {
       const isStandalone =
@@ -94,7 +99,7 @@ export const PwaInstallPrompt: React.FC = () => {
     localStorage.setItem('vitriniza_pwa_dismissed', String(Date.now()));
   };
 
-  if (isInstalled) return null;
+  if (isInstalled || pathname?.startsWith('/master')) return null;
 
   return (
     <>
