@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Copy, Check, Share2, MessageCircle } from 'lucide-react';
+import { X, Copy, Check, Share2, MessageCircle, Smartphone, Store } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { StoreQRCode } from './StoreQRCode';
 
@@ -13,6 +13,8 @@ interface ShareModalProps {
   businessUrl: string;
   businessId: string;
   businessLogoUrl?: string;
+  businessCoverUrl?: string;
+  businessDescription?: string;
   neighborhoodName?: string;
   categoryName?: string;
 }
@@ -25,6 +27,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   businessUrl,
   businessId,
   businessLogoUrl = '',
+  businessCoverUrl = '',
+  businessDescription = '',
   neighborhoodName,
   categoryName,
 }) => {
@@ -34,9 +38,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const fullUrl = typeof window !== 'undefined'
     ? `${window.location.origin}${businessUrl}`
-    : `https://vitriniza.com.br${businessUrl}`;
+    : `https://vitriniza.vercel.app${businessUrl}`;
 
-  const shareText = `Conheça ${businessName} na Vitriniza - O comércio perto de você! ${fullUrl}`;
+  const bio = businessDescription?.trim();
+  const shareText = bio
+    ? `*${businessName}*\n${bio}\n\nAcesse nossa vitrine digital para conferir produtos, serviços, horários e fazer seu pedido:\n${fullUrl}`
+    : `*${businessName}*${neighborhoodName ? ` (${neighborhoodName})` : ''}\nConfira nossa vitrine digital, produtos e fale conosco pelo WhatsApp:\n${fullUrl}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullUrl);
@@ -48,6 +55,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const handleWhatsAppShare = () => {
     store.logAnalyticsEvent(businessId, 'share_click', { method: 'whatsapp' });
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+  };
+
+  const handleNativeShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: businessName,
+          text: bio || `Conheça ${businessName}`,
+          url: fullUrl,
+        });
+        store.logAnalyticsEvent(businessId, 'share_click', { method: 'native_share' });
+      } catch {
+        // User cancelled or unsupported
+      }
+    }
   };
 
   return (
@@ -73,16 +95,39 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           </div>
         </div>
 
+        {/* Card de Pré-visualização do Compartilhamento */}
+        <div className="p-3.5 bg-[#F8F6F0] rounded-2xl border border-[#E8E4DA] mb-4 flex items-start gap-3">
+          <div className="w-14 h-14 rounded-xl border border-[#E8E4DA] overflow-hidden bg-white shrink-0 flex items-center justify-center">
+            {businessLogoUrl && !businessLogoUrl.includes('/logo.png') ? (
+              <img src={businessLogoUrl} alt={businessName} className="w-full h-full object-cover" />
+            ) : businessCoverUrl ? (
+              <img src={businessCoverUrl} alt={businessName} className="w-full h-full object-cover" />
+            ) : (
+              <Store className="w-6 h-6 text-[#537379]/50" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-black uppercase text-[#E36845] tracking-wider block truncate">
+              {categoryName || 'Comércio Local'}{neighborhoodName ? ` • ${neighborhoodName}` : ''}
+            </span>
+            <h4 className="font-bold text-sm text-[#0E3B43] truncate">{businessName}</h4>
+            <p className="text-xs text-[#537379] line-clamp-2 mt-0.5">
+              {bio || 'Confira produtos, serviços, horários e atendimento direto via WhatsApp.'}
+            </p>
+          </div>
+        </div>
+
         {/* Personalized QR Code with Store Logo */}
-        <div className="p-5 bg-[#F8F6F0] rounded-2xl border border-[#4FA6A6]/20 mb-5">
+        <div className="p-4 bg-[#F8F6F0] rounded-2xl border border-[#4FA6A6]/20 mb-4">
           <StoreQRCode
             businessName={businessName}
             businessSlug={businessSlug}
             businessLogoUrl={businessLogoUrl}
             businessUrl={businessUrl}
+            businessDescription={businessDescription}
             neighborhoodName={neighborhoodName}
             categoryName={categoryName}
-            size={160}
+            size={140}
           />
         </div>
 
@@ -91,16 +136,27 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <button
             type="button"
             onClick={handleWhatsAppShare}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-bold shadow-sm transition-all"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#E36845] hover:bg-[#F49C6B] text-white text-sm font-bold shadow-sm transition-all cursor-pointer"
           >
             <MessageCircle className="w-4 h-4 fill-current" />
             <span>Enviar pelo WhatsApp</span>
           </button>
 
+          {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+            <button
+              type="button"
+              onClick={handleNativeShare}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-stone-50 border border-[#0E3B43]/20 text-[#0E3B43] text-xs font-bold transition-all cursor-pointer"
+            >
+              <Smartphone className="w-4 h-4 text-[#0E3B43]" />
+              <span>Mais opções (Instagram, Stories, Apps)</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#F8F6F0] hover:bg-white border border-[#E8E4DA] text-[#0E3B43] text-sm font-bold transition-all"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F8F6F0] hover:bg-white border border-[#E8E4DA] text-[#0E3B43] text-xs font-bold transition-all cursor-pointer"
           >
             {copied ? (
               <>

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { createClient } from '@supabase/supabase-js';
 import type { Business, Category, City, Neighborhood, Product, Promotion, Review } from '@/types';
 
 const BUSINESS_PUBLIC_FIELDS = [
@@ -10,14 +11,31 @@ const BUSINESS_PUBLIC_FIELDS = [
   'website', 'logo_url', 'cover_url', 'listing_type', 'plan_id', 'plan_status',
   'is_featured', 'is_verified', 'is_founder', 'is_active', 'payment_methods',
   'delivery_available', 'takeaway_available', 'dine_in_available',
-  'is_online_only', 'rating', 'reviews_count', 'created_at', 'updated_at',
+  'is_online_only', 'rating', 'reviews_count', 'hours', 'created_at', 'updated_at',
 ].join(',');
 
-export async function getPublicBusinessBySlug(slug: string): Promise<Business | null> {
+const getSupabaseReader = () => {
   const admin = getSupabaseAdmin();
-  if (!admin) return null;
+  if (admin) return admin;
 
-  const { data: business, error } = await admin
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (url && anonKey) {
+    return createClient(url, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return null;
+};
+
+export async function getPublicBusinessBySlug(slug: string): Promise<Business | null> {
+  const client = getSupabaseReader();
+  if (!client) return null;
+
+  const { data: business, error } = await client
     .from('businesses')
     .select(BUSINESS_PUBLIC_FIELDS)
     .eq('slug', slug)
@@ -30,11 +48,11 @@ export async function getPublicBusinessBySlug(slug: string): Promise<Business | 
 
   const [categoryResult, neighborhoodResult, cityResult, productsResult, promotionsResult] =
     await Promise.all([
-      admin.from('categories').select('*').eq('id', publicBusiness.category_id).maybeSingle(),
-      admin.from('neighborhoods').select('*').eq('id', publicBusiness.neighborhood_id).maybeSingle(),
-      admin.from('cities').select('*').eq('id', publicBusiness.city_id).maybeSingle(),
-      admin.from('products').select('*').eq('business_id', publicBusiness.id).eq('is_available', true),
-      admin
+      client.from('categories').select('*').eq('id', publicBusiness.category_id).maybeSingle(),
+      client.from('neighborhoods').select('*').eq('id', publicBusiness.neighborhood_id).maybeSingle(),
+      client.from('cities').select('*').eq('id', publicBusiness.city_id).maybeSingle(),
+      client.from('products').select('*').eq('business_id', publicBusiness.id).eq('is_available', true),
+      client
         .from('promotions')
         .select('*')
         .eq('business_id', publicBusiness.id)
@@ -53,10 +71,10 @@ export async function getPublicBusinessBySlug(slug: string): Promise<Business | 
 }
 
 export async function getApprovedReviews(businessId: string): Promise<Review[]> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return [];
+  const client = getSupabaseReader();
+  if (!client) return [];
 
-  const { data, error } = await admin
+  const { data, error } = await client
     .from('reviews')
     .select('id,business_id,author_name,rating,comment,status,created_at')
     .eq('business_id', businessId)
@@ -67,19 +85,19 @@ export async function getApprovedReviews(businessId: string): Promise<Review[]> 
 }
 
 export async function getSitemapRecords() {
-  const admin = getSupabaseAdmin();
-  if (!admin) return { businesses: [], neighborhoods: [], categories: [], articles: [], cities: [] };
+  const client = getSupabaseReader();
+  if (!client) return { businesses: [], neighborhoods: [], categories: [], articles: [], cities: [] };
 
   const [businesses, neighborhoods, categories, articles] = await Promise.all([
-    admin.from('businesses').select('slug,state_id,city_id,neighborhood_id,updated_at').eq('is_active', true),
-    admin.from('neighborhoods').select('id,slug,city_id').eq('active', true),
-    admin.from('categories').select('slug').eq('active', true),
-    admin.from('articles').select('slug,created_at').eq('is_published', true),
+    client.from('businesses').select('slug,state_id,city_id,neighborhood_id,updated_at').eq('is_active', true),
+    client.from('neighborhoods').select('id,slug,city_id').eq('active', true),
+    client.from('categories').select('slug').eq('active', true),
+    client.from('articles').select('slug,created_at').eq('is_published', true),
   ]);
 
   const cityIds = [...new Set((businesses.data ?? []).map((business) => business.city_id))];
   const { data: cities } = cityIds.length
-    ? await admin.from('cities').select('id,slug,state_id').in('id', cityIds)
+    ? await client.from('cities').select('id,slug,state_id').in('id', cityIds)
     : { data: [] };
 
   return {

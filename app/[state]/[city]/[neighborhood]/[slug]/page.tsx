@@ -20,12 +20,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const resolvedParams = await params;
   const business =
     (await getPublicBusinessBySlug(resolvedParams.slug)) ||
-    (process.env.NODE_ENV !== 'production' ? store.getBusinessBySlug(resolvedParams.slug) : null);
+    store.getBusinessBySlug(resolvedParams.slug);
 
   if (!business) {
+    const formattedName = resolvedParams.slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
     return {
-      title: `${resolvedParams.slug} | Vitriniza`,
-      description: 'Conheça os produtos, serviços e ofertas deste estabelecimento na Vitriniza.',
+      title: `${formattedName} | Vitriniza`,
+      description: `Conheça os produtos, serviços e ofertas de ${formattedName} na Vitriniza.`,
     };
   }
 
@@ -40,10 +44,47 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const neighborhoodName = business.neighborhood?.name || formatSlugName(resolvedParams.neighborhood) || 'Bairro';
   const cityName = business.city?.name || formatSlugName(resolvedParams.city) || 'Cidade';
   const stateUf = (business.state_id || resolvedParams.state || 'sp').toLowerCase();
-  const pageTitle = `${business.name} em ${neighborhoodName} | Vitriniza`;
-  const pageDescription = `Conheça ${business.name} em ${neighborhoodName}, ${cityName}. Veja produtos, ofertas, endereço, horário e fale diretamente pelo WhatsApp.`;
   const pageUrl = `${SITE_URL}/${stateUf}/${business.city?.slug || resolvedParams.city || 'cidade'}/${business.neighborhood?.slug || resolvedParams.neighborhood || 'bairro'}/${business.slug}`;
-  const shareImage = business.cover_url || business.logo_url || `${SITE_URL}/logo.png`;
+
+  // Helper para garantir URL absoluta para crawlers de redes sociais (WhatsApp, Facebook, etc.)
+  const toAbsoluteUrl = (url?: string | null) => {
+    if (!url || typeof url !== 'string') return `${SITE_URL}/logo.png`;
+    const trimmed = url.trim();
+    if (!trimmed) return `${SITE_URL}/logo.png`;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    return `${SITE_URL}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+  };
+
+  // Priorização da foto do estabelecimento:
+  // 1. Logo personalizado (se não for o padrão /logo.png)
+  // 2. Foto de capa personalizada (se não for o placeholder genérico)
+  // 3. Qualquer foto de capa informada
+  // 4. Foto do primeiro produto cadastrado
+  // 5. Logo padrão do Vitriniza
+  const genericCover = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5';
+  const hasCustomLogo = Boolean(business.logo_url && !business.logo_url.includes('/logo.png') && business.logo_url.length > 5);
+  const hasCustomCover = Boolean(business.cover_url && !business.cover_url.includes(genericCover) && business.cover_url.length > 5);
+  const firstProductImage = business.products?.find((p) => p.image_url && p.image_url.length > 5)?.image_url;
+
+  const rawImage = hasCustomCover
+    ? business.cover_url
+    : hasCustomLogo
+    ? business.logo_url
+    : business.cover_url || firstProductImage || business.logo_url;
+
+  const shareImage = toAbsoluteUrl(rawImage);
+
+  // Descrição do próprio estabelecimento:
+  // Prioriza o slogan/bio cadastrado ou descrição completa da loja
+  const customBio = business.short_description?.trim() || business.description?.trim();
+  const pageDescription = customBio
+    ? customBio
+    : `${business.name}: ${business.category?.name || 'Comércio Local'} em ${neighborhoodName}, ${cityName}. Veja catálogo, ofertas, horários e atendimento direto via WhatsApp.`;
+
+  const pageTitle = business.short_description?.trim()
+    ? `${business.name} - ${business.short_description.trim()}`
+    : `${business.name} | ${neighborhoodName}, ${cityName}`;
 
   return {
     title: pageTitle,
@@ -53,14 +94,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       neighborhoodName,
       cityName,
       business.category?.name || 'comércio local',
-      'Vitriniza',
       'WhatsApp comércio',
     ],
     openGraph: {
-      title: pageTitle,
+      title: business.name,
       description: pageDescription,
       url: pageUrl,
-      siteName: 'Vitriniza',
+      siteName: business.name,
       locale: 'pt_BR',
       type: 'website',
       images: [
@@ -68,13 +108,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           url: shareImage,
           width: 1200,
           height: 630,
-          alt: `${business.name} - Vitriniza ${neighborhoodName}`,
+          alt: `${business.name} - ${neighborhoodName}`,
         },
       ],
     },
     twitter: {
       card: 'summary_large_image',
-      title: pageTitle,
+      title: business.name,
       description: pageDescription,
       images: [shareImage],
     },
@@ -85,7 +125,7 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
   const resolvedParams = await params;
   const business =
     (await getPublicBusinessBySlug(resolvedParams.slug)) ||
-    (process.env.NODE_ENV !== 'production' ? store.getBusinessBySlug(resolvedParams.slug) : null);
+    store.getBusinessBySlug(resolvedParams.slug);
 
   if (business) {
     const canonicalState = (business.state_id || resolvedParams.state).toLowerCase();

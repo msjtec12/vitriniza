@@ -34,7 +34,10 @@ export const SocialShareCardGenerator: React.FC<SocialShareCardGeneratorProps> =
   };
 
   const handleShareWhatsApp = () => {
-    const text = `Conheça a vitrine digital da *${business.name}* na Vitriniza! Veja nossos produtos, serviços e horários:\n${fullUrl}`;
+    const bio = business.short_description?.trim() || business.description?.trim();
+    const text = bio
+      ? `*${business.name}*\n${bio}\n\nAcesse nossa vitrine online e faça seu pedido direto:\n${fullUrl}`
+      : `*${business.name}*\nConfira nossa vitrine online, produtos, serviços e horários:\n${fullUrl}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };

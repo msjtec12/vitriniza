@@ -789,6 +789,8 @@ export const BusinessShowcaseClient: React.FC<BusinessShowcaseClientProps> = ({
         businessSlug={business.slug}
         businessUrl={businessUrl}
         businessLogoUrl={business.logo_url}
+        businessCoverUrl={business.cover_url}
+        businessDescription={business.short_description || business.description}
         neighborhoodName={business.neighborhood?.name}
         categoryName={business.category?.name}
       />

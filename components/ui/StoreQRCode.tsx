@@ -13,6 +13,7 @@ interface StoreQRCodeProps {
   businessUrl: string;
   neighborhoodName?: string;
   categoryName?: string;
+  businessDescription?: string;
   size?: number;
   showDownloadBtn?: boolean;
   variant?: 'compact' | 'display_card' | 'full_hub';
@@ -23,6 +24,7 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
   businessName,
   businessLogoUrl,
   businessUrl,
+  businessDescription,
   neighborhoodName = '',
   categoryName,
   size = 140,
@@ -47,10 +49,13 @@ export const StoreQRCode: React.FC<StoreQRCodeProps> = ({
   };
 
   const handleShare = () => {
+    const bio = businessDescription?.trim();
     if (navigator.share) {
       navigator.share({
-        title: `${businessName} na Vitriniza`,
-        text: `Conheça ${businessName}${neighborhoodName ? ' (' + neighborhoodName + ')' : ''}! Veja produtos e contatos:\n${fullUrl}`,
+        title: businessName,
+        text: bio
+          ? `${businessName}: ${bio}\n${fullUrl}`
+          : `Conheça ${businessName}${neighborhoodName ? ' (' + neighborhoodName + ')' : ''}! Veja produtos e contatos:\n${fullUrl}`,
         url: fullUrl,
       }).catch(() => {});
     } else {
