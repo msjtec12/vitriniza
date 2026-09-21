@@ -3,7 +3,7 @@ import 'server-only';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { createClient } from '@supabase/supabase-js';
 import type { Business, Category, City, Neighborhood, Place, Product, Promotion, Review } from '@/types';
-import { mockPlaces } from '@/lib/data/mockData';
+import { mockPlaces, mockNeighborhoods, mockCities } from '@/lib/data/mockData';
 
 const BUSINESS_PUBLIC_FIELDS = [
   'id', 'name', 'slug', 'description', 'short_description', 'category_id',
@@ -58,19 +58,31 @@ export async function getPublicPlaceBySlug(slug: string): Promise<Place | null> 
           publicPlace.city_id ? client.from('cities').select('*').eq('id', publicPlace.city_id).maybeSingle() : Promise.resolve({ data: null }),
         ]);
 
+        const fallbackNeigh = mockNeighborhoods.find((n) => n.id === publicPlace.neighborhood_id);
+        const fallbackCity = mockCities.find((c) => c.id === publicPlace.city_id);
+
         return {
           ...publicPlace,
-          neighborhood: (neighborhoodResult.data as Neighborhood | null) ?? undefined,
-          city: (cityResult.data as City | null) ?? undefined,
+          neighborhood: (neighborhoodResult.data as Neighborhood | null) ?? fallbackNeigh ?? undefined,
+          city: (cityResult.data as City | null) ?? fallbackCity ?? undefined,
         };
       }
     } catch {
-      // Fallback to mockData
+      // Gracefully fall through to mockPlaces
     }
   }
 
   const fallback = mockPlaces.find((p) => p.slug === slug && p.is_active);
-  return fallback ? { ...fallback } : null;
+  if (!fallback) return null;
+
+  const neigh = fallback.neighborhood || mockNeighborhoods.find((n) => n.id === fallback.neighborhood_id);
+  const city = fallback.city || mockCities.find((c) => c.id === fallback.city_id);
+
+  return {
+    ...fallback,
+    neighborhood: neigh,
+    city,
+  };
 }
 
 export async function getPlacesByNeighborhood(neighborhoodId: string): Promise<Place[]> {
@@ -187,7 +199,14 @@ export async function getSitemapRecords() {
     client.from('neighborhoods').select('id,slug,city_id').eq('active', true),
     client.from('categories').select('slug').eq('active', true),
     client.from('articles').select('slug,created_at').eq('is_published', true),
-    client.from('places').select('slug,updated_at').eq('is_active', true),
+    client
+      .from('places')
+      .select('slug,updated_at')
+      .eq('is_active', true)
+      .then(
+        (res) => res,
+        () => ({ data: null, error: true })
+      ),
   ]);
 
   const cityIds = [...new Set((businesses.data ?? []).map((business) => business.city_id))];
