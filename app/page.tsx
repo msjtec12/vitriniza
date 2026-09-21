@@ -14,12 +14,19 @@ import {
   ChevronRight,
   ChevronLeft,
   SlidersHorizontal,
+  Landmark,
+  HeartPulse,
+  Trees,
+  Train,
+  GraduationCap,
+  Compass,
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
-import { Business, Promotion, Category, Article, LocalEvent } from '@/types';
+import { Business, Promotion, Category, Article, LocalEvent, Place } from '@/types';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { CategoryCard } from '@/components/ui/CategoryCard';
 import { BusinessCard } from '@/components/ui/BusinessCard';
+import { PlaceCard } from '@/components/ui/PlaceCard';
 import { BusinessFeaturedCard } from '@/components/ui/BusinessFeaturedCard';
 import { PromotionCard } from '@/components/ui/PromotionCard';
 import { LeafletMap } from '@/components/ui/LeafletMap';
@@ -36,6 +43,7 @@ export default function HomePage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [events, setEvents] = useState<LocalEvent[]>([]);
+  const [places, setPlaces] = useState<Place[]>([]);
   const [isRecommendOpen, setIsRecommendOpen] = useState(false);
 
   // Carousel Refs & States
@@ -57,9 +65,11 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(3);
   const [nearbyBusinesses, setNearbyBusinesses] = useState<Business[]>([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState<Place[]>([]);
+  const [nearbyTab, setNearbyTab] = useState<'all' | 'businesses' | 'places'>('all');
   const [locating, setLocating] = useState<boolean>(false);
   const [locationStatusText, setLocationStatusText] = useState<string>(
-    'Mostrando estabelecimentos locais. Ative o GPS para ver os mais próximos de você.'
+    'Mostrando estabelecimentos e locais da região. Ative o GPS para filtrar por raio preciso.'
   );
 
   const [platformSettings, setPlatformSettings] = useState(() => store.getPlatformSettings());
@@ -74,6 +84,9 @@ export default function HomePage() {
     setEvents(store.getEvents());
     setPlatformSettings(store.getPlatformSettings());
 
+    const allP = store.getPlaces();
+    setPlaces(allP);
+
     const defaultLat = -23.5424;
     const defaultLng = -46.4178;
     const lat = userLocation?.lat || defaultLat;
@@ -86,6 +99,19 @@ export default function HomePage() {
       sort_by: 'distance',
     });
     setNearbyBusinesses(nearby);
+
+    const nearbyP = allP
+      .filter((p) => {
+        if (!p.latitude || !p.longitude) return false;
+        const d = store.calculateDistance(lat, lng, p.latitude, p.longitude);
+        return d <= radiusKm;
+      })
+      .sort((a, b) => {
+        const da = store.calculateDistance(lat, lng, a.latitude, a.longitude);
+        const db = store.calculateDistance(lat, lng, b.latitude, b.longitude);
+        return da - db;
+      });
+    setNearbyPlaces(nearbyP);
   };
 
   useEffect(() => {
@@ -183,32 +209,53 @@ export default function HomePage() {
         setUserLocation({ lat, lng });
         setLocationStatusText('Localização GPS detectada');
 
-        const filtered = store.getBusinesses({
+        const filteredBiz = store.getBusinesses({
           user_lat: lat,
           user_lng: lng,
           max_distance_km: radiusKm,
           sort_by: 'distance',
         });
-        setNearbyBusinesses(filtered);
+        setNearbyBusinesses(filteredBiz);
+
+        const filteredPlaces = store.getPlaces().filter((p) => {
+          if (!p.latitude || !p.longitude) return false;
+          return store.calculateDistance(lat, lng, p.latitude, p.longitude) <= radiusKm;
+        }).sort((a, b) => {
+          const da = store.calculateDistance(lat, lng, a.latitude, a.longitude);
+          const db = store.calculateDistance(lat, lng, b.latitude, b.longitude);
+          return da - db;
+        });
+        setNearbyPlaces(filteredPlaces);
       },
       () => {
         setLocating(false);
-        alert('Não foi possível obter sua localização. Exibindo estabelecimentos cadastrados.');
+        alert('Não foi possível obter sua localização. Exibindo locais e estabelecimentos cadastrados.');
       }
     );
   };
 
   const handleRadiusChange = (radius: number) => {
     setRadiusKm(radius);
-    if (userLocation) {
-      const filtered = store.getBusinesses({
-        user_lat: userLocation.lat,
-        user_lng: userLocation.lng,
-        max_distance_km: radius,
-        sort_by: 'distance',
-      });
-      setNearbyBusinesses(filtered);
-    }
+    const lat = userLocation?.lat || -23.5424;
+    const lng = userLocation?.lng || -46.4178;
+
+    const filteredBiz = store.getBusinesses({
+      user_lat: lat,
+      user_lng: lng,
+      max_distance_km: radius,
+      sort_by: 'distance',
+    });
+    setNearbyBusinesses(filteredBiz);
+
+    const filteredPlaces = store.getPlaces().filter((p) => {
+      if (!p.latitude || !p.longitude) return false;
+      return store.calculateDistance(lat, lng, p.latitude, p.longitude) <= radius;
+    }).sort((a, b) => {
+      const da = store.calculateDistance(lat, lng, a.latitude, a.longitude);
+      const db = store.calculateDistance(lat, lng, b.latitude, b.longitude);
+      return da - db;
+    });
+    setNearbyPlaces(filteredPlaces);
   };
 
   const filteredAllBusinesses = allBusinesses.filter((b) => {
@@ -244,16 +291,62 @@ export default function HomePage() {
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#0E3B43] tracking-tight max-w-4xl mx-auto leading-tight mb-4 drop-shadow-md">
-            O comércio do seu bairro em uma <span className="text-[#E36845] drop-shadow-sm">nova vitrine digital.</span>
+            O guia completo da sua região em uma <span className="text-[#E36845] drop-shadow-sm">nova vitrine digital.</span>
           </h1>
 
           {/* Subtext */}
-          <p className="text-sm sm:text-lg text-[#0E3B43] font-bold max-w-xl mx-auto mb-8 leading-relaxed drop-shadow-xs bg-white/70 backdrop-blur-xs py-2 px-5 rounded-2xl border border-white/50 inline-block shadow-sm">
-            Descubra comércios, serviços, profissionais e ofertas perto de você em poucos cliques.
+          <p className="text-sm sm:text-lg text-[#0E3B43] font-bold max-w-2xl mx-auto mb-8 leading-relaxed drop-shadow-xs bg-white/70 backdrop-blur-xs py-2 px-5 rounded-2xl border border-white/50 inline-block shadow-sm">
+            Descubra comércios, prestadores de serviço, saúde, lazer e pontos de utilidade pública perto de você.
           </p>
 
           {/* Dual Search Bar */}
           <SearchBar />
+
+          {/* Quick Category discovery pills */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
+            <Link
+              href="/buscar?tipo=businesses"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] shadow-2xs transition-all"
+            >
+              <span>🏪 Comércios</span>
+            </Link>
+            <Link
+              href="/buscar?categoria=alimentacao"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] shadow-2xs transition-all"
+            >
+              <span>🍕 Gastronomia</span>
+            </Link>
+            <Link
+              href="/buscar?tipo=places&grupo=saude"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-50/90 hover:bg-rose-100 text-rose-800 text-xs font-bold border border-rose-200 shadow-2xs transition-all"
+            >
+              <span>🏥 Saúde & UBS</span>
+            </Link>
+            <Link
+              href="/buscar?tipo=places&grupo=lazer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50/90 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 shadow-2xs transition-all"
+            >
+              <span>🌳 Parques & Lazer</span>
+            </Link>
+            <Link
+              href="/buscar?tipo=places&grupo=transporte"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50/90 hover:bg-purple-100 text-purple-800 text-xs font-bold border border-purple-200 shadow-2xs transition-all"
+            >
+              <span>🚉 Transporte</span>
+            </Link>
+            <Link
+              href="/buscar?tipo=places&grupo=educacao"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50/90 hover:bg-blue-100 text-blue-800 text-xs font-bold border border-blue-200 shadow-2xs transition-all"
+            >
+              <span>🏫 Educação</span>
+            </Link>
+            <Link
+              href="/buscar?tipo=places&grupo=servicos_publicos"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-teal-50/90 hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200 shadow-2xs transition-all"
+            >
+              <span>🏛️ Serviços Públicos</span>
+            </Link>
+          </div>
 
           {/* Action CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
@@ -261,7 +354,7 @@ export default function HomePage() {
               href="/buscar"
               className="px-6 py-3 rounded-2xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-black shadow-md flex items-center gap-2 transition-all active:scale-95"
             >
-              <span>Explorar Comércios & Bairros</span>
+              <span>Explorar o Guia Local</span>
               <ArrowRight className="w-4 h-4 text-[#E36845]" />
             </Link>
 
@@ -345,6 +438,44 @@ export default function HomePage() {
           })}
         </div>
       </section>
+
+      {/* 2.5. UTILIDADE PÚBLICA & PONTOS DE REFERÊNCIA */}
+      {places.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#0D9488]/15 text-[#0D9488] flex items-center justify-center">
+                <Landmark className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-[#0E3B43] tracking-tight flex items-center gap-2">
+                  <span>Utilidade Pública & Referências</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#0D9488] text-white">
+                    GUIA LOCAL
+                  </span>
+                </h2>
+                <p className="text-xs sm:text-sm text-[#537379]">
+                  Hospitais, UBS, parques, estações, escolas e serviços públicos essenciais
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/buscar?tipo=places"
+              className="text-xs sm:text-sm font-bold text-[#0D9488] hover:text-[#0E3B43] flex items-center gap-1 shrink-0 transition-colors"
+            >
+              <span>Ver todos os locais</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {places.slice(0, 6).map((place) => (
+              <PlaceCard key={place.id} place={place} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 3. 🔥 OFERTAS PERTO DE VOCÊ (CARROSSEL EM UMA LINHA COM MOVIMENTO SUTIL E ARRASTE) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -582,71 +713,159 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Radius Filter Pills */}
-          <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar pb-1">
-            <span className="text-xs font-bold text-[#537379] shrink-0 mr-1 flex items-center gap-1">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#4FA6A6]" /> Raio:
-            </span>
-            {[1, 3, 5, 10].map((km) => (
+          {/* Radius Filter Pills & Discovery Mode Tabs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-2 border-b border-[#E8E4DA]">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <span className="text-xs font-bold text-[#537379] shrink-0 mr-1 flex items-center gap-1">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#4FA6A6]" /> Raio:
+              </span>
+              {[
+                { val: 0.5, label: '500m' },
+                { val: 1, label: '1 km' },
+                { val: 2, label: '2 km' },
+                { val: 5, label: '5 km' },
+                { val: 10, label: '10 km' },
+              ].map(({ val, label }) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => handleRadiusChange(val)}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer',
+                    radiusKm === val
+                      ? 'bg-[#0E3B43] text-white shadow-xs'
+                      : 'bg-[#F8F6F0] text-[#0E3B43] border border-[#E8E4DA] hover:border-[#4FA6A6]'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Sub-tab switcher */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               <button
-                key={km}
                 type="button"
-                onClick={() => handleRadiusChange(km)}
+                onClick={() => setNearbyTab('all')}
                 className={cn(
-                  'px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0',
-                  radiusKm === km
+                  'px-3 py-1 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+                  nearbyTab === 'all'
                     ? 'bg-[#0E3B43] text-white shadow-xs'
-                    : 'bg-[#F8F6F0] text-[#0E3B43] border border-[#E8E4DA] hover:border-[#4FA6A6]'
+                    : 'bg-stone-100 text-[#0E3B43] hover:bg-stone-200'
                 )}
               >
-                até {km} km
+                Todos ({nearbyBusinesses.length + nearbyPlaces.length})
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setNearbyTab('businesses')}
+                className={cn(
+                  'px-3 py-1 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+                  nearbyTab === 'businesses'
+                    ? 'bg-[#E36845] text-white shadow-xs'
+                    : 'bg-stone-100 text-[#0E3B43] hover:bg-stone-200'
+                )}
+              >
+                Comércios ({nearbyBusinesses.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setNearbyTab('places')}
+                className={cn(
+                  'px-3 py-1 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+                  nearbyTab === 'places'
+                    ? 'bg-[#0D9488] text-white shadow-xs'
+                    : 'bg-stone-100 text-[#0E3B43] hover:bg-stone-200'
+                )}
+              >
+                Locais Públicos ({nearbyPlaces.length})
+              </button>
+            </div>
           </div>
 
           {/* Map & Grid Split */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Interactive Map */}
-            <div className="lg:col-span-6 h-[320px] sm:h-[400px]">
+            <div className="lg:col-span-6 h-[340px] sm:h-[420px]">
               <LeafletMap
-                businesses={nearbyBusinesses}
+                businesses={nearbyTab === 'places' ? [] : nearbyBusinesses}
+                places={nearbyTab === 'businesses' ? [] : nearbyPlaces}
                 center={userLocation ? [userLocation.lat, userLocation.lng] : [-23.5424, -46.4178]}
                 radiusKm={radiusKm}
-                zoom={radiusKm <= 1 ? 15 : radiusKm <= 3 ? 14 : 13}
+                zoom={radiusKm <= 0.5 ? 16 : radiusKm <= 1 ? 15 : radiusKm <= 3 ? 14 : 13}
                 height="100%"
               />
             </div>
 
-            {/* Business Cards List */}
-            <div className="lg:col-span-6 space-y-4 max-h-[400px] overflow-y-auto pr-1">
-              {nearbyBusinesses.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {nearbyBusinesses.slice(0, 4).map((biz) => {
-                    const dist = userLocation
-                      ? store.calculateDistance(
-                          userLocation.lat,
-                          userLocation.lng,
-                          biz.latitude,
-                          biz.longitude
-                        )
-                      : undefined;
-                    return (
-                      <BusinessCard
-                        key={biz.id}
-                        business={biz}
-                        userDistance={dist}
-                      />
-                    );
-                  })}
+            {/* Cards List */}
+            <div className="lg:col-span-6 space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              {/* If tab is places or all, show nearby places */}
+              {nearbyTab !== 'businesses' && nearbyPlaces.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-[#0D9488] uppercase tracking-wider flex items-center gap-1.5">
+                    <Landmark className="w-3.5 h-3.5" />
+                    <span>Locais de Utilidade Próximos</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {nearbyPlaces.slice(0, 4).map((place) => {
+                      const dist = userLocation
+                        ? store.calculateDistance(
+                            userLocation.lat,
+                            userLocation.lng,
+                            place.latitude,
+                            place.longitude
+                          )
+                        : undefined;
+                      return (
+                        <PlaceCard
+                          key={place.id}
+                          place={place}
+                          userDistance={dist}
+                          showNearbyPrompt={false}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-              ) : (
+              )}
+
+              {/* If tab is businesses or all, show nearby businesses */}
+              {nearbyTab !== 'places' && nearbyBusinesses.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-[#E36845] uppercase tracking-wider flex items-center gap-1.5">
+                    <Store className="w-3.5 h-3.5" />
+                    <span>Comércios & Serviços Próximos</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {nearbyBusinesses.slice(0, 4).map((biz) => {
+                      const dist = userLocation
+                        ? store.calculateDistance(
+                            userLocation.lat,
+                            userLocation.lng,
+                            biz.latitude,
+                            biz.longitude
+                          )
+                        : undefined;
+                      return (
+                        <BusinessCard
+                          key={biz.id}
+                          business={biz}
+                          userDistance={dist}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {nearbyBusinesses.length === 0 && nearbyPlaces.length === 0 && (
                 <div className="p-8 text-center bg-[#F8F6F0] rounded-2xl border border-dashed border-[#E8E4DA]">
-                  <Store className="w-10 h-10 text-[#537379] mx-auto mb-2 opacity-50" />
+                  <Compass className="w-10 h-10 text-[#537379] mx-auto mb-2 opacity-50" />
                   <p className="text-xs font-bold text-[#0E3B43]">
-                    Nenhum estabelecimento encontrado neste raio de {radiusKm} km.
+                    Nenhum estabelecimento ou local encontrado no raio de {radiusKm >= 1 ? `${radiusKm} km` : `${radiusKm * 1000} m`}.
                   </p>
                   <p className="text-[11px] text-[#537379] mt-1">
-                    Experimente aumentar o raio para 5 km ou 10 km.
+                    Experimente aumentar o raio para 2 km, 5 km ou 10 km.
                   </p>
                 </div>
               )}

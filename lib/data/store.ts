@@ -25,6 +25,10 @@ import {
   ListingType,
   OwnershipStatus,
   SubscriptionStatus,
+  Place,
+  PlaceCategoryGroup,
+  PlaceFilters,
+  UnifiedSearchResult,
 } from '@/types';
 import {
   mockStates,
@@ -43,6 +47,7 @@ import {
   mockSubscriptions,
   mockAuditLogs,
   mockBusinessMembers,
+  mockPlaces,
 } from './mockData';
 import { supabase } from '@/lib/supabase/client';
 
@@ -60,6 +65,7 @@ const STORAGE_KEYS = {
   SUBSCRIPTIONS: 'vitriniza_subscriptions_v1',
   AUDIT_LOGS: 'vitriniza_audit_logs_v1',
   MEMBERS: 'vitriniza_members_v1',
+  PLACES: 'vitriniza_places_v1',
 };
 
 const USE_DEMO_DATA =
@@ -69,6 +75,7 @@ const USE_DEMO_DATA =
 // HYBRID STORE WITH INSTANT LOCAL PERSISTENCE + REAL-TIME SUPABASE CLOUD SYNC & REACTION
 class VitrinizaStore {
   private businesses: Business[] = USE_DEMO_DATA ? [...mockBusinesses] : [];
+  private places: Place[] = [...mockPlaces];
   private categories: Category[] = [...mockCategories];
   private cities: City[] = [...mockCities];
   private neighborhoods: Neighborhood[] = [...mockNeighborhoods];
@@ -185,6 +192,10 @@ class VitrinizaStore {
         console.warn('[VitrinizaStore Listener Error]', err);
       }
     });
+  }
+
+  private notify() {
+    this.notifyListeners();
   }
 
   private isBrowser(): boolean {
@@ -770,6 +781,18 @@ class VitrinizaStore {
         }
       }
 
+      const storedPlaces = localStorage.getItem(STORAGE_KEYS.PLACES);
+      if (storedPlaces !== null) {
+        const parsed = JSON.parse(storedPlaces);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.places = parsed;
+        } else {
+          this.places = [...mockPlaces];
+        }
+      } else {
+        this.places = [...mockPlaces];
+      }
+
       this.isHydrated = true;
     } catch (err) {
       console.warn('[VitrinizaStore] Error loading storage:', err);
@@ -782,6 +805,7 @@ class VitrinizaStore {
     try {
       const cleanBusinesses = this.businesses.map(({ category, neighborhood, city, products, promotions, ...rest }) => rest);
       localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(cleanBusinesses));
+      localStorage.setItem(STORAGE_KEYS.PLACES, JSON.stringify(this.places));
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(this.products));
       localStorage.setItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(this.promotions));
       localStorage.setItem(STORAGE_KEYS.CLAIMS, JSON.stringify(this.claimRequests));
@@ -966,6 +990,325 @@ class VitrinizaStore {
   public getBusinessBySlug(slug: string): Business | undefined {
     this.ensureHydrated();
     return this.businesses.find((b) => b.slug === slug);
+  }
+
+  // --- QUERY & MANAGE PLACES (PONTOS DE INTERESSE & EQUIPAMENTOS PÚBLICOS) ---
+  public getPlaces(filters?: PlaceFilters): Place[] {
+    this.ensureHydrated();
+    let result = [...this.places];
+
+    if (!filters) {
+      return result.filter((p) => p.is_active);
+    }
+
+    if (filters.active_only !== false) {
+      result = result.filter((p) => p.is_active);
+    }
+
+    if (filters.query) {
+      const q = filters.query.toLowerCase().trim();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.subcategory.toLowerCase().includes(q) ||
+          p.category_group.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q) ||
+          p.short_description?.toLowerCase().includes(q) ||
+          p.address.toLowerCase().includes(q) ||
+          p.neighborhood_name?.toLowerCase().includes(q) ||
+          p.neighborhood?.name?.toLowerCase().includes(q)
+      );
+    }
+
+    if (filters.category_group) {
+      result = result.filter((p) => p.category_group === filters.category_group);
+    }
+
+    if (filters.subcategory) {
+      result = result.filter((p) => p.subcategory.toLowerCase() === filters.subcategory?.toLowerCase());
+    }
+
+    if (filters.neighborhood_id) {
+      result = result.filter(
+        (p) =>
+          p.neighborhood_id === filters.neighborhood_id ||
+          p.neighborhood?.slug === filters.neighborhood_id ||
+          p.neighborhood_name?.toLowerCase() === filters.neighborhood_id?.toLowerCase()
+      );
+    }
+
+    if (filters.city_id) {
+      result = result.filter((p) => p.city_id === filters.city_id);
+    }
+
+    if (filters.user_lat && filters.user_lng) {
+      result = result.map((p) => {
+        const distance = this.calculateDistance(filters.user_lat!, filters.user_lng!, p.latitude, p.longitude);
+        return { ...p, distance_km: distance };
+      });
+
+      if (filters.max_distance_km) {
+        result = result.filter((p) => (p.distance_km || 999) <= (filters.max_distance_km || 10));
+      }
+
+      if (filters.sort_by === 'distance') {
+        result.sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0));
+      }
+    }
+
+    if (filters.sort_by === 'name') {
+      result.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return result;
+  }
+
+  public getPlaceBySlug(slug: string): Place | undefined {
+    this.ensureHydrated();
+    return this.places.find((p) => p.slug === slug);
+  }
+
+  public getPlaceById(id: string): Place | undefined {
+    this.ensureHydrated();
+    return this.places.find((p) => p.id === id);
+  }
+
+  // Comércios próximos a um ponto de referência (Âncora geográfica)
+  public getBusinessesNearPlace(
+    placeSlugOrId: string,
+    radiusKm: number = 2.5
+  ): { business: Business; distanceKm: number }[] {
+    this.ensureHydrated();
+    const place = this.places.find((p) => p.slug === placeSlugOrId || p.id === placeSlugOrId);
+    if (!place || !place.latitude || !place.longitude) {
+      return [];
+    }
+
+    return this.businesses
+      .filter((b) => b.is_active && b.latitude && b.longitude)
+      .map((b) => {
+        const dist = this.calculateDistance(place.latitude, place.longitude, b.latitude, b.longitude);
+        return { business: { ...b, distance_km: dist }, distanceKm: dist };
+      })
+      .filter((item) => item.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  // Busca central unificada (Negócios + Locais Públicos)
+  public searchUnified(
+    query: string,
+    options?: { maxDistanceKm?: number; userLat?: number; userLng?: number }
+  ): { businesses: Business[]; places: Place[] } {
+    const q = query.trim();
+    const businesses = this.getBusinesses({
+      query: q || undefined,
+      user_lat: options?.userLat,
+      user_lng: options?.userLng,
+      max_distance_km: options?.maxDistanceKm,
+      sort_by: options?.userLat ? 'distance' : 'recommended',
+    });
+
+    const places = this.getPlaces({
+      query: q || undefined,
+      user_lat: options?.userLat,
+      user_lng: options?.userLng,
+      max_distance_km: options?.maxDistanceKm,
+      sort_by: options?.userLat ? 'distance' : 'recommended',
+    });
+
+    return { businesses, places };
+  }
+
+  public createPlace(data: Partial<Place>): Place {
+    this.ensureHydrated();
+    const slug =
+      data.slug ||
+      data.name
+        ?.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') ||
+      `local-${Date.now()}`;
+
+    const newPlace: Place = {
+      id: data.id || `place_${Date.now()}`,
+      name: data.name || 'Local Sem Nome',
+      slug,
+      description: data.description || '',
+      short_description: data.short_description || '',
+      category_group: data.category_group || 'outros',
+      subcategory: data.subcategory || 'Ponto de Interesse',
+      icon: data.icon || 'MapPin',
+      address: data.address || '',
+      number: data.number || 'S/N',
+      complement: data.complement || '',
+      neighborhood_id: data.neighborhood_id || 'neigh-guaianases',
+      neighborhood_name: data.neighborhood_name || 'Guaianases',
+      city_id: data.city_id || 'city-sp',
+      city_name: data.city_name || 'São Paulo',
+      state_id: data.state_id || 'SP',
+      postal_code: data.postal_code || '',
+      latitude: data.latitude || -23.5424,
+      longitude: data.longitude || -46.4178,
+      phone: data.phone || '',
+      website: data.website || '',
+      instagram: data.instagram || '',
+      opening_hours: data.opening_hours || '',
+      image_url:
+        data.image_url ||
+        'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80',
+      source: data.source || 'Informação Pública',
+      source_url: data.source_url || '',
+      verification_status: data.verification_status || 'public_info',
+      is_active: data.is_active ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.places.unshift(newPlace);
+    this.saveToStorage();
+    this.notify();
+    this.persistPlaceToCloud(newPlace.id);
+    return newPlace;
+  }
+
+  public updatePlace(id: string, updates: Partial<Place>): Place | null {
+    this.ensureHydrated();
+    const idx = this.places.findIndex((p) => p.id === id);
+    if (idx === -1) return null;
+
+    this.places[idx] = {
+      ...this.places[idx],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    this.saveToStorage();
+    this.notify();
+    this.persistPlaceToCloud(id);
+    return this.places[idx];
+  }
+
+  public deletePlace(id: string): boolean {
+    this.ensureHydrated();
+    const lenBefore = this.places.length;
+    this.places = this.places.filter((p) => p.id !== id);
+    if (this.places.length !== lenBefore) {
+      this.saveToStorage();
+      this.notify();
+      if (supabase) {
+        supabase.from('places').delete().eq('id', id).then(() => {});
+      }
+      return true;
+    }
+    return false;
+  }
+
+  public importPlaces(placesData: Partial<Place>[]): { inserted: number; updated: number; errors: string[] } {
+    this.ensureHydrated();
+    let inserted = 0;
+    let updated = 0;
+    const errors: string[] = [];
+
+    placesData.forEach((item, index) => {
+      if (!item.name || !item.address) {
+        errors.push(`Item ${index + 1}: Nome e endereço são obrigatórios.`);
+        return;
+      }
+
+      const existing = item.id
+        ? this.places.find((p) => p.id === item.id)
+        : item.slug
+        ? this.places.find((p) => p.slug === item.slug)
+        : undefined;
+
+      if (existing) {
+        this.updatePlace(existing.id, item);
+        updated++;
+      } else {
+        this.createPlace(item);
+        inserted++;
+      }
+    });
+
+    return { inserted, updated, errors };
+  }
+
+  public async persistPlaceToCloud(placeId: string): Promise<boolean> {
+    if (!supabase) return false;
+    const place = this.places.find((p) => p.id === placeId);
+    if (!place) return false;
+
+    try {
+      const { error } = await supabase.from('places').upsert(
+        {
+          id: place.id,
+          name: place.name,
+          slug: place.slug,
+          description: place.description,
+          short_description: place.short_description,
+          category_group: place.category_group,
+          subcategory: place.subcategory,
+          icon: place.icon,
+          address: place.address,
+          number: place.number,
+          complement: place.complement,
+          neighborhood_id: place.neighborhood_id,
+          neighborhood_name: place.neighborhood_name,
+          city_id: place.city_id,
+          city_name: place.city_name,
+          state_id: place.state_id,
+          postal_code: place.postal_code,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          phone: place.phone,
+          website: place.website,
+          instagram: place.instagram,
+          opening_hours: place.opening_hours,
+          image_url: place.image_url,
+          source: place.source,
+          source_url: place.source_url,
+          verification_status: place.verification_status,
+          is_active: place.is_active,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+      if (error) {
+        console.warn('[VitrinizaStore] Failed to persist place to Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[VitrinizaStore] Exception persisting place:', err);
+      return false;
+    }
+  }
+
+  public async fetchPlacesFromCloud(): Promise<void> {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('places')
+        .select('*')
+        .eq('is_active', true);
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const cloudMap = new Map(data.map((p) => [p.id, p]));
+        this.places = this.places.map((local) => cloudMap.get(local.id) || local);
+        data.forEach((cloudPlace) => {
+          if (!this.places.some((p) => p.id === cloudPlace.id)) {
+            this.places.push(cloudPlace);
+          }
+        });
+        this.saveToStorage();
+        this.notify();
+      }
+    } catch (err) {
+      console.warn('[VitrinizaStore] fetchPlacesFromCloud error:', err);
+    }
   }
 
   public getBusinessById(id: string): Business | undefined {

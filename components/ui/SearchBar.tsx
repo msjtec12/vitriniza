@@ -61,13 +61,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const quickTags = [
     { label: '🍕 Pizzaria', q: 'pizzaria' },
+    { label: '🏥 UBS / Saúde', q: 'ubs' },
+    { label: '🌳 Parques & Lazer', q: 'parque' },
+    { label: '🚉 Estação CPTM/Metrô', q: 'estacao' },
     { label: '💇 Barbearia', q: 'barbearia' },
-    { label: '💅 Manicure', q: 'manicure' },
-    { label: '⚡ Eletricista', q: 'eletricista' },
+    { label: '🏫 Escolas & CEU', q: 'escola' },
+    { label: '🏛️ Serviços Públicos', q: 'subprefeitura' },
     { label: '🐶 Pet Shop', q: 'pet' },
-    { label: '🎂 Confeitaria', q: 'confeitaria' },
-    { label: '📱 Assistência técnica', q: 'tecnica' },
-    { label: '🚗 Mecânico', q: 'mecanico' },
   ];
 
   if (variant === 'compact') {
@@ -79,7 +79,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="O que você procura no seu bairro?"
+            placeholder="O que você procura? Comércios, UBS, parques..."
             className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white border border-[#4FA6A6]/40 focus:border-[#E36845] text-sm text-[#0E3B43] placeholder:text-[#537379] outline-none transition-all shadow-2xs"
           />
         </div>
@@ -110,7 +110,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Pizzaria, mecânico, salão de beleza..."
+              placeholder="Negócios, serviços, UBS, parques, escolas..."
               className="w-full bg-transparent text-sm sm:text-base font-semibold text-[#0E3B43] placeholder:text-[#537379]/60 outline-none truncate"
             />
           </div>

@@ -45,8 +45,10 @@ import {
   Download,
   Smartphone,
   Crown,
+  Landmark,
 } from 'lucide-react';
 import { triggerMasterPwaInstall } from '@/components/master/MasterPwaInstallPrompt';
+import { MasterPlacesTab } from '@/components/master/MasterPlacesTab';
 import { store } from '@/lib/data/store';
 import {
   Business,
@@ -64,6 +66,7 @@ import {
   ListingType,
   SubscriptionStatus,
   BusinessHour,
+  Place,
 } from '@/types';
 import {
   formatCurrency,
@@ -89,6 +92,7 @@ export default function MasterAdminPage() {
     | 'dashboard'
     | 'requests'
     | 'businesses'
+    | 'places'
     | 'subscriptions'
     | 'create_business'
     | 'audit'
@@ -102,6 +106,7 @@ export default function MasterAdminPage() {
 
   const [stats, setStats] = useState(store.getMasterStats());
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [places, setPlaces] = useState<Place[]>([]);
   const [businessRequests, setBusinessRequests] = useState<BusinessRequest[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -351,6 +356,7 @@ export default function MasterAdminPage() {
     const neighs = store.getNeighborhoods();
     setCategories(cats);
     setNeighborhoods(neighs);
+    setPlaces(store.getPlaces({ active_only: false }));
     setSettings(store.getPlatformSettings());
     setEvents(store.getAllEvents());
 
@@ -1097,6 +1103,7 @@ export default function MasterAdminPage() {
             { id: 'dashboard', label: 'Dashboard & MRR', icon: TrendingUp },
             { id: 'requests', label: 'Solicitações Comerciais', icon: Send, count: stats.pendingRequests },
             { id: 'businesses', label: 'Empresas & Vitrines', icon: Building, count: businesses.length },
+            { id: 'places', label: 'Pontos de Interesse', icon: Landmark, count: places.length },
             { id: 'subscriptions', label: 'Assinaturas & Pagamentos', icon: CreditCard, count: stats.activeSubscriptions },
             { id: 'create_business', label: '+ Cadastrar Negócio', icon: Plus },
             { id: 'audit', label: 'Auditoria', icon: FileText },
@@ -1342,6 +1349,15 @@ export default function MasterAdminPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* TAB 2.5: PLACES & MASS IMPORTER */}
+        {activeTab === 'places' && (
+          <MasterPlacesTab
+            places={places}
+            neighborhoods={neighborhoods}
+            onRefresh={refreshData}
+          />
         )}
 
         {/* TAB 3: BUSINESSES TABLE */}

@@ -418,3 +418,84 @@ export interface MerchantAnalytics {
     phone_clicks: number;
   }[];
 }
+
+// ==========================================
+// PONTOS DE INTERESSE & DESCOBERTA LOCAL
+// ==========================================
+
+export type PlaceCategoryGroup =
+  | 'saude'
+  | 'educacao'
+  | 'lazer'
+  | 'religiao'
+  | 'transporte'
+  | 'servicos_publicos'
+  | 'cultura'
+  | 'outros';
+
+export type PlaceVerificationStatus =
+  | 'verified'              // Verificado pela equipe Vitriniza
+  | 'public_info'           // Informação pública catalogada
+  | 'community_submitted';  // Enviado pela comunidade / moradores
+
+export interface Place {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  short_description?: string;
+  category_group: PlaceCategoryGroup;
+  subcategory: string; // Ex: 'UBS', 'Hospital', 'Parque', 'Estação CPTM', 'Delegacia', 'Igreja'
+  icon?: string;
+  address: string;
+  number?: string;
+  complement?: string;
+  neighborhood_id?: string;
+  neighborhood_name?: string;
+  neighborhood?: Neighborhood;
+  city_id?: string;
+  city_name?: string;
+  city?: City;
+  state_id: string;
+  postal_code?: string;
+  latitude: number;
+  longitude: number;
+  phone?: string;
+  email?: string;
+  website?: string;
+  instagram?: string;
+  opening_hours?: string;
+  image_url?: string;
+  photo_url?: string;
+  cover_url?: string;
+  source?: string;          // Ex: "Prefeitura Municipal", "Dados Abertos SP"
+  source_name?: string;
+  source_url?: string;
+  verification_status: PlaceVerificationStatus;
+  is_active: boolean;
+  tags?: string[];
+  distance_km?: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PlaceFilters {
+  query?: string;
+  category_group?: PlaceCategoryGroup;
+  subcategory?: string;
+  neighborhood_id?: string;
+  city_id?: string;
+  user_lat?: number;
+  user_lng?: number;
+  max_distance_km?: number;
+  sort_by?: 'recommended' | 'distance' | 'name';
+  active_only?: boolean;
+}
+
+export interface UnifiedSearchResult {
+  type: 'business' | 'place';
+  business?: Business;
+  place?: Place;
+  distance_km?: number;
+}
+

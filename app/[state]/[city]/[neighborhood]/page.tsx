@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Sparkles, Flame, Store, ChevronRight, Award, ShoppingBag, ArrowRight } from 'lucide-react';
+import { MapPin, Sparkles, Flame, Store, ChevronRight, Award, ShoppingBag, ArrowRight, Landmark } from 'lucide-react';
 import { store } from '@/lib/data/store';
-import { Business, Category, Promotion } from '@/types';
+import { Business, Category, Promotion, Place } from '@/types';
 import { BusinessCard } from '@/components/ui/BusinessCard';
+import { PlaceCard } from '@/components/ui/PlaceCard';
 import { BusinessFeaturedCard } from '@/components/ui/BusinessFeaturedCard';
 import { PromotionCard } from '@/components/ui/PromotionCard';
 import { CategoryCard } from '@/components/ui/CategoryCard';
@@ -27,6 +28,7 @@ export default function NeighborhoodHubPage() {
   };
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [places, setPlaces] = useState<Place[]>([]);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -39,10 +41,13 @@ export default function NeighborhoodHubPage() {
     if (currentNeigh) setNeighborhoodName(currentNeigh.name);
 
     setCategories(store.getCategories());
-    const list = store.getBusinesses({ neighborhood_id: neighborhoodSlug });
+    const list = store.getBusinesses({ neighborhood_id: currentNeigh?.id || neighborhoodSlug });
     setBusinesses(list);
     setFeaturedBusinesses(list.filter((b) => b.is_featured || b.is_founder).slice(0, 4));
     setPromotions(store.getPromotions().filter((p) => p.neighborhood_name?.toLowerCase() === neighborhoodName.toLowerCase()));
+
+    const pList = store.getPlaces({ neighborhood_id: currentNeigh?.id || neighborhoodSlug });
+    setPlaces(pList);
   }, [neighborhoodSlug, neighborhoodName]);
 
   const totalProducts = businesses.reduce((acc, b) => acc + (b.products?.length || 0), 0);
@@ -91,6 +96,11 @@ export default function NeighborhoodHubPage() {
             {promotions.length > 0 && (
               <span className="px-3.5 py-1.5 rounded-xl bg-white border border-[#E8E4DA] shadow-2xs flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-[#E36845]" /> {promotions.length} ofertas ativas
+              </span>
+            )}
+            {places.length > 0 && (
+              <span className="px-3.5 py-1.5 rounded-xl bg-white border border-[#E8E4DA] shadow-2xs flex items-center gap-1.5">
+                <Landmark className="w-3.5 h-3.5 text-[#0D9488]" /> {places.length} locais públicos
               </span>
             )}
           </div>
@@ -159,6 +169,27 @@ export default function NeighborhoodHubPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {promotions.map((promo) => (
               <PromotionCard key={promo.id} promotion={promo} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Public Places & Reference Points Section */}
+      {places.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-black text-[#0E3B43] tracking-tight flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-[#0D9488]" />
+                <span>Utilidade Pública & Referências em {neighborhoodName}</span>
+              </h2>
+              <p className="text-xs text-[#537379]">Postos de saúde, escolas, parques, estações e órgãos públicos</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {places.map((place) => (
+              <PlaceCard key={place.id} place={place} />
             ))}
           </div>
         </section>
