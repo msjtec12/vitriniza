@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     }
 
     const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const sanitizedFolder = ['logos', 'covers', 'products', 'promotions'].includes(folder) ? folder : 'misc';
+    const sanitizedFolder = ['logos', 'covers', 'products', 'promotions', 'places'].includes(folder) ? folder : 'misc';
     const filePath = `${businessId}/${sanitizedFolder}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());

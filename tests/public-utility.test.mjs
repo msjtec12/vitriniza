@@ -31,6 +31,10 @@ test('places migration supports the complete catalog and protected writes', asyn
     new URL('../supabase/migrations/007_tighten_places_privileges_and_indexes.sql', import.meta.url),
     'utf8'
   );
+  const restrictedPrivilegesMigration = await readFile(
+    new URL('../supabase/migrations/008_restrict_places_authenticated_privileges.sql', import.meta.url),
+    'utf8'
+  );
 
   assert.match(migration, /'esporte'/);
   assert.match(migration, /'turismo'/);
@@ -43,6 +47,9 @@ test('places migration supports the complete catalog and protected writes', asyn
   assert.match(privilegesMigration, /CREATE POLICY places_admin_update/);
   assert.match(privilegesMigration, /CREATE POLICY places_admin_delete/);
   assert.match(privilegesMigration, /idx_places_city_id/);
+  assert.match(restrictedPrivilegesMigration, /REVOKE ALL PRIVILEGES.*authenticated/);
+  assert.match(restrictedPrivilegesMigration, /GRANT SELECT, INSERT, UPDATE, DELETE/);
+  assert.doesNotMatch(restrictedPrivilegesMigration, /GRANT .*TRUNCATE/);
 });
 
 test('every public utility category has a local default image', async () => {
@@ -71,4 +78,29 @@ test('every public utility category has a local default image', async () => {
     assert.match(asset, /^<svg/);
     assert.match(asset, /<title/);
   }
+});
+
+test('manual public utility changes wait for server-confirmed persistence', async () => {
+  const modalSource = await readFile(
+    new URL('../components/master/MasterPlaceModal.tsx', import.meta.url),
+    'utf8'
+  );
+  const routeSource = await readFile(
+    new URL('../app/api/admin/places/route.ts', import.meta.url),
+    'utf8'
+  );
+  const uploadSource = await readFile(
+    new URL('../app/api/merchant/upload/route.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(modalSource, /await fetch\('\/api\/admin\/places'/);
+  assert.match(modalSource, /await store\.fetchPlacesFromCloud\(true\)/);
+  assert.doesNotMatch(modalSource, /readAsDataURL/);
+  assert.match(routeSource, /requireAdmin\(req\)/);
+  assert.match(routeSource, /\.insert\(\{ id, \.\.\.record \}\)/);
+  assert.match(routeSource, /ensureLocation/);
+  assert.match(routeSource, /source_name: sourceName/);
+  assert.match(routeSource, /tags:/);
+  assert.match(uploadSource, /'places'/);
 });
