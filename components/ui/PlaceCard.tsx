@@ -51,10 +51,10 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
     <div className="group relative flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-[#4FA6A6]/20 hover:border-[#4FA6A6]/60 overflow-hidden card-shadow card-shadow-hover transition-all duration-300">
       {/* Visual Cover / Header banner */}
       <Link href={placeUrl} className="relative aspect-[16/9] w-full overflow-hidden bg-[#0E3B43] block">
-        {place.photo_url || place.cover_url ? (
+        {place.photo_url || place.cover_url || place.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={place.photo_url || place.cover_url}
+            src={place.photo_url || place.cover_url || place.image_url}
             alt={place.name}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"

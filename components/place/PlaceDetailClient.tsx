@@ -136,11 +136,11 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
 
       {/* Civic Place Hero Header */}
       <header className="relative bg-[#0E3B43] text-white pt-10 pb-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {place.cover_url && (
+        {(place.cover_url || place.photo_url || place.image_url) && (
           <div className="absolute inset-0 z-0 opacity-20">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={place.cover_url}
+              src={place.cover_url || place.photo_url || place.image_url}
               alt=""
               className="w-full h-full object-cover"
             />

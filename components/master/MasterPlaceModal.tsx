@@ -12,11 +12,15 @@ import {
   CheckCircle2,
   ExternalLink,
   Search,
+  Upload,
+  ImageIcon,
+  Trash2,
 } from 'lucide-react';
 import { Place, PlaceCategoryGroup, PlaceVerificationStatus, Neighborhood } from '@/types';
 import { store } from '@/lib/data/store';
 import { fetchAddressByCep } from '@/lib/utils';
-import { PLACE_CATEGORY_META } from '@/components/ui/PlaceCard';
+import { PLACE_CATEGORY_META } from '@/lib/places';
+import { supabase } from '@/lib/supabase/client';
 
 interface MasterPlaceModalProps {
   isOpen: boolean;
@@ -64,6 +68,7 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
 
   const [cepLoading, setCepLoading] = useState(false);
   const [cepMessage, setCepMessage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (placeToEdit) {
@@ -90,6 +95,7 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
         opening_hours: 'Seg a Sex 07h às 19h',
         photo_url: '',
         cover_url: '',
+        image_url: '',
         source_name: 'Prefeitura / SMS',
         source_url: '',
         verification_status: 'verified',
@@ -102,6 +108,75 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
   }, [placeToEdit, neighborhoods, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+
+    try {
+      const { data: sessionData } = (await supabase?.auth.getSession()) || {};
+      const token = sessionData?.session?.access_token;
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('businessId', formData.id || 'master-place');
+      fd.append('folder', 'places');
+
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/merchant/upload', {
+        method: 'POST',
+        headers,
+        body: fd,
+      });
+
+      if (res.ok) {
+        const json = (await res.json()) as { success?: boolean; url?: string };
+        if (json.success && json.url) {
+          setFormData((prev) => ({
+            ...prev,
+            photo_url: json.url,
+            cover_url: json.url,
+            image_url: json.url,
+          }));
+          setUploadingImage(false);
+          return;
+        }
+      }
+
+      // Fallback: FileReader Base64 for instant local preview & persistence
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setFormData((prev) => ({
+            ...prev,
+            photo_url: reader.result as string,
+            cover_url: reader.result as string,
+            image_url: reader.result as string,
+          }));
+        }
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setFormData((prev) => ({
+            ...prev,
+            photo_url: reader.result as string,
+            cover_url: reader.result as string,
+            image_url: reader.result as string,
+          }));
+        }
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleCepLookup = async () => {
     const cleanCep = (formData.postal_code || '').replace(/\D/g, '');
@@ -139,11 +214,19 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
       return;
     }
 
+    const resolvedImg = formData.photo_url || formData.cover_url || formData.image_url || '';
+    const payload = {
+      ...formData,
+      image_url: resolvedImg,
+      photo_url: resolvedImg,
+      cover_url: resolvedImg,
+    };
+
     if (placeToEdit) {
-      store.updatePlace(placeToEdit.id, formData);
+      store.updatePlace(placeToEdit.id, payload);
       alert('✓ Local público atualizado com sucesso!');
     } else {
-      store.createPlace(formData);
+      store.createPlace(payload);
       alert('✓ Novo ponto de interesse cadastrado com sucesso!');
     }
 
@@ -422,33 +505,73 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
             </div>
           </div>
 
-          {/* Row 6: Photo & Cover URLs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-[#0E3B43] mb-1">
-                URL da Foto
+          {/* Row 6: Image Upload & Preview */}
+          <div className="p-4 rounded-2xl bg-[#F8F6F0] border border-[#E8E4DA] space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-[#0E3B43] flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-[#4FA6A6]" />
+                <span>Foto / Imagem de Capa do Local</span>
               </label>
-              <input
-                type="url"
-                value={formData.photo_url || ''}
-                onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
-                placeholder="https://..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
-              />
+              {(formData.photo_url || formData.cover_url || formData.image_url) && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, photo_url: '', cover_url: '', image_url: '' })}
+                  className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Remover Imagem</span>
+                </button>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-[#0E3B43] mb-1">
-                URL da Capa
-              </label>
-              <input
-                type="url"
-                value={formData.cover_url || ''}
-                onChange={(e) => setFormData({ ...formData, cover_url: e.target.value })}
-                placeholder="https://..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
-              />
+            {/* Preview if image exists */}
+            {(formData.photo_url || formData.cover_url || formData.image_url) && (
+              <div className="relative w-full h-44 rounded-xl overflow-hidden border border-[#E8E4DA] bg-stone-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={formData.photo_url || formData.cover_url || formData.image_url}
+                  alt="Prévia do local"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+              <div>
+                <label className="cursor-pointer w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-bold shadow-sm transition-all text-center">
+                  <Upload className="w-3.5 h-3.5 text-teal-300" />
+                  <span>{uploadingImage ? 'Enviando imagem...' : '📁 Escolher Foto do Computador/Celular'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                </label>
+              </div>
+
+              <div>
+                <input
+                  type="url"
+                  value={formData.photo_url || formData.cover_url || formData.image_url || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData({
+                      ...formData,
+                      photo_url: val,
+                      cover_url: val,
+                      image_url: val,
+                    });
+                  }}
+                  placeholder="Ou cole a URL direta (https://...)"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-[#537379]">
+              Formatos aceitos: JPG, PNG, WebP. A foto é salva instantaneamente e exibida tanto nos cartões quanto na página de detalhes do local.
+            </p>
           </div>
 
           {/* Descriptions */}

@@ -27,10 +27,13 @@ CREATE TABLE IF NOT EXISTS public.places (
     latitude DOUBLE PRECISION NOT NULL DEFAULT 0,
     longitude DOUBLE PRECISION NOT NULL DEFAULT 0,
     phone TEXT,
+    email TEXT,
     website TEXT,
     instagram TEXT,
     opening_hours TEXT,
     image_url TEXT,
+    photo_url TEXT,
+    cover_url TEXT,
     source TEXT DEFAULT 'Dados Públicos Oficiais',
     source_url TEXT,
     verification_status TEXT NOT NULL DEFAULT 'public_info' CHECK (

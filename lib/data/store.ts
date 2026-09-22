@@ -864,6 +864,20 @@ class VitrinizaStore {
         promotions: bizPromotions,
       };
     });
+
+    this.places = this.places.map((place) => {
+      const neighborhood = this.neighborhoods.find((n) => n.id === place.neighborhood_id || n.slug === place.neighborhood_id);
+      const city = this.cities.find((c) => c.id === place.city_id || c.slug === place.city_id);
+      const img = place.photo_url || place.cover_url || place.image_url;
+      return {
+        ...place,
+        neighborhood: neighborhood || place.neighborhood,
+        city: city || place.city,
+        image_url: img || place.image_url,
+        photo_url: place.photo_url || img,
+        cover_url: place.cover_url || img,
+      };
+    });
   }
 
   // --- DISTANCE & TIME UTILS ---
@@ -1152,16 +1166,31 @@ class VitrinizaStore {
       latitude: data.latitude || -23.5424,
       longitude: data.longitude || -46.4178,
       phone: data.phone || '',
+      email: data.email || '',
       website: data.website || '',
       instagram: data.instagram || '',
       opening_hours: data.opening_hours || '',
       image_url:
         data.image_url ||
+        data.photo_url ||
+        data.cover_url ||
         'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80',
-      source: data.source || 'Informação Pública',
+      photo_url:
+        data.photo_url ||
+        data.cover_url ||
+        data.image_url ||
+        'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80',
+      cover_url:
+        data.cover_url ||
+        data.photo_url ||
+        data.image_url ||
+        'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80',
+      source: data.source || data.source_name || 'Informação Pública',
+      source_name: data.source_name || data.source || 'Informação Pública',
       source_url: data.source_url || '',
       verification_status: data.verification_status || 'public_info',
       is_active: data.is_active ?? true,
+      tags: data.tags || [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1178,9 +1207,21 @@ class VitrinizaStore {
     const idx = this.places.findIndex((p) => p.id === id);
     if (idx === -1) return null;
 
+    const current = this.places[idx];
+    const resolvedImg =
+      updates.photo_url ||
+      updates.cover_url ||
+      updates.image_url ||
+      current.photo_url ||
+      current.cover_url ||
+      current.image_url;
+
     this.places[idx] = {
-      ...this.places[idx],
+      ...current,
       ...updates,
+      image_url: resolvedImg,
+      photo_url: updates.photo_url || resolvedImg,
+      cover_url: updates.cover_url || resolvedImg,
       updated_at: new Date().toISOString(),
     };
 
@@ -1241,6 +1282,7 @@ class VitrinizaStore {
     if (!place) return false;
 
     try {
+      const img = place.photo_url || place.cover_url || place.image_url;
       const { error } = await supabase.from('places').upsert(
         {
           id: place.id,
@@ -1266,8 +1308,8 @@ class VitrinizaStore {
           website: place.website,
           instagram: place.instagram,
           opening_hours: place.opening_hours,
-          image_url: place.image_url,
-          source: place.source,
+          image_url: img,
+          source: place.source || place.source_name || 'Dados Públicos Oficiais',
           source_url: place.source_url,
           verification_status: place.verification_status,
           is_active: place.is_active,
@@ -1277,12 +1319,13 @@ class VitrinizaStore {
       );
 
       if (error) {
-        console.warn('[VitrinizaStore] Failed to persist place to Supabase:', error.message);
+        // Warn without disrupting local app functionality if table is not yet migrated in Supabase
+        console.warn('[VitrinizaStore] Cloud sync info (table public.places):', error.message);
         return false;
       }
       return true;
     } catch (err) {
-      console.warn('[VitrinizaStore] Exception persisting place:', err);
+      console.warn('[VitrinizaStore] Cloud sync exception:', err);
       return false;
     }
   }
