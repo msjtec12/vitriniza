@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de serviço público</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ecfbf9"/><stop offset="1" stop-color="#ccece8"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="180" cy="95" r="155" fill="#fff" opacity=".34"/><path d="M0 570Q240 520 470 560T900 548T1200 525V675H0Z" fill="#65bdb2" opacity=".25"/>
+  <path d="m600 145 300 150H300Z" fill="#0d9488"/><path d="M340 315h520M390 315v210m140-210v210m140-210v210m140-210v210M320 535h560M285 580h630" fill="none" stroke="#0d9488" stroke-width="28" stroke-linecap="round"/><path d="M405 345v150m140-150v150m140-150v150m140-150v150" stroke="#fff" stroke-width="30"/>
+</svg>

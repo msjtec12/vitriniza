@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de utilidade pública</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f2f6f7"/><stop offset="1" stop-color="#dce7e9"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="175" cy="100" r="160" fill="#fff" opacity=".35"/><path d="M0 565Q240 510 470 558T900 545T1200 520V675H0Z" fill="#8da3a8" opacity=".24"/>
+  <rect x="330" y="205" width="540" height="355" rx="28" fill="#fff" stroke="#475569" stroke-width="16"/><path d="M420 275h95v85h-95Zm265 0h95v85h-95ZM420 405h95v85h-95Zm265 0h95v85h-95Z" fill="#dbe4e6"/><path d="M565 560V390h70v170" fill="#9cacb0"/><circle cx="600" cy="155" r="58" fill="#475569"/><path d="M600 125v60m-30-30h60" stroke="#fff" stroke-width="14" stroke-linecap="round"/>
+</svg>
