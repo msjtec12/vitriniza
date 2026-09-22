@@ -27,6 +27,10 @@ test('places migration supports the complete catalog and protected writes', asyn
     new URL('../supabase/migrations/006_align_places_schema_and_security.sql', import.meta.url),
     'utf8'
   );
+  const privilegesMigration = await readFile(
+    new URL('../supabase/migrations/007_tighten_places_privileges_and_indexes.sql', import.meta.url),
+    'utf8'
+  );
 
   assert.match(migration, /'esporte'/);
   assert.match(migration, /'turismo'/);
@@ -34,4 +38,9 @@ test('places migration supports the complete catalog and protected writes', asyn
   assert.match(migration, /tags TEXT\[\]/);
   assert.match(migration, /TO authenticated/);
   assert.doesNotMatch(migration, /auth\.role\(\)/);
+  assert.match(privilegesMigration, /FROM anon/);
+  assert.match(privilegesMigration, /CREATE POLICY places_admin_insert/);
+  assert.match(privilegesMigration, /CREATE POLICY places_admin_update/);
+  assert.match(privilegesMigration, /CREATE POLICY places_admin_delete/);
+  assert.match(privilegesMigration, /idx_places_city_id/);
 });
