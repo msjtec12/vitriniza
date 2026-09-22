@@ -14,9 +14,11 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { Place, PlaceCategoryGroup, Neighborhood } from '@/types';
 import { store } from '@/lib/data/store';
+import { ZONA_LESTE_PLACES } from '@/lib/data/zonaleste-catalog';
 import { PLACE_CATEGORY_META } from '@/components/ui/PlaceCard';
 import { MasterPlaceModal } from './MasterPlaceModal';
 import { MasterMassImportModal } from './MasterMassImportModal';
@@ -37,6 +39,8 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [placeToEdit, setPlaceToEdit] = useState<Place | null>(null);
   const [isMassImportOpen, setIsMassImportOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const filteredPlaces = useMemo(() => {
     return places.filter((p) => {
@@ -66,8 +70,53 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
     onRefresh();
   };
 
+  const handleSyncZonaLeste = async () => {
+    try {
+      setIsSyncing(true);
+      setSyncMessage(null);
+
+      // 1. Ingestão local no store (garante atualização instantânea)
+      const resImport = store.importPlaces(ZONA_LESTE_PLACES);
+
+      // 2. Sincronização com o Supabase via API
+      let cloudMsg = '';
+      try {
+        const response = await fetch('/api/places/sync-zonaleste', { method: 'POST' });
+        const json = await response.json();
+        if (json?.database_synced) {
+          cloudMsg = ' e sincronizados no banco Supabase';
+        }
+      } catch (err) {
+        console.warn('API cloud sync warning:', err);
+      }
+
+      setSyncMessage(
+        `⚡ Sucesso! ${ZONA_LESTE_PLACES.length} equipamentos da Zona Leste SP carregados com fotos reais${cloudMsg}.`
+      );
+      onRefresh();
+    } catch (err: any) {
+      setSyncMessage(`❌ Erro ao sincronizar: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in">
+      {/* Sync Notification Banner */}
+      {syncMessage && (
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs font-bold flex items-center justify-between gap-3 shadow-xs">
+          <span>{syncMessage}</span>
+          <button
+            type="button"
+            onClick={() => setSyncMessage(null)}
+            className="text-teal-700 hover:text-teal-900 text-xs underline font-normal"
+          >
+            Fechar
+          </button>
+        </div>
+      )}
+
       {/* Top Header & Action Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white rounded-3xl border border-[#4FA6A6]/20 card-shadow">
         <div className="flex items-center gap-3.5">
@@ -87,11 +136,22 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
+            disabled={isSyncing}
+            onClick={handleSyncZonaLeste}
+            className="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+            title="Importar automaticamente todos os parques, UBSs, escolas e hospitais da Zona Leste com fotos reais"
+          >
+            <Sparkles className={`w-4 h-4 text-amber-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Sincronizando ZL...' : '⚡ Sincronizar ZL (Fotos Reais)'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsMassImportOpen(true)}
             className="px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-[#0D9488] border border-teal-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
           >
             <Upload className="w-4 h-4" />
-            <span>Importação em Massa (CSV / JSON)</span>
+            <span>Importação em Massa</span>
           </button>
 
           <button
@@ -103,7 +163,7 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
             className="px-4 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
           >
             <Plus className="w-4 h-4 text-teal-300" />
-            <span>+ Novo Ponto de Interesse</span>
+            <span>+ Novo Local</span>
           </button>
         </div>
       </div>
