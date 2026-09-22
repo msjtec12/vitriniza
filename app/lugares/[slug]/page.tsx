@@ -2,7 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getPublicPlaceBySlug } from '@/lib/data/server';
-import { getPlaceCategoryMeta, getPlaceSchemaType } from '@/lib/places';
+import { getPlaceCategoryMeta, getPlaceImage, getPlaceSchemaType } from '@/lib/places';
 import { PlaceDetailClient } from '@/components/place/PlaceDetailClient';
 import { SITE_URL } from '@/lib/site';
 import { serializeJsonLd } from '@/lib/security/json-ld.mjs';
@@ -29,7 +29,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     `${place.name} em ${place.neighborhood?.name || place.neighborhood_name || 'São Paulo'}. Endereço, horários de atendimento, rotas e comércios no entorno.`;
 
   const placeUrl = `${SITE_URL}/lugares/${place.slug}`;
-  const image = place.photo_url || place.cover_url || place.image_url || `${SITE_URL}/logo.png`;
+  const imageSource = getPlaceImage(place).src;
+  const image = imageSource.startsWith('/') ? `${SITE_URL}${imageSource}` : imageSource;
 
   return {
     title,

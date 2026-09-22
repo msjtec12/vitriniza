@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Place } from '@/types';
 import { buildMapsDirectionsUrl, cn } from '@/lib/utils';
-import { PLACE_CATEGORY_META } from '@/lib/places';
+import { getPlaceImage, PLACE_CATEGORY_META } from '@/lib/places';
 
 export { PLACE_CATEGORY_META };
 
@@ -34,7 +34,9 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
 
   const placeUrl = `/lugares/${place.slug}`;
   const mapsDirectionUrl = buildMapsDirectionsUrl(place);
-  const imageUrl = place.photo_url || place.cover_url || place.image_url;
+  const resolvedImage = getPlaceImage(place);
+  const [imageUrl, setImageUrl] = useState(resolvedImage.src);
+  const [isDefaultImage, setIsDefaultImage] = useState(resolvedImage.isDefault);
 
   const formatDistance = (distKm?: number) => {
     if (distKm === undefined) return null;
@@ -46,23 +48,20 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
     <div className="group relative flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-[#4FA6A6]/20 hover:border-[#4FA6A6]/60 overflow-hidden card-shadow card-shadow-hover transition-all duration-300">
       {/* Visual Cover / Header banner */}
       <Link href={placeUrl} className="relative aspect-[16/9] w-full overflow-hidden bg-[#0E3B43] block">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={place.name}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            unoptimized
-          />
-        ) : (
-          <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#0E3B43] via-[#154E58] to-[#1F6E7B] text-white p-6">
-            <CategoryIcon className="w-12 h-12 opacity-80 mb-2" style={{ color: meta.color }} />
-            <span className="text-xs uppercase tracking-wider font-semibold opacity-75">
-              {meta.label}
-            </span>
-          </div>
-        )}
+        <Image
+          src={imageUrl}
+          alt={isDefaultImage ? meta.defaultImageAlt : place.name}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={() => {
+            if (!isDefaultImage) {
+              setImageUrl(meta.defaultImage);
+              setIsDefaultImage(true);
+            }
+          }}
+          unoptimized
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0E3B43]/90 via-black/20 to-black/30" />
 
         {/* Top Badges */}
@@ -82,6 +81,12 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold bg-white/95 text-[#0E3B43] shadow-sm">
                 <CheckCircle2 className="w-3 h-3 text-[#4FA6A6]" />
                 Oficial
+              </span>
+            )}
+
+            {isDefaultImage && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 text-[#537379] shadow-sm">
+                Imagem ilustrativa
               </span>
             )}
           </div>

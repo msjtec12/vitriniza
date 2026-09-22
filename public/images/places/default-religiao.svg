@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de local religioso</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff8e7"/><stop offset="1" stop-color="#f4dfb2"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="600" cy="165" r="145" fill="#fff" opacity=".45"/><path d="M0 565Q250 510 470 555T900 545T1200 530V675H0Z" fill="#d8ad5b" opacity=".28"/>
+  <path d="M600 160v105m-45-65h90" stroke="#b66d12" stroke-width="20" stroke-linecap="round"/><path d="m600 240 225 165v155H375V405Z" fill="#fff" stroke="#d58b25" stroke-width="16" stroke-linejoin="round"/><path d="M550 560V430a50 50 0 0 1 100 0v130" fill="#f4d79e"/><circle cx="465" cy="435" r="32" fill="#f4d79e"/><circle cx="735" cy="435" r="32" fill="#f4d79e"/>
+</svg>

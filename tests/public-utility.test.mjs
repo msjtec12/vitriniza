@@ -44,3 +44,31 @@ test('places migration supports the complete catalog and protected writes', asyn
   assert.match(privilegesMigration, /CREATE POLICY places_admin_delete/);
   assert.match(privilegesMigration, /idx_places_city_id/);
 });
+
+test('every public utility category has a local default image', async () => {
+  const categories = [
+    'saude',
+    'educacao',
+    'lazer',
+    'esporte',
+    'turismo',
+    'religiao',
+    'transporte',
+    'servicos-publicos',
+    'cultura',
+    'outros',
+  ];
+  const placesSource = await readFile(new URL('../lib/places.ts', import.meta.url), 'utf8');
+
+  for (const category of categories) {
+    const publicPath = `/images/places/default-${category}.svg`;
+    const asset = await readFile(
+      new URL(`../public${publicPath}`, import.meta.url),
+      'utf8'
+    );
+
+    assert.match(placesSource, new RegExp(publicPath.replaceAll('/', '\\/')));
+    assert.match(asset, /^<svg/);
+    assert.match(asset, /<title/);
+  }
+});

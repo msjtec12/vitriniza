@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import type { Business, Place } from '@/types';
 import { store } from '@/lib/data/store';
-import { getPlaceCategoryMeta } from '@/lib/places';
+import { getPlaceCategoryMeta, getPlaceImage } from '@/lib/places';
 import { BusinessCard } from '@/components/ui/BusinessCard';
 import {
   buildMapsDirectionsUrl,
@@ -58,6 +58,9 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
 
   const meta = getPlaceCategoryMeta(place.category_group);
   const CategoryIcon = meta.icon;
+  const resolvedImage = getPlaceImage(place);
+  const [heroImage, setHeroImage] = useState(resolvedImage.src);
+  const [isDefaultImage, setIsDefaultImage] = useState(resolvedImage.isDefault);
 
   useEffect(() => {
     let active = true;
@@ -112,7 +115,6 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
   const mapsDirectionUrl = buildMapsDirectionsUrl(place);
   const websiteUrl = normalizeExternalUrl(place.website);
   const sourceUrl = normalizeExternalUrl(place.source_url);
-  const heroImage = place.cover_url || place.photo_url || place.image_url;
   const correctionUrl = supportWhatsApp
     ? buildWhatsAppUrl(
         supportWhatsApp,
@@ -177,6 +179,12 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
               sizes="100vw"
               className="object-cover"
               priority
+              onError={() => {
+                if (!isDefaultImage) {
+                  setHeroImage(meta.defaultImage);
+                  setIsDefaultImage(true);
+                }
+              }}
               unoptimized
             />
           </div>
@@ -203,6 +211,12 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
                 <Compass className="w-3.5 h-3.5" />
                 Ponto de Referência Regional
               </span>
+
+              {isDefaultImage && (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white/10 text-stone-200 border border-white/20">
+                  Imagem ilustrativa
+                </span>
+              )}
             </div>
 
             {/* Title */}
