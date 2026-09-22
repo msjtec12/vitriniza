@@ -291,17 +291,15 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
                 </a>
               </div>
 
-              <div className="h-[360px] rounded-2xl overflow-hidden">
-                <LeafletMap
-                  places={[place]}
-                  businesses={nearbyBusinesses.map((n) => n.business)}
-                  center={[place.latitude, place.longitude]}
-                  selectedPlaceId={place.id}
-                  zoom={15}
-                  radiusKm={1}
-                  height="100%"
-                />
-              </div>
+              <LeafletMap
+                places={[place]}
+                businesses={nearbyBusinesses.map((n) => n.business)}
+                center={[place.latitude, place.longitude]}
+                selectedPlaceId={place.id}
+                zoom={15}
+                radiusKm={1}
+                height="380px"
+              />
             </div>
           </div>
 
