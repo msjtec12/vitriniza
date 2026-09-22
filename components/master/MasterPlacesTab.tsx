@@ -14,6 +14,7 @@ import {
   MapPin,
   Clock,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { Place, Neighborhood } from '@/types';
 import { store } from '@/lib/data/store';
@@ -41,6 +42,7 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
   const [isMassImportOpen, setIsMassImportOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [mutatingPlaceId, setMutatingPlaceId] = useState<string | null>(null);
 
   const filteredPlaces = useMemo(() => {
     return places.filter((p) => {
@@ -58,16 +60,53 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
     });
   }, [places, searchTerm, selectedGroup]);
 
-  const handleDelete = (place: Place) => {
-    if (confirm(`Tem certeza que deseja excluir o local público "${place.name}"?`)) {
-      store.deletePlace(place.id);
-      onRefresh();
+  const requestPlaceMutation = async (method: 'PATCH' | 'DELETE', body: object) => {
+    const token = await getAccessToken();
+    if (!token) throw new Error('Sua sessão expirou. Entre novamente no painel administrativo.');
+    const response = await fetch('/api/admin/places', {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const result = (await response.json()) as { success?: boolean; error?: string };
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'O Supabase não confirmou a alteração.');
     }
   };
 
-  const handleToggleActive = (place: Place) => {
-    store.updatePlace(place.id, { is_active: !place.is_active });
-    onRefresh();
+  const handleDelete = async (place: Place) => {
+    if (!confirm(`Tem certeza que deseja excluir o local público "${place.name}"?`)) return;
+
+    try {
+      setMutatingPlaceId(place.id);
+      setSyncMessage(null);
+      await requestPlaceMutation('DELETE', { id: place.id });
+      await store.fetchPlacesFromCloud(true);
+      setSyncMessage(`✓ “${place.name}” foi excluído do Supabase.`);
+      onRefresh();
+    } catch (error: unknown) {
+      setSyncMessage(`❌ ${error instanceof Error ? error.message : 'Não foi possível excluir.'}`);
+    } finally {
+      setMutatingPlaceId(null);
+    }
+  };
+
+  const handleToggleActive = async (place: Place) => {
+    try {
+      setMutatingPlaceId(place.id);
+      setSyncMessage(null);
+      await requestPlaceMutation('PATCH', { ...place, id: place.id, is_active: !place.is_active });
+      await store.fetchPlacesFromCloud(true);
+      setSyncMessage(`✓ “${place.name}” foi ${place.is_active ? 'desativado' : 'ativado'} no Supabase.`);
+      onRefresh();
+    } catch (error: unknown) {
+      setSyncMessage(`❌ ${error instanceof Error ? error.message : 'Não foi possível alterar o status.'}`);
+    } finally {
+      setMutatingPlaceId(null);
+    }
   };
 
   const handleSyncSaoPaulo = async () => {
@@ -294,13 +333,14 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleToggleActive(place)}
+                          disabled={mutatingPlaceId === place.id}
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
                             place.is_active
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                               : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
                           }`}
                         >
-                          {place.is_active ? '✓ Ativo' : 'Inativo'}
+                          {mutatingPlaceId === place.id ? 'Salvando...' : place.is_active ? '✓ Ativo' : 'Inativo'}
                         </button>
                       </td>
 
@@ -331,10 +371,11 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDelete(place)}
+                            disabled={mutatingPlaceId === place.id}
                             title="Excluir local"
-                            className="p-1.5 rounded-lg bg-stone-100 hover:bg-rose-50 text-[#0E3B43] hover:text-rose-600 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg bg-stone-100 hover:bg-rose-50 text-[#0E3B43] hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {mutatingPlaceId === place.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
@@ -361,7 +402,10 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
           setPlaceToEdit(null);
         }}
         placeToEdit={placeToEdit}
-        onSuccess={onRefresh}
+        onSuccess={(message) => {
+          setSyncMessage(message);
+          onRefresh();
+        }}
         neighborhoods={neighborhoods}
       />
 

@@ -1344,13 +1344,15 @@ class VitrinizaStore {
     }
   }
 
-  public async fetchPlacesFromCloud(): Promise<void> {
+  public async fetchPlacesFromCloud(includeInactive = false): Promise<void> {
     if (!supabase) return;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('places')
         .select('*')
-        .eq('is_active', true);
+        .order('name');
+      if (!includeInactive) query = query.eq('is_active', true);
+      const { data, error } = await query;
 
       if (!error && Array.isArray(data)) {
         const cloudPlaces = data as Place[];
