@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { ZONA_LESTE_PLACES } from '@/lib/data/zonaleste-catalog';
+import { SAO_PAULO_EXPANDED_PLACES } from '@/lib/data/saopaulo-catalog';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   return NextResponse.json({
     success: true,
-    message: 'Catálogo de Utilidade Pública da Zona Leste SP pronto para sincronização.',
-    total: ZONA_LESTE_PLACES.length,
-    places: ZONA_LESTE_PLACES,
+    message: 'Catálogo de Transporte, Parques e Turismo de São Paulo pronto para sincronização.',
+    total: SAO_PAULO_EXPANDED_PLACES.length,
+    places: SAO_PAULO_EXPANDED_PLACES,
   });
 }
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const admin = getSupabaseAdmin();
 
-    const formattedPlaces = ZONA_LESTE_PLACES.map((place) => ({
+    const formattedPlaces = SAO_PAULO_EXPANDED_PLACES.map((place) => ({
       id: place.id,
       name: place.name,
       slug: place.slug,
@@ -70,10 +70,10 @@ export async function POST(req: NextRequest) {
       database_synced: databaseSynced,
       database_error: databaseError,
       total_catalog: formattedPlaces.length,
-      places: ZONA_LESTE_PLACES,
+      places: SAO_PAULO_EXPANDED_PLACES,
       message: databaseSynced
-        ? `Sucesso! ${formattedPlaces.length} equipamentos da Zona Leste sincronizados no banco Supabase.`
-        : `Catálogo com ${formattedPlaces.length} equipamentos pronto para ser sincronizado no armazenamento local do aplicativo.`,
+        ? `Sucesso! ${formattedPlaces.length} locais (Metrô, CPTM, Parques e Turismo de SP) sincronizados no banco Supabase.`
+        : `Catálogo com ${formattedPlaces.length} locais de São Paulo pronto para ser sincronizado no armazenamento local do aplicativo.`,
     });
   } catch (error: any) {
     console.error('[sync-zonaleste] Exception:', error);

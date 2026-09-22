@@ -17,7 +17,7 @@ import {
   BusinessMember,
   Place,
 } from '@/types';
-import { ZONA_LESTE_PLACES } from './zonaleste-catalog';
+import { SAO_PAULO_EXPANDED_PLACES } from './saopaulo-catalog';
 
 export const mockStates: State[] = [
   { id: 'SP', name: 'São Paulo', uf: 'SP' },
@@ -130,13 +130,112 @@ export const mockNeighborhoods: Neighborhood[] = [
     order_index: 8,
   },
   {
+    id: 'neigh-tatuape',
+    city_id: 'city-sp',
+    name: 'Tatuapé & Anália Franco',
+    slug: 'tatuape',
+    active: true,
+    is_featured: true,
+    order_index: 9,
+  },
+  {
+    id: 'neigh-paulista',
+    city_id: 'city-sp',
+    name: 'Avenida Paulista & Jardins',
+    slug: 'avenida-paulista',
+    active: true,
+    is_featured: true,
+    order_index: 10,
+  },
+  {
+    id: 'neigh-se-centro',
+    city_id: 'city-sp',
+    name: 'Sé & Centro Histórico',
+    slug: 'centro-historico',
+    active: true,
+    is_featured: true,
+    order_index: 11,
+  },
+  {
+    id: 'neigh-liberdade',
+    city_id: 'city-sp',
+    name: 'Liberdade',
+    slug: 'liberdade',
+    active: true,
+    is_featured: true,
+    order_index: 12,
+  },
+  {
+    id: 'neigh-ibirapuera',
+    city_id: 'city-sp',
+    name: 'Ibirapuera & Moema',
+    slug: 'ibirapuera',
+    active: true,
+    is_featured: true,
+    order_index: 13,
+  },
+  {
+    id: 'neigh-pinheiros',
+    city_id: 'city-sp',
+    name: 'Pinheiros & Faria Lima',
+    slug: 'pinheiros',
+    active: true,
+    is_featured: true,
+    order_index: 14,
+  },
+  {
+    id: 'neigh-vila-madalena',
+    city_id: 'city-sp',
+    name: 'Vila Madalena',
+    slug: 'vila-madalena',
+    active: true,
+    is_featured: true,
+    order_index: 15,
+  },
+  {
+    id: 'neigh-alto-pinheiros',
+    city_id: 'city-sp',
+    name: 'Alto de Pinheiros / Villa-Lobos',
+    slug: 'alto-de-pinheiros',
+    active: true,
+    is_featured: false,
+    order_index: 16,
+  },
+  {
+    id: 'neigh-ipiranga',
+    city_id: 'city-sp',
+    name: 'Ipiranga',
+    slug: 'ipiranga',
+    active: true,
+    is_featured: false,
+    order_index: 17,
+  },
+  {
+    id: 'neigh-aclimacao',
+    city_id: 'city-sp',
+    name: 'Aclimação',
+    slug: 'aclimacao',
+    active: true,
+    is_featured: false,
+    order_index: 18,
+  },
+  {
+    id: 'neigh-barra-funda',
+    city_id: 'city-sp',
+    name: 'Barra Funda',
+    slug: 'barra-funda',
+    active: true,
+    is_featured: false,
+    order_index: 19,
+  },
+  {
     id: 'neigh-centro-suzano',
     city_id: 'city-suzano',
     name: 'Centro',
     slug: 'centro',
     active: true,
     is_featured: false,
-    order_index: 9,
+    order_index: 20,
   },
   {
     id: 'neigh-alvinopolis',
@@ -1773,4 +1872,4 @@ export const mockBusinessMembers: BusinessMember[] = [
 // ==========================================
 // PONTOS DE INTERESSE & EQUIPAMENTOS PÚBLICOS (POIs)
 // ==========================================
-export const mockPlaces: Place[] = ZONA_LESTE_PLACES;
+export const mockPlaces: Place[] = SAO_PAULO_EXPANDED_PLACES;

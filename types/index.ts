@@ -427,6 +427,8 @@ export type PlaceCategoryGroup =
   | 'saude'
   | 'educacao'
   | 'lazer'
+  | 'esporte'
+  | 'turismo'
   | 'religiao'
   | 'transporte'
   | 'servicos_publicos'

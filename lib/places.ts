@@ -77,6 +77,22 @@ export const PLACE_CATEGORY_META: Record<PlaceCategoryGroup, PlaceCategoryMetaIn
     text: 'text-pink-700',
     pinColor: '#DB2777',
   },
+  turismo: {
+    label: 'Turismo & Cartões Postais',
+    icon: Landmark,
+    color: '#EA580C',
+    bg: 'bg-orange-50 border-orange-200 text-orange-700',
+    text: 'text-orange-700',
+    pinColor: '#EA580C',
+  },
+  esporte: {
+    label: 'Esporte & Atividades Físicas',
+    icon: Trees,
+    color: '#0284C7',
+    bg: 'bg-sky-50 border-sky-200 text-sky-700',
+    text: 'text-sky-700',
+    pinColor: '#0284C7',
+  },
   outros: {
     label: 'Utilidade Pública',
     icon: Building2,

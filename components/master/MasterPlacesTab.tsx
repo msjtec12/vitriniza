@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Place, PlaceCategoryGroup, Neighborhood } from '@/types';
 import { store } from '@/lib/data/store';
-import { ZONA_LESTE_PLACES } from '@/lib/data/zonaleste-catalog';
+import { SAO_PAULO_EXPANDED_PLACES } from '@/lib/data/saopaulo-catalog';
 import { PLACE_CATEGORY_META } from '@/components/ui/PlaceCard';
 import { MasterPlaceModal } from './MasterPlaceModal';
 import { MasterMassImportModal } from './MasterMassImportModal';
@@ -70,13 +70,13 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
     onRefresh();
   };
 
-  const handleSyncZonaLeste = async () => {
+  const handleSyncSaoPaulo = async () => {
     try {
       setIsSyncing(true);
       setSyncMessage(null);
 
-      // 1. Ingestão local no store (garante atualização instantânea)
-      const resImport = store.importPlaces(ZONA_LESTE_PLACES);
+      // 1. Ingestão local no store (garante atualização instantânea no navegador)
+      const resImport = store.importPlaces(SAO_PAULO_EXPANDED_PLACES);
 
       // 2. Sincronização com o Supabase via API
       let cloudMsg = '';
@@ -91,7 +91,7 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
       }
 
       setSyncMessage(
-        `⚡ Sucesso! ${ZONA_LESTE_PLACES.length} equipamentos da Zona Leste SP carregados com fotos reais${cloudMsg}.`
+        `⚡ Sucesso! ${SAO_PAULO_EXPANDED_PLACES.length} locais (Metrô, CPTM, Parques Esportivos, Turismo & ZL) carregados com fotos reais${cloudMsg}.`
       );
       onRefresh();
     } catch (err: any) {
@@ -128,7 +128,7 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
               Pontos de Interesse & Utilidade Pública ({places.length})
             </h2>
             <p className="text-xs text-[#537379]">
-              Hospitais, UBS, escolas, parques, transporte e órgãos públicos que ancoram o guia local
+              Metrô, trens, parques de atividades físicas, pontos turísticos, hospitais e escolas de SP
             </p>
           </div>
         </div>
@@ -137,12 +137,12 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
           <button
             type="button"
             disabled={isSyncing}
-            onClick={handleSyncZonaLeste}
-            className="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-            title="Importar automaticamente todos os parques, UBSs, escolas e hospitais da Zona Leste com fotos reais"
+            onClick={handleSyncSaoPaulo}
+            className="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            title="Sincronizar linhas de metrô, trens, parques esportivos, pontos turísticos e equipamentos públicos de SP"
           >
             <Sparkles className={`w-4 h-4 text-amber-600 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Sincronizando ZL...' : '⚡ Sincronizar ZL (Fotos Reais)'}</span>
+            <span>{isSyncing ? 'Sincronizando SP...' : '⚡ Sincronizar SP (Metrô, Parques & Turismo)'}</span>
           </button>
 
           <button
