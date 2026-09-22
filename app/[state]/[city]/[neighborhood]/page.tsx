@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Sparkles, Flame, Store, ChevronRight, ChevronLeft, Award, ShoppingBag, ArrowRight, Landmark } from 'lucide-react';
+import { MapPin, Sparkles, Flame, Store, ChevronRight, ChevronLeft, ShoppingBag, ArrowRight, Landmark } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { Business, Category, Promotion, Place } from '@/types';
 import { BusinessCard } from '@/components/ui/BusinessCard';
@@ -37,19 +37,36 @@ export default function NeighborhoodHubPage() {
   const cityName = formatSlugName(citySlug) || 'São Paulo';
 
   useEffect(() => {
-    const neighs = store.getNeighborhoods();
-    const currentNeigh = neighs.find((n) => n.slug === neighborhoodSlug);
-    if (currentNeigh) setNeighborhoodName(currentNeigh.name);
+    let active = true;
 
-    setCategories(store.getCategories());
-    const list = store.getBusinesses({ neighborhood_id: currentNeigh?.id || neighborhoodSlug });
-    setBusinesses(list);
-    setFeaturedBusinesses(list.filter((b) => b.is_featured || b.is_founder).slice(0, 4));
-    setPromotions(store.getPromotions().filter((p) => p.neighborhood_name?.toLowerCase() === neighborhoodName.toLowerCase()));
+    const refresh = () => {
+      if (!active) return;
+      const currentNeigh = store.getNeighborhoods().find((n) => n.slug === neighborhoodSlug);
+      const currentName = currentNeigh?.name || formatSlugName(neighborhoodSlug) || 'Bairro';
+      const neighborhoodId = currentNeigh?.id || neighborhoodSlug;
+      const list = store.getBusinesses({ neighborhood_id: neighborhoodId });
 
-    const pList = store.getPlaces({ neighborhood_id: currentNeigh?.id || neighborhoodSlug });
-    setPlaces(pList);
-  }, [neighborhoodSlug, neighborhoodName]);
+      setNeighborhoodName(currentName);
+      setCategories(store.getCategories());
+      setBusinesses(list);
+      setFeaturedBusinesses(list.filter((b) => b.is_featured || b.is_founder).slice(0, 4));
+      setPromotions(
+        store
+          .getPromotions()
+          .filter((promotion) => promotion.neighborhood_name?.toLowerCase() === currentName.toLowerCase())
+      );
+      setPlaces(store.getPlaces({ neighborhood_id: neighborhoodId }));
+    };
+
+    refresh();
+    const unsubscribe = store.subscribe(refresh);
+    void store.ensureCloudSynced().then(refresh);
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [neighborhoodSlug]);
 
   const totalProducts = businesses.reduce((acc, b) => acc + (b.products?.length || 0), 0);
 

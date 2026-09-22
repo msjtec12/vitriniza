@@ -245,10 +245,11 @@ class VitrinizaStore {
       }
 
       // 2. Fetch public reference data from the database.
-      const [categoriesResult, citiesResult, neighborhoodsResult] = await Promise.all([
+      const [categoriesResult, citiesResult, neighborhoodsResult, placesResult] = await Promise.all([
         supabase.from('categories').select('*').eq('active', true).order('order_index'),
         supabase.from('cities').select('*').eq('active', true),
         supabase.from('neighborhoods').select('*').eq('active', true).order('order_index'),
+        supabase.from('places').select('*').eq('is_active', true).order('name'),
       ]);
 
       if (!categoriesResult.error && categoriesResult.data) {
@@ -259,6 +260,19 @@ class VitrinizaStore {
       }
       if (!neighborhoodsResult.error && neighborhoodsResult.data) {
         this.neighborhoods = neighborhoodsResult.data as Neighborhood[];
+      }
+      if (!placesResult.error && Array.isArray(placesResult.data)) {
+        const cloudPlaces = placesResult.data as Place[];
+        if (!USE_DEMO_DATA) {
+          this.places = cloudPlaces;
+        } else {
+          const cloudMap = new Map(cloudPlaces.map((place) => [place.id, place]));
+          this.places = this.places.map((local) => cloudMap.get(local.id) || local);
+          const localIds = new Set(this.places.map((place) => place.id));
+          for (const cloudPlace of cloudPlaces) {
+            if (!localIds.has(cloudPlace.id)) this.places.push(cloudPlace);
+          }
+        }
       }
 
       // 3. Fetch Cloud Businesses
@@ -1338,14 +1352,20 @@ class VitrinizaStore {
         .select('*')
         .eq('is_active', true);
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const cloudMap = new Map(data.map((p) => [p.id, p]));
-        this.places = this.places.map((local) => cloudMap.get(local.id) || local);
-        data.forEach((cloudPlace) => {
-          if (!this.places.some((p) => p.id === cloudPlace.id)) {
-            this.places.push(cloudPlace);
-          }
-        });
+      if (!error && Array.isArray(data)) {
+        const cloudPlaces = data as Place[];
+        if (!USE_DEMO_DATA) {
+          this.places = cloudPlaces;
+        } else {
+          const cloudMap = new Map(cloudPlaces.map((p) => [p.id, p]));
+          this.places = this.places.map((local) => cloudMap.get(local.id) || local);
+          cloudPlaces.forEach((cloudPlace) => {
+            if (!this.places.some((p) => p.id === cloudPlace.id)) {
+              this.places.push(cloudPlace);
+            }
+          });
+        }
+        this.attachRelationships();
         this.saveToStorage();
         this.notify();
       }

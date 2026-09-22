@@ -17,9 +17,11 @@ const BUSINESS_PUBLIC_FIELDS = [
 
 const PLACE_PUBLIC_FIELDS = [
   'id', 'name', 'slug', 'description', 'short_description', 'category_group',
-  'subcategory', 'neighborhood_id', 'city_id', 'state_id', 'address', 'number',
+  'subcategory', 'icon', 'neighborhood_id', 'neighborhood_name', 'city_id', 'city_name',
+  'state_id', 'address', 'number',
   'complement', 'postal_code', 'latitude', 'longitude', 'phone', 'email',
-  'website', 'opening_hours', 'photo_url', 'cover_url', 'source_name',
+  'website', 'instagram', 'opening_hours', 'image_url', 'photo_url', 'cover_url',
+  'source', 'source_name',
   'source_url', 'verification_status', 'is_active', 'tags', 'created_at', 'updated_at',
 ].join(',');
 

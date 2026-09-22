@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import {
   MapPin,
@@ -19,11 +20,19 @@ import {
   ShieldCheck,
   Info,
   Check,
+  AlertTriangle,
+  MessageCircleWarning,
 } from 'lucide-react';
 import type { Business, Place } from '@/types';
 import { store } from '@/lib/data/store';
 import { getPlaceCategoryMeta } from '@/lib/places';
 import { BusinessCard } from '@/components/ui/BusinessCard';
+import {
+  buildMapsDirectionsUrl,
+  buildWhatsAppUrl,
+  formatDate,
+  normalizeExternalUrl,
+} from '@/lib/utils';
 
 const LeafletMap = dynamic(
   () => import('@/components/ui/LeafletMap').then((m) => m.LeafletMap),
@@ -45,17 +54,31 @@ interface PlaceDetailClientProps {
 export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
   const [copied, setCopied] = useState(false);
   const [nearbyBusinesses, setNearbyBusinesses] = useState<{ business: Business; distanceKm: number }[]>([]);
+  const [supportWhatsApp, setSupportWhatsApp] = useState('');
 
   const meta = getPlaceCategoryMeta(place.category_group);
   const CategoryIcon = meta.icon;
 
   useEffect(() => {
-    try {
-      const near = store.getBusinessesNearPlace(place.slug, 3);
-      setNearbyBusinesses(near);
-    } catch {
-      // Fallback safe
-    }
+    let active = true;
+    const refresh = () => {
+      if (!active) return;
+      try {
+        setNearbyBusinesses(store.getBusinessesNearPlace(place.slug, 3));
+        setSupportWhatsApp(store.getPlatformSettings().contact_whatsapp || '');
+      } catch {
+        // Keep the server-rendered place usable if local synchronization fails.
+      }
+    };
+
+    refresh();
+    const unsubscribe = store.subscribe(refresh);
+    void store.ensureCloudSynced().then(refresh);
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [place.slug]);
 
   const handleShare = async () => {
@@ -86,7 +109,16 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
     }
   };
 
-  const mapsDirectionUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
+  const mapsDirectionUrl = buildMapsDirectionsUrl(place);
+  const websiteUrl = normalizeExternalUrl(place.website);
+  const sourceUrl = normalizeExternalUrl(place.source_url);
+  const heroImage = place.cover_url || place.photo_url || place.image_url;
+  const correctionUrl = supportWhatsApp
+    ? buildWhatsAppUrl(
+        supportWhatsApp,
+        `Olá! Encontrei uma informação desatualizada sobre “${place.name}” na Vitriniza. Gostaria de sugerir uma correção.`
+      )
+    : null;
 
   return (
     <div className="bg-[#F8F6F0] min-h-screen pb-16">
@@ -136,13 +168,16 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
 
       {/* Civic Place Hero Header */}
       <header className="relative bg-[#0E3B43] text-white pt-10 pb-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {(place.cover_url || place.photo_url || place.image_url) && (
+        {heroImage && (
           <div className="absolute inset-0 z-0 opacity-20">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={place.cover_url || place.photo_url || place.image_url}
+            <Image
+              src={heroImage}
               alt=""
-              className="w-full h-full object-cover"
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority
+              unoptimized
             />
           </div>
         )}
@@ -256,9 +291,9 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
                     Dados obtidos de fontes públicas oficiais ({place.source_name || place.source || 'Prefeitura / Governo / Cartografia Aberta'}).
                     Este local não possui plano comercial na plataforma e atua como serviço à comunidade.
                   </p>
-                  {place.source_url && (
+                  {sourceUrl && (
                     <a
-                      href={place.source_url}
+                      href={sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[#0D9488] hover:underline font-bold mt-1"
@@ -267,6 +302,17 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-xs text-amber-950">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-black">Confirme antes de sair</p>
+                  <p className="leading-relaxed">
+                    Horários, serviços e contatos públicos podem mudar. Confirme pelo telefone ou portal oficial, especialmente em feriados.
+                    {place.updated_at ? ` Informação atualizada em ${formatDate(place.updated_at)}.` : ''}
+                  </p>
                 </div>
               </div>
             </div>
@@ -336,18 +382,18 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
                   </div>
                 )}
 
-                {place.website && (
+                {websiteUrl && (
                   <div className="flex items-center gap-2.5">
                     <Globe className="w-4 h-4 text-[#4FA6A6] shrink-0" />
                     <div>
                       <span className="block font-bold text-[#537379] text-[10px] uppercase">Site / Portal Oficial</span>
                       <a
-                        href={place.website}
+                        href={websiteUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-[#E36845] font-semibold truncate max-w-[200px] block"
                       >
-                        {place.website.replace(/^https?:\/\//, '')}
+                        {websiteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                       </a>
                     </div>
                   </div>
@@ -381,11 +427,46 @@ export function PlaceDetailClient({ place }: PlaceDetailClientProps) {
                 </a>
               </div>
             </div>
+
+            <div className="bg-white rounded-3xl p-6 border border-[#4FA6A6]/20 card-shadow space-y-4">
+              <div>
+                <h3 className="font-black text-base text-[#0E3B43]">Telefones úteis</h3>
+                <p className="text-[11px] text-[#537379] mt-0.5">Para situações urgentes, ligue diretamente ao serviço adequado.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['SAMU', '192'],
+                  ['Bombeiros', '193'],
+                  ['Polícia', '190'],
+                  ...(place.state_id?.toUpperCase() === 'SP' ? [['Prefeitura SP', '156']] : []),
+                ].map(([label, number]) => (
+                  <a
+                    key={number}
+                    href={`tel:${number}`}
+                    className="rounded-xl border border-[#E8E4DA] bg-[#F8F6F0] hover:bg-teal-50 px-3 py-2.5 transition-colors"
+                  >
+                    <span className="block text-[10px] font-bold text-[#537379]">{label}</span>
+                    <span className="text-base font-black text-[#0E3B43]">{number}</span>
+                  </a>
+                ))}
+              </div>
+              {correctionUrl && (
+                <a
+                  href={correctionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 rounded-xl border border-[#4FA6A6]/30 text-[#0E3B43] hover:bg-teal-50 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <MessageCircleWarning className="w-4 h-4 text-[#0D9488]" />
+                  Sugerir correção deste local
+                </a>
+              )}
+            </div>
           </aside>
         </div>
 
         {/* PROXIMITY ANCHOR SECTION: Comércios e Serviços no Entorno */}
-        <section className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4FA6A6]/20 card-shadow space-y-6">
+        <section id="comercios-proximos" className="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 border border-[#4FA6A6]/20 card-shadow space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E4DA] pb-5">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-[#E36845]/15 text-[#E36845] mb-2">
