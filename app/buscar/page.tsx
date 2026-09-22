@@ -6,7 +6,6 @@ import {
   Search,
   Filter,
   SlidersHorizontal,
-  MapPin,
   Star,
   Clock,
   Flame,
@@ -51,10 +50,31 @@ function BuscarContent() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [dataRevision, setDataRevision] = useState(0);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    setCategories(store.getCategories());
-    setNeighborhoods(store.getNeighborhoods());
+    let active = true;
+    const refresh = () => {
+      if (!active) return;
+      setCategories(store.getCategories());
+      setNeighborhoods(store.getNeighborhoods());
+      setDataRevision((revision) => revision + 1);
+    };
+
+    refresh();
+    const unsubscribe = store.subscribe(refresh);
+    void store.ensureCloudSynced().finally(() => {
+      if (active) {
+        refresh();
+        setIsLoadingData(false);
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -106,6 +126,7 @@ function BuscarContent() {
     promotionsOnly,
     featuredOnly,
     sortBy,
+    dataRevision,
   ]);
 
   const handleResetFilters = () => {
@@ -173,7 +194,7 @@ function BuscarContent() {
           {/* Sort selector */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as SearchFilters['sort_by'])}
             className="px-3.5 py-3.5 rounded-2xl bg-white border border-[#E8E4DA] text-xs sm:text-sm font-bold text-[#0E3B43] outline-none cursor-pointer shadow-xs"
           >
             <option value="recommended">Recomendados</option>
@@ -453,7 +474,7 @@ function BuscarContent() {
           {/* Result Count Status */}
           <div className="flex items-center justify-between text-xs text-[#537379] px-1">
             <span>
-              Mostrando{' '}
+              {isLoadingData ? 'Atualizando dados públicos… ' : 'Mostrando '}
               <strong className="text-[#0E3B43]">
                 {activeTab === 'all'
                   ? `${businesses.length} negócios e ${places.length} locais`

@@ -13,15 +13,15 @@ import {
   CheckCircle2,
   MapPin,
   Clock,
-  ShieldCheck,
   Sparkles,
 } from 'lucide-react';
-import { Place, PlaceCategoryGroup, Neighborhood } from '@/types';
+import { Place, Neighborhood } from '@/types';
 import { store } from '@/lib/data/store';
 import { SAO_PAULO_EXPANDED_PLACES } from '@/lib/data/saopaulo-catalog';
 import { PLACE_CATEGORY_META } from '@/components/ui/PlaceCard';
 import { MasterPlaceModal } from './MasterPlaceModal';
 import { MasterMassImportModal } from './MasterMassImportModal';
+import { getAccessToken } from '@/lib/auth/client';
 
 interface MasterPlacesTabProps {
   places: Place[];
@@ -75,27 +75,30 @@ export const MasterPlacesTab: React.FC<MasterPlacesTabProps> = ({
       setIsSyncing(true);
       setSyncMessage(null);
 
-      // 1. Ingestão local no store (garante atualização instantânea no navegador)
-      const resImport = store.importPlaces(SAO_PAULO_EXPANDED_PLACES);
-
-      // 2. Sincronização com o Supabase via API
-      let cloudMsg = '';
-      try {
-        const response = await fetch('/api/places/sync-zonaleste', { method: 'POST' });
-        const json = await response.json();
-        if (json?.database_synced) {
-          cloudMsg = ' e sincronizados no banco Supabase';
-        }
-      } catch (err) {
-        console.warn('API cloud sync warning:', err);
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error('Sua sessão expirou. Entre novamente no painel administrativo.');
       }
 
+      const response = await fetch('/api/places/sync-zonaleste', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await response.json();
+      if (!response.ok || !json?.database_synced) {
+        throw new Error(json?.error || 'Não foi possível sincronizar o catálogo com o Supabase.');
+      }
+
+      await store.fetchPlacesFromCloud();
+
       setSyncMessage(
-        `⚡ Sucesso! ${SAO_PAULO_EXPANDED_PLACES.length} locais (Metrô, CPTM, Parques Esportivos, Turismo & ZL) carregados com fotos reais${cloudMsg}.`
+        `⚡ Sucesso! ${SAO_PAULO_EXPANDED_PLACES.length} locais (Metrô, CPTM, parques, turismo e Zona Leste) foram sincronizados no Supabase.`
       );
       onRefresh();
-    } catch (err: any) {
-      setSyncMessage(`❌ Erro ao sincronizar: ${err?.message || 'Erro desconhecido'}`);
+    } catch (err: unknown) {
+      setSyncMessage(
+        `❌ Erro ao sincronizar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`
+      );
     } finally {
       setIsSyncing(false);
     }

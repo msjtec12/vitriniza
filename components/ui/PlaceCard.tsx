@@ -2,24 +2,18 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   MapPin,
   Clock,
   ExternalLink,
   Navigation,
   Building2,
-  HeartPulse,
-  GraduationCap,
-  Trees,
-  Train,
-  Landmark,
-  Church,
-  Palette,
   CheckCircle2,
   Compass,
 } from 'lucide-react';
 import { Place } from '@/types';
-import { cn } from '@/lib/utils';
+import { buildMapsDirectionsUrl, cn } from '@/lib/utils';
 import { PLACE_CATEGORY_META } from '@/lib/places';
 
 export { PLACE_CATEGORY_META };
@@ -39,7 +33,8 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
   const CategoryIcon = meta.icon;
 
   const placeUrl = `/lugares/${place.slug}`;
-  const mapsDirectionUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
+  const mapsDirectionUrl = buildMapsDirectionsUrl(place);
+  const imageUrl = place.photo_url || place.cover_url || place.image_url;
 
   const formatDistance = (distKm?: number) => {
     if (distKm === undefined) return null;
@@ -51,13 +46,14 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
     <div className="group relative flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-[#4FA6A6]/20 hover:border-[#4FA6A6]/60 overflow-hidden card-shadow card-shadow-hover transition-all duration-300">
       {/* Visual Cover / Header banner */}
       <Link href={placeUrl} className="relative aspect-[16/9] w-full overflow-hidden bg-[#0E3B43] block">
-        {place.photo_url || place.cover_url || place.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={place.photo_url || place.cover_url || place.image_url}
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
             alt={place.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            unoptimized
           />
         ) : (
           <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#0E3B43] via-[#154E58] to-[#1F6E7B] text-white p-6">
@@ -144,12 +140,15 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({
 
         {/* Proximity / Anchor hint */}
         {showNearbyPrompt && (
-          <div className="mb-4 p-2 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] flex items-center justify-between text-[11px] text-[#0E3B43]">
+          <Link
+            href={`${placeUrl}#comercios-proximos`}
+            className="mb-4 p-2 rounded-xl bg-[#F8F6F0] hover:bg-teal-50 border border-[#E8E4DA] hover:border-teal-200 flex items-center justify-between text-[11px] text-[#0E3B43] transition-colors"
+          >
             <span className="font-medium text-[#537379]">📍 Ponto de Referência</span>
             <span className="font-bold text-[#4FA6A6] flex items-center gap-1">
               Ver comércio ao redor →
             </span>
-          </div>
+          </Link>
         )}
 
         {/* Action Row */}
