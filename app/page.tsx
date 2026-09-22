@@ -61,6 +61,12 @@ export default function HomePage() {
   const [promoStartX, setPromoStartX] = useState(0);
   const [promoScrollLeft, setPromoScrollLeft] = useState(0);
 
+  // Mouse Drag states for Places (Utilidade Pública)
+  const placeScrollRef = useRef<HTMLDivElement>(null);
+  const [isPlaceDragging, setIsPlaceDragging] = useState(false);
+  const [placeStartX, setPlaceStartX] = useState(0);
+  const [placeScrollLeft, setPlaceScrollLeft] = useState(0);
+
   // "Perto de Mim" State
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(3);
@@ -193,6 +199,32 @@ export default function HomePage() {
 
   const handlePromoMouseUpOrLeave = () => {
     setIsPromoDragging(false);
+  };
+
+  // Places Horizontal Scroll Handlers
+  const scrollPlaces = (direction: 'left' | 'right') => {
+    if (!placeScrollRef.current) return;
+    const scrollAmount = direction === 'left' ? -360 : 360;
+    placeScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  };
+
+  const handlePlaceMouseDown = (e: React.MouseEvent) => {
+    if (!placeScrollRef.current) return;
+    setIsPlaceDragging(true);
+    setPlaceStartX(e.pageX - placeScrollRef.current.offsetLeft);
+    setPlaceScrollLeft(placeScrollRef.current.scrollLeft);
+  };
+
+  const handlePlaceMouseMove = (e: React.MouseEvent) => {
+    if (!isPlaceDragging || !placeScrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - placeScrollRef.current.offsetLeft;
+    const walk = (x - placeStartX) * 1.3;
+    placeScrollRef.current.scrollLeft = placeScrollLeft - walk;
+  };
+
+  const handlePlaceMouseUpOrLeave = () => {
+    setIsPlaceDragging(false);
   };
 
   const handleGetLocation = () => {
@@ -439,10 +471,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2.5. UTILIDADE PÚBLICA & PONTOS DE REFERÊNCIA */}
+      {/* 2.5. UTILIDADE PÚBLICA & PONTOS DE REFERÊNCIA (CARROSSEL EM UMA LINHA COM ARRASTE) */}
       {places.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 mb-5">
+          <div className="flex items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl bg-[#0D9488]/15 text-[#0D9488] flex items-center justify-center">
                 <Landmark className="w-5 h-5" />
@@ -460,18 +492,53 @@ export default function HomePage() {
               </div>
             </div>
 
-            <Link
-              href="/buscar?tipo=places"
-              className="text-xs sm:text-sm font-bold text-[#0D9488] hover:text-[#0E3B43] flex items-center gap-1 shrink-0 transition-colors"
-            >
-              <span>Ver todos os locais</span>
-              <ChevronRight className="w-4 h-4" />
-            </Link>
+            <div className="flex items-center gap-2">
+              {/* Arrows */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => scrollPlaces('left')}
+                  aria-label="Rolar locais para esquerda"
+                  className="p-2 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#E8E4DA] text-[#0E3B43] hover:text-[#0D9488] transition-all shadow-2xs cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollPlaces('right')}
+                  aria-label="Rolar locais para direita"
+                  className="p-2 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#E8E4DA] text-[#0E3B43] hover:text-[#0D9488] transition-all shadow-2xs cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <Link
+                href="/buscar?tipo=places"
+                className="hidden sm:flex text-xs sm:text-sm font-bold text-[#0D9488] hover:text-[#0E3B43] items-center gap-1 shrink-0 transition-colors ml-2"
+              >
+                <span>Ver todos os locais</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {places.slice(0, 6).map((place) => (
-              <PlaceCard key={place.id} place={place} />
+          {/* Carrossel de Fileira Única com Arraste */}
+          <div
+            ref={placeScrollRef}
+            onMouseDown={handlePlaceMouseDown}
+            onMouseMove={handlePlaceMouseMove}
+            onMouseUp={handlePlaceMouseUpOrLeave}
+            onMouseLeave={handlePlaceMouseUpOrLeave}
+            className={cn(
+              'flex gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4 pt-1 cursor-grab transition-all',
+              isPlaceDragging && 'cursor-grabbing select-none'
+            )}
+          >
+            {places.map((place) => (
+              <div key={place.id} className="shrink-0 w-[300px] sm:w-[350px] md:w-[380px] snap-start">
+                <PlaceCard place={place} />
+              </div>
             ))}
           </div>
         </section>

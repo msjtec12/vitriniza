@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Sparkles, Flame, Store, ChevronRight, Award, ShoppingBag, ArrowRight, Landmark } from 'lucide-react';
+import { MapPin, Sparkles, Flame, Store, ChevronRight, ChevronLeft, Award, ShoppingBag, ArrowRight, Landmark } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { Business, Category, Promotion, Place } from '@/types';
 import { BusinessCard } from '@/components/ui/BusinessCard';
@@ -12,6 +12,7 @@ import { BusinessFeaturedCard } from '@/components/ui/BusinessFeaturedCard';
 import { PromotionCard } from '@/components/ui/PromotionCard';
 import { CategoryCard } from '@/components/ui/CategoryCard';
 import { SearchBar } from '@/components/ui/SearchBar';
+import { cn } from '@/lib/utils';
 
 export default function NeighborhoodHubPage() {
   const params = useParams();
@@ -51,6 +52,37 @@ export default function NeighborhoodHubPage() {
   }, [neighborhoodSlug, neighborhoodName]);
 
   const totalProducts = businesses.reduce((acc, b) => acc + (b.products?.length || 0), 0);
+
+  // Places Horizontal Scroll & Drag
+  const placeScrollRef = useRef<HTMLDivElement>(null);
+  const [isPlaceDragging, setIsPlaceDragging] = useState(false);
+  const [placeStartX, setPlaceStartX] = useState(0);
+  const [placeScrollLeft, setPlaceScrollLeft] = useState(0);
+
+  const scrollPlaces = (direction: 'left' | 'right') => {
+    if (!placeScrollRef.current) return;
+    const scrollAmount = direction === 'left' ? -350 : 350;
+    placeScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  };
+
+  const handlePlaceMouseDown = (e: React.MouseEvent) => {
+    if (!placeScrollRef.current) return;
+    setIsPlaceDragging(true);
+    setPlaceStartX(e.pageX - placeScrollRef.current.offsetLeft);
+    setPlaceScrollLeft(placeScrollRef.current.scrollLeft);
+  };
+
+  const handlePlaceMouseMove = (e: React.MouseEvent) => {
+    if (!isPlaceDragging || !placeScrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - placeScrollRef.current.offsetLeft;
+    const walk = (x - placeStartX) * 1.3;
+    placeScrollRef.current.scrollLeft = placeScrollLeft - walk;
+  };
+
+  const handlePlaceMouseUpOrLeave = () => {
+    setIsPlaceDragging(false);
+  };
 
   return (
     <div className="pb-20 space-y-12 bg-[#F8F6F0]">
@@ -174,10 +206,10 @@ export default function NeighborhoodHubPage() {
         </section>
       )}
 
-      {/* Public Places & Reference Points Section */}
+      {/* Public Places & Reference Points Section (CARROSSEL EM UMA LINHA COM ARRASTE) */}
       {places.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="text-xl font-black text-[#0E3B43] tracking-tight flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-[#0D9488]" />
@@ -185,11 +217,43 @@ export default function NeighborhoodHubPage() {
               </h2>
               <p className="text-xs text-[#537379]">Postos de saúde, escolas, parques, estações e órgãos públicos</p>
             </div>
+
+            {/* Arrows */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => scrollPlaces('left')}
+                aria-label="Rolar locais para esquerda"
+                className="p-2 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#E8E4DA] text-[#0E3B43] hover:text-[#0D9488] transition-all shadow-2xs cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollPlaces('right')}
+                aria-label="Rolar locais para direita"
+                className="p-2 rounded-full bg-white hover:bg-[#F8F6F0] border border-[#E8E4DA] text-[#0E3B43] hover:text-[#0D9488] transition-all shadow-2xs cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div
+            ref={placeScrollRef}
+            onMouseDown={handlePlaceMouseDown}
+            onMouseMove={handlePlaceMouseMove}
+            onMouseUp={handlePlaceMouseUpOrLeave}
+            onMouseLeave={handlePlaceMouseUpOrLeave}
+            className={cn(
+              'flex gap-5 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4 pt-1 cursor-grab transition-all',
+              isPlaceDragging && 'cursor-grabbing select-none'
+            )}
+          >
             {places.map((place) => (
-              <PlaceCard key={place.id} place={place} />
+              <div key={place.id} className="shrink-0 w-[300px] sm:w-[350px] md:w-[380px] snap-start">
+                <PlaceCard place={place} />
+              </div>
             ))}
           </div>
         </section>
