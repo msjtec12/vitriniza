@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { buildMapsDirectionsUrl, normalizeExternalUrl } from '../lib/utils.ts';
+import { buildMapsDirectionsUrl, normalizeExternalUrl } from '../lib/public-utility.mjs';
 
 test('external links accept only HTTP and HTTPS protocols', () => {
   assert.equal(normalizeExternalUrl('javascript:alert(1)'), null);
