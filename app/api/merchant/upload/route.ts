@@ -3,16 +3,13 @@ import { requireAuthenticatedUser } from '@/lib/auth/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { checkRateLimit, getRequestIp } from '@/lib/security/rate-limit.mjs';
 
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/svg+xml',
-]);
+const IMAGE_EXTENSIONS_BY_MIME_TYPE: Readonly<Record<string, string>> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 8 * 1024 * 1024; // Alinhado ao limite do bucket business-media
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUser(req);
@@ -39,16 +36,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Identificador do estabelecimento ausente.' }, { status: 400 });
     }
 
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    const fileExt = IMAGE_EXTENSIONS_BY_MIME_TYPE[file.type];
+    if (!fileExt) {
       return NextResponse.json(
-        { success: false, error: 'Formato de imagem não suportado. Utilize JPEG, PNG, WebP ou GIF.' },
+        { success: false, error: 'Formato de imagem não suportado. Utilize JPEG, PNG ou WebP.' },
         { status: 400 }
       );
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { success: false, error: 'O tamanho do arquivo não pode ultrapassar 10MB.' },
+        { success: false, error: 'O tamanho do arquivo não pode ultrapassar 8MB.' },
         { status: 400 }
       );
     }
@@ -87,7 +85,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Permissão negada para este estabelecimento.' }, { status: 403 });
     }
 
-    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const sanitizedFolder = ['logos', 'covers', 'products', 'promotions', 'places'].includes(folder) ? folder : 'misc';
     const filePath = `${businessId}/${sanitizedFolder}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
 
