@@ -1,12 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  '';
 
-export const isServerAdminConfigured = Boolean(supabaseUrl && supabaseServiceRoleKey);
+const supabaseAdminKey =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  '';
+
+export const isServerAdminConfigured = Boolean(supabaseUrl && supabaseAdminKey);
 
 /**
- * Server-only Supabase Admin Client with full service_role privileges.
+ * Server-only Supabase Admin Client with elevated privileges.
+ * Supports the current secret key and the legacy service_role key.
  * NEVER IMPORT THIS IN CLIENT COMPONENTS OR EXPOSE TO THE BROWSER.
  */
 export const getSupabaseAdmin = () => {
@@ -18,7 +26,7 @@ export const getSupabaseAdmin = () => {
     return null;
   }
 
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+  return createClient(supabaseUrl, supabaseAdminKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
