@@ -88,6 +88,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: pageTitle,
+    alternates: { canonical: pageUrl },
+    robots: /^(teste|test|demo|demonstracao)(-\d+)?$/i.test(business.slug)
+      ? { index: false, follow: false }
+      : { index: true, follow: true },
     description: pageDescription,
     keywords: [
       business.name,
@@ -172,16 +176,16 @@ export default async function BusinessShowcasePage({ params }: PageProps) {
         address: {
           '@type': 'PostalAddress',
           streetAddress: `${business.address || ''}, ${business.number || ''}`,
-          addressLocality: neighborhoodName,
+          addressLocality: cityName,
           addressRegion: (business.state_id || resolvedParams.state || 'SP').toUpperCase(),
-          postalCode: business.postal_code || '08400-000',
+          postalCode: business.postal_code || undefined,
           addressCountry: 'BR',
         },
-        geo: {
+        geo: business.latitude && business.longitude ? {
           '@type': 'GeoCoordinates',
           latitude: business.latitude || -23.5424,
           longitude: business.longitude || -46.4178,
-        },
+        } : undefined,
       }
     : null;
 
