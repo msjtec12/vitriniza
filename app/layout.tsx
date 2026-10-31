@@ -8,7 +8,7 @@ import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Vitriniza | O comércio perto de você - Vitrine Digital Inteligente',
+  title: 'Vitriniza | Comércios e serviços na Zona Leste de São Paulo',
   description: 'Descubra quem empreende perto de você. Encontre comércios, restaurantes, serviços, produtos e promoções no seu bairro e fale direto pelo WhatsApp.',
   keywords: [
     'comércio local',
@@ -38,9 +38,9 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/logo.png',
-        width: 800,
-        height: 600,
+        url: '/share',
+        width: 1200,
+        height: 630,
         alt: 'Vitriniza - O comércio perto de você',
       },
     ],
@@ -56,8 +56,6 @@ export const viewport: Viewport = {
   themeColor: '#E36845',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
