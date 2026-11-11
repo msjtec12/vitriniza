@@ -1124,6 +1124,16 @@ export default function MerchantPanelPage() {
           {/* Right: Actions */}
           <div className="flex items-center gap-2 shrink-0">
             <Link
+              href={`/intelligence?b=${business.id}`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#0E3B43] to-[#0D9488] text-white text-xs font-black shadow-xs hover:opacity-95 transition-all"
+              title="Acessar Konnexy Local Intelligence (SEO & Métricas)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#2DD4BF]" />
+              <span className="hidden sm:inline">Local Intelligence</span>
+              <span className="sm:hidden">IA & SEO</span>
+            </Link>
+
+            <Link
               href={businessPublicUrl}
               target="_blank"
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F8F6F0] hover:bg-[#4FA6A6]/15 text-[#0E3B43] text-xs font-bold border border-[#E8E4DA] transition-all"
@@ -1173,6 +1183,13 @@ export default function MerchantPanelPage() {
 
         {/* MOBILE HORIZONTAL NAVIGATION PILLS */}
         <div className="lg:hidden flex items-center gap-1 px-4 py-2 border-t border-[#E8E4DA] overflow-x-auto no-scrollbar bg-white">
+          <Link
+            href={`/intelligence?b=${business.id}`}
+            className="px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 min-h-[40px] bg-gradient-to-r from-[#0E3B43] to-[#0D9488] text-white shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#2DD4BF]" />
+            <span>Local Intelligence</span>
+          </Link>
           {menuItems.map((tab) => {
             const isSelected = activeTab === tab.id;
             return (
@@ -1279,6 +1296,22 @@ export default function MerchantPanelPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* DESKTOP SIDEBAR MENU (3 cols) */}
           <div className="hidden lg:block lg:col-span-3 space-y-2 sticky top-40">
+            <Link
+              href={`/intelligence?b=${business.id}`}
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#0E3B43] to-[#0D9488] text-white text-xs font-black shadow-md hover:shadow-lg transition-all group mb-3"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#2DD4BF]" />
+                </div>
+                <div>
+                  <div className="tracking-tight text-white font-black">Local Intelligence</div>
+                  <div className="text-[10px] text-[#A8C7CE] font-normal">Diagnóstico SEO & Google</div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#2DD4BF] group-hover:translate-x-1 transition-transform" />
+            </Link>
+
             {menuItems.map((tab) => {
               const IconComp = tab.icon;
               const isSelected = activeTab === tab.id;

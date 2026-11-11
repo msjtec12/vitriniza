@@ -1505,6 +1505,14 @@ export default function MasterAdminPage() {
                                 </>
                               )}
 
+                              <Link
+                                href={`/intelligence?b=${b.id}`}
+                                className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-[#0D9488] transition-all"
+                                title="Ver Diagnóstico SEO e Inteligência Local (Konnexy)"
+                              >
+                                <Sparkles className="w-3.5 h-3.5 text-[#0D9488]" />
+                              </Link>
+
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditBizModal(b)}

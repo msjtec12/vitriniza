@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/security.test.mjs tests/local-intelligence.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",

@@ -29,7 +29,19 @@ import {
   PlaceCategoryGroup,
   PlaceFilters,
   UnifiedSearchResult,
+  GoogleIntegration,
+  GoogleIntegrationProvider,
+  SeoAudit,
+  SeoOptimization,
+  LocalIntelligenceReport,
 } from '@/types';
+import { runLocalSeoAudit, applySafeSeoAutoFix } from '@/lib/intelligence/seo-engine';
+import { getDefaultGoogleIntegrations } from '@/lib/intelligence/google-connectors';
+import {
+  computeBusinessIntelligenceOverview,
+  generateLocalIntelligenceReport,
+  BusinessIntelligenceOverview,
+} from '@/lib/intelligence/analytics-service';
 import {
   mockStates,
   mockBusinesses,
@@ -66,6 +78,9 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'vitriniza_audit_logs_v1',
   MEMBERS: 'vitriniza_members_v1',
   PLACES: 'vitriniza_places_v1',
+  GOOGLE_INTEGRATIONS: 'vitriniza_google_int_v1',
+  SEO_AUDITS: 'vitriniza_seo_audits_v1',
+  SEO_OPTIMIZATIONS: 'vitriniza_seo_optimizations_v1',
 };
 
 const USE_DEMO_DATA =
@@ -76,6 +91,9 @@ const USE_DEMO_DATA =
 class VitrinizaStore {
   private businesses: Business[] = USE_DEMO_DATA ? [...mockBusinesses] : [];
   private places: Place[] = [...mockPlaces];
+  private googleIntegrations: GoogleIntegration[] = [];
+  private seoAudits: SeoAudit[] = [];
+  private seoOptimizations: SeoOptimization[] = [];
   private categories: Category[] = [...mockCategories];
   private cities: City[] = [...mockCities];
   private neighborhoods: Neighborhood[] = [...mockNeighborhoods];
@@ -793,6 +811,24 @@ class VitrinizaStore {
         this.places = [...mockPlaces];
       }
 
+      const storedGoogleInt = localStorage.getItem(STORAGE_KEYS.GOOGLE_INTEGRATIONS);
+      if (storedGoogleInt !== null) {
+        const parsed = JSON.parse(storedGoogleInt);
+        if (Array.isArray(parsed)) this.googleIntegrations = parsed;
+      }
+
+      const storedSeoAudits = localStorage.getItem(STORAGE_KEYS.SEO_AUDITS);
+      if (storedSeoAudits !== null) {
+        const parsed = JSON.parse(storedSeoAudits);
+        if (Array.isArray(parsed)) this.seoAudits = parsed;
+      }
+
+      const storedOptimizations = localStorage.getItem(STORAGE_KEYS.SEO_OPTIMIZATIONS);
+      if (storedOptimizations !== null) {
+        const parsed = JSON.parse(storedOptimizations);
+        if (Array.isArray(parsed)) this.seoOptimizations = parsed;
+      }
+
       this.isHydrated = true;
     } catch (err) {
       console.warn('[VitrinizaStore] Error loading storage:', err);
@@ -817,6 +853,9 @@ class VitrinizaStore {
       localStorage.setItem(STORAGE_KEYS.SUBSCRIPTIONS, JSON.stringify(this.subscriptions));
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(this.auditLogs));
       localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(this.businessMembers));
+      localStorage.setItem(STORAGE_KEYS.GOOGLE_INTEGRATIONS, JSON.stringify(this.googleIntegrations));
+      localStorage.setItem(STORAGE_KEYS.SEO_AUDITS, JSON.stringify(this.seoAudits));
+      localStorage.setItem(STORAGE_KEYS.SEO_OPTIMIZATIONS, JSON.stringify(this.seoOptimizations));
     } catch (err) {
       console.warn('[VitrinizaStore] Error saving storage:', err);
     }
@@ -930,23 +969,69 @@ class VitrinizaStore {
     return { isOpen: false, text: 'Fechado agora' };
   }
 
-  // --- QUERY BUSINESSES ---
+  // --- QUERY BUSINESSES (MOTOR INTELIGENTE DE BUSCA LOCAL) ---
   public getBusinesses(filters?: SearchFilters): Business[] {
     this.ensureHydrated();
     let result = [...this.businesses];
 
     if (!filters) return result;
 
+    // 1. Textual Search & Scoring
     if (filters.query) {
       const q = filters.query.toLowerCase().trim();
-      result = result.filter(
-        (b) =>
-          b.name.toLowerCase().includes(q) ||
-          b.description.toLowerCase().includes(q) ||
-          b.short_description?.toLowerCase().includes(q) ||
-          b.category?.name.toLowerCase().includes(q) ||
-          b.products?.some((p) => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q))
-      );
+      const terms = q.split(/\s+/).filter(Boolean);
+
+      result = result
+        .map((b) => {
+          let score = 0;
+          const nameLower = b.name.toLowerCase();
+          const descLower = (b.description || '').toLowerCase();
+          const shortDescLower = (b.short_description || '').toLowerCase();
+          const catNameLower = (b.category?.name || '').toLowerCase();
+          const neighLower = (b.neighborhood?.name || '').toLowerCase();
+
+          // Exact match
+          if (nameLower === q) score += 100;
+          else if (nameLower.startsWith(q)) score += 60;
+          else if (nameLower.includes(q)) score += 40;
+
+          if (catNameLower.includes(q)) score += 30;
+          if (neighLower.includes(q)) score += 25;
+          if (shortDescLower.includes(q)) score += 15;
+          if (descLower.includes(q)) score += 10;
+
+          // Product matching
+          const matchingProducts = (b.products || []).filter((p) => {
+            const pName = p.name.toLowerCase();
+            const pDesc = (p.description || '').toLowerCase();
+            const pCat = (p.category || '').toLowerCase();
+            return (
+              pName.includes(q) ||
+              pDesc.includes(q) ||
+              pCat.includes(q) ||
+              terms.some((t) => pName.includes(t))
+            );
+          });
+
+          if (matchingProducts.length > 0) {
+            score += 35 + Math.min(matchingProducts.length * 5, 25);
+          }
+
+          // Term matching
+          terms.forEach((term) => {
+            if (nameLower.includes(term)) score += 10;
+            if (descLower.includes(term)) score += 3;
+          });
+
+          // Quality & reputation boost
+          if (b.rating >= 4.5) score += 5;
+          if (b.is_founder) score += 3;
+          if (b.is_verified) score += 2;
+
+          return { business: b, score };
+        })
+        .filter((item) => item.score > 0)
+        .map((item) => item.business);
     }
 
     if (filters.category_id) {
@@ -979,6 +1064,30 @@ class VitrinizaStore {
       result = result.filter((b) => this.isBusinessOpenNow(b.hours).isOpen);
     }
 
+    // Availability & Price range filters
+    if (filters.available_only) {
+      result = result.filter((b) => (b.products || []).some((p) => p.is_available));
+    }
+
+    if (filters.min_price !== undefined || filters.max_price !== undefined) {
+      result = result.filter((b) => {
+        const prices = (b.products || [])
+          .map((p) => (p.promo_price !== undefined ? p.promo_price : p.price))
+          .filter((price): price is number => typeof price === 'number');
+
+        if (prices.length === 0) return false;
+
+        const minProductPrice = Math.min(...prices);
+        const maxProductPrice = Math.max(...prices);
+
+        if (filters.min_price !== undefined && maxProductPrice < filters.min_price) return false;
+        if (filters.max_price !== undefined && minProductPrice > filters.max_price) return false;
+
+        return true;
+      });
+    }
+
+    // Distance calculation & Sorting
     if (filters.user_lat && filters.user_lng) {
       result = result.map((b) => {
         const distance = this.calculateDistance(filters.user_lat!, filters.user_lng!, b.latitude, b.longitude);
@@ -996,6 +1105,20 @@ class VitrinizaStore {
 
     if (filters.sort_by === 'rating') {
       result.sort((a, b) => b.rating - a.rating);
+    } else if (filters.sort_by === 'visits') {
+      result.sort((a, b) => (b.visits_count || 0) - (a.visits_count || 0));
+    } else if (filters.sort_by === 'price_asc') {
+      result.sort((a, b) => {
+        const minA = Math.min(...(a.products || []).map((p) => p.promo_price || p.price || 999999), 999999);
+        const minB = Math.min(...(b.products || []).map((p) => p.promo_price || p.price || 999999), 999999);
+        return minA - minB;
+      });
+    } else if (filters.sort_by === 'price_desc') {
+      result.sort((a, b) => {
+        const maxA = Math.max(...(a.products || []).map((p) => p.promo_price || p.price || 0), 0);
+        const maxB = Math.max(...(b.products || []).map((p) => p.promo_price || p.price || 0), 0);
+        return maxB - maxA;
+      });
     }
 
     return result;
@@ -2474,6 +2597,155 @@ class VitrinizaStore {
     }
 
     return { allowed: true };
+  }
+
+  // ==========================================
+  // KONNEXY LOCAL INTELLIGENCE ENGINE METHODS
+  // ==========================================
+
+  public getGoogleIntegrations(businessId: string): GoogleIntegration[] {
+    this.ensureHydrated();
+    const existing = this.googleIntegrations.filter((g) => g.business_id === businessId);
+    if (existing.length === 0) {
+      const defaults = getDefaultGoogleIntegrations(businessId);
+      this.googleIntegrations.push(...defaults);
+      this.saveToStorage();
+      return defaults;
+    }
+    return existing;
+  }
+
+  public updateGoogleIntegration(
+    businessId: string,
+    provider: GoogleIntegrationProvider,
+    updates: Partial<GoogleIntegration>
+  ): GoogleIntegration {
+    this.ensureHydrated();
+    let item = this.googleIntegrations.find((g) => g.business_id === businessId && g.provider === provider);
+    const now = new Date().toISOString();
+
+    if (!item) {
+      item = {
+        id: `g-int-${businessId}-${provider}`,
+        business_id: businessId,
+        provider,
+        status: 'connected',
+        created_at: now,
+        updated_at: now,
+        ...updates,
+      };
+      this.googleIntegrations.push(item);
+    } else {
+      Object.assign(item, { ...updates, updated_at: now });
+    }
+
+    this.saveToStorage();
+    this.notify();
+    return item;
+  }
+
+  public getLatestSeoAudit(businessId: string): SeoAudit {
+    this.ensureHydrated();
+    const existing = this.seoAudits
+      .filter((a) => a.business_id === businessId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+    if (existing) return existing;
+    return this.runSeoAudit(businessId);
+  }
+
+  public runSeoAudit(businessId: string): SeoAudit {
+    this.ensureHydrated();
+    const biz = this.getBusinessById(businessId);
+    if (!biz) {
+      throw new Error(`Estabelecimento ${businessId} não encontrado.`);
+    }
+
+    const audit = runLocalSeoAudit(biz);
+    this.seoAudits = [audit, ...this.seoAudits.filter((a) => a.business_id !== businessId)];
+    this.saveToStorage();
+    this.notify();
+    return audit;
+  }
+
+  public applySeoFix(
+    businessId: string,
+    issueCode: string
+  ): { success: boolean; message: string; audit: SeoAudit } {
+    this.ensureHydrated();
+    const biz = this.getBusinessById(businessId);
+    if (!biz) {
+      return { success: false, message: 'Estabelecimento não encontrado.', audit: this.getLatestSeoAudit(businessId) };
+    }
+
+    const fixResult = applySafeSeoAutoFix(biz, issueCode);
+    if (!fixResult) {
+      return {
+        success: false,
+        message: 'Esta pendência requer ajuste manual pelo painel de configurações.',
+        audit: this.getLatestSeoAudit(businessId),
+      };
+    }
+
+    // Aplica as alterações no estabelecimento
+    this.updateBusiness(businessId, fixResult.updatedBusiness);
+
+    // Registra a otimização no histórico
+    const opt: SeoOptimization = {
+      id: `opt-${Date.now()}`,
+      business_id: businessId,
+      issue_code: issueCode,
+      action_type: fixResult.optimization.action_type || 'auto_fix',
+      title: fixResult.optimization.title || 'Otimização de SEO Local',
+      status: 'applied',
+      before_state: fixResult.optimization.before_state,
+      after_state: fixResult.optimization.after_state,
+      applied_at: new Date().toISOString(),
+      notes: fixResult.optimization.notes,
+    };
+    this.seoOptimizations.unshift(opt);
+
+    // Reexecuta a auditoria para atualizar o score
+    const newAudit = this.runSeoAudit(businessId);
+    this.saveToStorage();
+    this.notify();
+
+    return {
+      success: true,
+      message: `Correção aplicada com sucesso! Seu score de SEO Local foi atualizado para ${newAudit.score}/100.`,
+      audit: newAudit,
+    };
+  }
+
+  public getSeoOptimizations(businessId: string): SeoOptimization[] {
+    this.ensureHydrated();
+    return this.seoOptimizations.filter((o) => o.business_id === businessId);
+  }
+
+  public getIntelligenceOverview(
+    businessId: string,
+    periodDays: 7 | 30 | 90 = 30
+  ): BusinessIntelligenceOverview {
+    this.ensureHydrated();
+    const biz = this.getBusinessById(businessId);
+    if (!biz) {
+      throw new Error(`Estabelecimento ${businessId} não encontrado.`);
+    }
+    return computeBusinessIntelligenceOverview(biz, this.analyticsEvents, periodDays);
+  }
+
+  public generateReport(
+    businessId: string,
+    periodDays: 7 | 30 | 90 = 30
+  ): LocalIntelligenceReport {
+    this.ensureHydrated();
+    const biz = this.getBusinessById(businessId);
+    if (!biz) {
+      throw new Error(`Estabelecimento ${businessId} não encontrado.`);
+    }
+    const overview = this.getIntelligenceOverview(businessId, periodDays);
+    const audit = this.getLatestSeoAudit(businessId);
+    return generateLocalIntelligenceReport(biz, overview, audit.score);
   }
 }
 

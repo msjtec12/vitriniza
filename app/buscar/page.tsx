@@ -179,6 +179,8 @@ function BuscarContent() {
             <option value="recommended">Recomendados</option>
             <option value="rating">Melhor avaliados</option>
             <option value="visits">Mais populares</option>
+            <option value="price_asc">Menor preço</option>
+            <option value="price_desc">Maior preço</option>
             <option value="recent">Recentes</option>
           </select>
 

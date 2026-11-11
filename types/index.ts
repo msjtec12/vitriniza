@@ -258,9 +258,13 @@ export interface Business {
   reviews_count: number;
   hours?: BusinessHour[];
   gallery?: BusinessImage[];
+  images?: BusinessImage[];
   products?: Product[];
   promotions?: Promotion[];
   distance_km?: number;
+  meta_title?: string;
+  meta_description?: string;
+  visits_count?: number;
   owner_id?: string;
   created_at: string;
   updated_at: string;
@@ -397,9 +401,13 @@ export interface SearchFilters {
   open_now?: boolean;
   promotions_only?: boolean;
   featured_only?: boolean;
-  sort_by?: 'recommended' | 'distance' | 'rating' | 'visits' | 'recent';
+  sort_by?: 'recommended' | 'distance' | 'rating' | 'visits' | 'recent' | 'price_asc' | 'price_desc';
   user_lat?: number;
   user_lng?: number;
+  min_price?: number;
+  max_price?: number;
+  available_only?: boolean;
+  brand?: string;
 }
 
 export interface MerchantAnalytics {
@@ -500,4 +508,169 @@ export interface UnifiedSearchResult {
   place?: Place;
   distance_km?: number;
 }
+
+// ==========================================
+// KONNEXY LOCAL INTELLIGENCE MODULE TYPES
+// ==========================================
+
+export type GoogleIntegrationProvider =
+  | 'google_search_console'
+  | 'google_analytics_4'
+  | 'google_business_profile'
+  | 'google_merchant_center';
+
+export type GoogleIntegrationStatus = 'connected' | 'disconnected' | 'error' | 'pending_approval';
+
+export interface GoogleIntegration {
+  id: string;
+  business_id: string;
+  provider: GoogleIntegrationProvider;
+  provider_name?: string;
+  status: GoogleIntegrationStatus;
+  account_id?: string;
+  property_id?: string;
+  property_name?: string;
+  scopes?: string[];
+  last_sync_at?: string;
+  error_message?: string;
+  config?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SeoIssueSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type SeoIssueCategory = 'technical' | 'nap' | 'content' | 'schema' | 'products' | 'google';
+
+export interface SeoAuditIssue {
+  id: string;
+  code: string;
+  category: SeoIssueCategory;
+  severity: SeoIssueSeverity;
+  title: string;
+  description: string;
+  why_it_matters: string;
+  recommendation: string;
+  auto_fixable: boolean;
+  action_label?: string;
+  before_value?: string | number | boolean | null;
+  after_preview?: string | number | boolean | null;
+  status: 'open' | 'resolved' | 'ignored';
+}
+
+export interface SeoAudit {
+  id: string;
+  business_id: string;
+  score: number; // 0 - 100
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  issues: SeoAuditIssue[];
+  metrics: {
+    meta_title_present: boolean;
+    meta_title_length: number;
+    meta_description_present: boolean;
+    meta_description_length: number;
+    h1_count: number;
+    canonical_valid: boolean;
+    schema_org_valid: boolean;
+    nap_consistent: boolean;
+    whatsapp_verified: boolean;
+    phone_verified: boolean;
+    address_complete: boolean;
+    hours_complete: boolean;
+    photos_count: number;
+    products_count: number;
+    products_with_price_count: number;
+  };
+  summary: string;
+  created_at: string;
+}
+
+export interface SeoOptimization {
+  id: string;
+  business_id: string;
+  issue_code: string;
+  action_type: string;
+  title: string;
+  description?: string;
+  changes_summary?: string;
+  status: 'applied' | 'reverted' | 'suggested';
+  before_state?: Record<string, unknown> | null;
+  after_state?: Record<string, unknown> | null;
+  applied_by?: string;
+  applied_at: string;
+  reverted_at?: string;
+  notes?: string;
+}
+
+export interface KeywordOpportunity {
+  keyword: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  position: number;
+  intent: 'commercial' | 'informational' | 'navigational' | 'transactional';
+  opportunity_score: number; // 0 - 100
+  suggested_action: string;
+}
+
+export interface LocalIntelligenceMetric {
+  id: string;
+  business_id: string;
+  period_date: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  average_position: number;
+  profile_views: number;
+  whatsapp_clicks: number;
+  phone_clicks: number;
+  route_requests: number;
+  product_views: number;
+  top_queries?: KeywordOpportunity[];
+  top_products?: Array<{
+    product_id: string;
+    name: string;
+    views: number;
+    clicks: number;
+    conversions: number;
+  }>;
+  source: 'internal' | 'google_search_console' | 'google_analytics_4' | 'google_business_profile' | 'blended';
+  created_at: string;
+}
+
+export interface LocalIntelligenceReport {
+  id: string;
+  business_id: string;
+  title: string;
+  report_type: 'weekly' | 'monthly' | 'quarterly' | 'on_demand';
+  period_start: string;
+  period_end: string;
+  data: {
+    total_impressions: number;
+    total_clicks: number;
+    total_conversions: number;
+    whatsapp_contacts: number;
+    phone_calls: number;
+    directions_requested: number;
+    seo_score: number;
+    resolved_issues_count: number;
+    highlights: string[];
+    recommendations: string[];
+  };
+  summary: string;
+  generated_by?: string;
+  created_at: string;
+}
+
+export type IntelligenceTabId =
+  | 'overview'
+  | 'seo_audit'
+  | 'visibility'
+  | 'keywords'
+  | 'products'
+  | 'conversions'
+  | 'reports'
+  | 'integrations'
+  | 'history';
+
 
