@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de parque e lazer</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e8f7f1"/><stop offset="1" stop-color="#c8eadc"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="970" cy="118" r="64" fill="#f7d98b" opacity=".8"/><path d="M0 480Q250 400 480 485T920 470T1200 440V675H0Z" fill="#78c29f" opacity=".55"/>
+  <path d="M420 525V335" stroke="#77614b" stroke-width="38" stroke-linecap="round"/><circle cx="420" cy="280" r="135" fill="#40a878"/><circle cx="335" cy="320" r="88" fill="#55b889"/><circle cx="505" cy="330" r="92" fill="#31976b"/>
+  <path d="M700 525V375" stroke="#77614b" stroke-width="30" stroke-linecap="round"/><circle cx="700" cy="330" r="105" fill="#55b889"/><path d="M250 550h700" stroke="#fff" stroke-width="18" stroke-linecap="round" opacity=".8"/>
+</svg>

@@ -3,30 +3,27 @@
 import React, { useState, useEffect } from 'react';
 import {
   X,
-  MapPin,
   Building2,
-  Clock,
-  Phone,
-  Mail,
-  Globe,
-  CheckCircle2,
-  ExternalLink,
   Search,
   Upload,
   ImageIcon,
   Trash2,
+  Loader2,
+  AlertCircle,
+  Navigation,
 } from 'lucide-react';
 import { Place, PlaceCategoryGroup, PlaceVerificationStatus, Neighborhood } from '@/types';
 import { store } from '@/lib/data/store';
 import { fetchAddressByCep } from '@/lib/utils';
 import { PLACE_CATEGORY_META } from '@/lib/places';
 import { supabase } from '@/lib/supabase/client';
+import { getAccessToken } from '@/lib/auth/client';
 
 interface MasterPlaceModalProps {
   isOpen: boolean;
   onClose: () => void;
   placeToEdit?: Place | null;
-  onSuccess: () => void;
+  onSuccess: (message: string) => void;
   neighborhoods: Neighborhood[];
 }
 
@@ -69,6 +66,11 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
   const [cepLoading, setCepLoading] = useState(false);
   const [cepMessage, setCepMessage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (placeToEdit) {
@@ -105,6 +107,9 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
       });
     }
     setCepMessage(null);
+    setSaveError(null);
+    setLocationMessage(null);
+    setUploadMessage(null);
   }, [placeToEdit, neighborhoods, isOpen]);
 
   if (!isOpen) return null;
@@ -114,6 +119,7 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
     if (!file) return;
 
     setUploadingImage(true);
+    setUploadMessage(null);
 
     try {
       const { data: sessionData } = (await supabase?.auth.getSession()) || {};
@@ -121,7 +127,7 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
 
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('businessId', formData.id || 'master-place');
+      fd.append('businessId', formData.id || 'public-places');
       fd.append('folder', 'places');
 
       const headers: Record<string, string> = {};
@@ -133,48 +139,24 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
         body: fd,
       });
 
-      if (res.ok) {
-        const json = (await res.json()) as { success?: boolean; url?: string };
-        if (json.success && json.url) {
-          setFormData((prev) => ({
-            ...prev,
-            photo_url: json.url,
-            cover_url: json.url,
-            image_url: json.url,
-          }));
-          setUploadingImage(false);
-          return;
-        }
+      const json = (await res.json()) as { success?: boolean; url?: string; error?: string };
+      if (!res.ok || !json.success || !json.url) {
+        throw new Error(json.error || 'Não foi possível enviar a imagem para o Supabase Storage.');
       }
 
-      // Fallback: FileReader Base64 for instant local preview & persistence
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setFormData((prev) => ({
-            ...prev,
-            photo_url: reader.result as string,
-            cover_url: reader.result as string,
-            image_url: reader.result as string,
-          }));
-        }
-        setUploadingImage(false);
-      };
-      reader.readAsDataURL(file);
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setFormData((prev) => ({
-            ...prev,
-            photo_url: reader.result as string,
-            cover_url: reader.result as string,
-            image_url: reader.result as string,
-          }));
-        }
-        setUploadingImage(false);
-      };
-      reader.readAsDataURL(file);
+      setFormData((prev) => ({
+        ...prev,
+        photo_url: json.url,
+        cover_url: json.url,
+        image_url: json.url,
+      }));
+      setUploadMessage('✓ Imagem enviada e armazenada com segurança.');
+    } catch (error: unknown) {
+      setUploadMessage(
+        `Erro no envio: ${error instanceof Error ? error.message : 'tente novamente.'}`
+      );
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -198,6 +180,7 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
         postal_code: res.cep,
         neighborhood_id: loc.neighborhood.id,
         neighborhood_name: loc.neighborhood.name,
+        city_id: loc.city.id,
         city_name: loc.city.name,
         state_id: loc.stateId || loc.city?.state_id || 'SP',
       }));
@@ -207,10 +190,37 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage('Este aparelho não oferece localização por GPS.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationMessage(null);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: Number(coords.latitude.toFixed(6)),
+          longitude: Number(coords.longitude.toFixed(6)),
+        }));
+        setLocationMessage('✓ Localização atual capturada.');
+        setLocationLoading(false);
+      },
+      () => {
+        setLocationMessage('Não foi possível acessar o GPS. Verifique a permissão de localização.');
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 }
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveError(null);
     if (!formData.name?.trim() || !formData.address?.trim()) {
-      alert('Nome do local e endereço são obrigatórios.');
+      setSaveError('Nome do local e endereço são obrigatórios.');
       return;
     }
 
@@ -222,16 +232,38 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
       cover_url: resolvedImg,
     };
 
-    if (placeToEdit) {
-      store.updatePlace(placeToEdit.id, payload);
-      alert('✓ Local público atualizado com sucesso!');
-    } else {
-      store.createPlace(payload);
-      alert('✓ Novo ponto de interesse cadastrado com sucesso!');
-    }
+    try {
+      setSaving(true);
+      const token = await getAccessToken();
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente no painel administrativo.');
 
-    onSuccess();
-    onClose();
+      const response = await fetch('/api/admin/places', {
+        method: placeToEdit ? 'PATCH' : 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(placeToEdit ? { ...payload, id: placeToEdit.id } : payload),
+      });
+      const result = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'O Supabase não confirmou a gravação.');
+      }
+
+      await store.fetchPlacesFromCloud(true);
+      onSuccess(
+        placeToEdit
+          ? `✓ “${formData.name}” foi atualizado e confirmado no Supabase.`
+          : `✓ “${formData.name}” foi cadastrado e confirmado no Supabase.`
+      );
+      onClose();
+    } catch (error: unknown) {
+      setSaveError(
+        error instanceof Error ? error.message : 'Não foi possível salvar. Verifique sua conexão.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -389,27 +421,74 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-[#537379] mb-1">Bairro</label>
-                <select
-                  value={formData.neighborhood_id || ''}
+                <label className="block text-[11px] font-bold text-[#537379] mb-1">Bairro *</label>
+                <input
+                  type="text"
+                  required
+                  list="place-neighborhood-options"
+                  value={formData.neighborhood_name || ''}
                   onChange={(e) => {
-                    const sel = neighborhoods.find((n) => n.id === e.target.value);
+                    const typedName = e.target.value;
+                    const sel = neighborhoods.find(
+                      (n) => n.name.toLowerCase() === typedName.trim().toLowerCase()
+                    );
+                    const city = store.getCities().find((item) => item.id === sel?.city_id);
                     setFormData({
                       ...formData,
-                      neighborhood_id: e.target.value,
-                      neighborhood_name: sel?.name || formData.neighborhood_name,
+                      neighborhood_id: sel?.id,
+                      neighborhood_name: typedName,
+                      city_id: city?.id || sel?.city_id,
+                      city_name: city?.name || formData.city_name,
+                      state_id: city?.state_id || formData.state_id,
                     });
                   }}
-                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none cursor-pointer"
-                >
+                  placeholder="Digite ou selecione o bairro"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+                />
+                <datalist id="place-neighborhood-options">
                   {neighborhoods.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.name}
-                    </option>
+                    <option key={n.id} value={n.name} />
                   ))}
-                </select>
+                </datalist>
               </div>
 
+              <div>
+                <label className="block text-[11px] font-bold text-[#537379] mb-1">Cidade *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.city_name || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    city_name: e.target.value,
+                    city_id: undefined,
+                    neighborhood_id: undefined,
+                  })}
+                  placeholder="São Paulo"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#537379] mb-1">UF *</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={2}
+                  value={formData.state_id || 'SP'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    state_id: e.target.value.toUpperCase(),
+                    city_id: undefined,
+                    neighborhood_id: undefined,
+                  })}
+                  placeholder="SP"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-[#537379] mb-1">Latitude</label>
                 <input
@@ -432,10 +511,25 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
                 />
               </div>
             </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCurrentLocation}
+                disabled={locationLoading || saving}
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-teal-50 border border-teal-200 text-[#0D766E] text-[11px] font-black hover:bg-teal-100 disabled:opacity-60"
+              >
+                {locationLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
+                {locationLoading ? 'Capturando GPS...' : 'Usar localização atual'}
+              </button>
+              {locationMessage && (
+                <p className="text-[11px] font-bold text-[#537379]">{locationMessage}</p>
+              )}
+            </div>
           </div>
 
           {/* Row 4: Contacts & Hours */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-[#0E3B43] mb-1">
                 Horário de Atendimento
@@ -471,6 +565,32 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
                 value={formData.website || ''}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 placeholder="https://capital.sp.gov.br/..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">
+                E-mail Oficial
+              </label>
+              <input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="contato@orgao.gov.br"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#0E3B43] mb-1">
+                Instagram
+              </label>
+              <input
+                type="text"
+                value={formData.instagram || ''}
+                onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                placeholder="@perfiloficial"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F6F0] border border-[#E8E4DA] text-xs font-bold text-[#0E3B43] outline-none"
               />
             </div>
@@ -570,8 +690,13 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
               </div>
             </div>
             <p className="text-[11px] text-[#537379]">
-              Formatos aceitos: JPG, PNG, WebP. A foto é salva instantaneamente e exibida tanto nos cartões quanto na página de detalhes do local.
+              Formatos aceitos: JPG, PNG, WebP e GIF, até 10 MB. A foto só será vinculada depois que o Storage confirmar o envio.
             </p>
+            {uploadMessage && (
+              <p className={`text-[11px] font-bold p-2.5 rounded-xl border ${uploadMessage.startsWith('✓') ? 'text-teal-800 bg-teal-50 border-teal-200' : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                {uploadMessage}
+              </p>
+            )}
           </div>
 
           {/* Descriptions */}
@@ -615,20 +740,38 @@ export const MasterPlaceModal: React.FC<MasterPlaceModalProps> = ({
             </label>
           </div>
 
+          {saveError && (
+            <div role="alert" className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-black">O cadastro não foi salvo</p>
+                <p className="text-[11px] mt-0.5">{saveError}</p>
+                <p className="text-[10px] mt-1 text-rose-700">Seus dados continuam no formulário para você tentar novamente.</p>
+              </div>
+            </div>
+          )}
+
           {/* Footer CTAs */}
           <div className="pt-4 border-t border-[#E8E4DA] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-all"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-all disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-bold shadow-md transition-all"
+              disabled={saving || uploadingImage}
+              className="px-6 py-2.5 rounded-xl bg-[#0E3B43] hover:bg-[#154E58] text-white text-xs font-bold shadow-md transition-all disabled:opacity-60 flex items-center gap-2"
             >
-              {placeToEdit ? 'Salvar Alterações' : 'Cadastrar Ponto de Interesse'}
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving
+                ? 'Salvando no Supabase...'
+                : placeToEdit
+                  ? 'Salvar Alterações'
+                  : 'Cadastrar Ponto de Interesse'}
             </button>
           </div>
         </form>

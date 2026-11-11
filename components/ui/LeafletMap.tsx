@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
+import type { Map as LeafletMapInstance } from 'leaflet';
 import { Business, Place } from '@/types';
 import { PLACE_CATEGORY_META } from '@/lib/places';
 
@@ -23,12 +24,23 @@ const CATEGORY_PINS: Record<string, { bg: string; icon: string }> = {
   saude: { bg: '#E11D48', icon: '🏥' },
   educacao: { bg: '#2563EB', icon: '🏫' },
   lazer: { bg: '#059669', icon: '🌳' },
+  esporte: { bg: '#0284C7', icon: '🏃' },
+  turismo: { bg: '#EA580C', icon: '🗺️' },
   transporte: { bg: '#7C3AED', icon: '🚉' },
   servicos_publicos: { bg: '#0D9488', icon: '🏛️' },
   religiao: { bg: '#D97706', icon: '⛪' },
   cultura: { bg: '#DB2777', icon: '🎭' },
   outros: { bg: '#475569', icon: '📍' },
 };
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
 
 export const LeafletMap: React.FC<LeafletMapProps> = ({
   businesses = [],
@@ -43,14 +55,18 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   showCategoryFilters = true,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapInstanceRef = useRef<LeafletMapInstance | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const centerLat = center?.[0] ?? -23.5424;
   const centerLng = center?.[1] ?? -46.4178;
-  const bizCount = businesses.length;
-  const placesCount = places.length;
+  const availablePlaceGroups = (Object.keys(PLACE_CATEGORY_META) as Array<keyof typeof PLACE_CATEGORY_META>)
+    .map((group) => ({
+      group,
+      count: places.filter((place) => place.category_group === group).length,
+    }))
+    .filter(({ count }) => count > 0);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !mapContainerRef.current) return;
@@ -61,7 +77,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     import('leaflet')
       .then((LModule) => {
         if (!isMounted || !mapContainerRef.current) return;
-        const L = (LModule as any).default || LModule;
+        const L = LModule.default;
 
         if (!L || typeof L.map !== 'function') {
           console.warn('[LeafletMap] L.map is not available');
@@ -78,10 +94,11 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           mapInstanceRef.current = null;
         }
 
-        // Clean container DOM and delete any existing _leaflet_id
+        // Clean container DOM and delete any existing Leaflet marker.
         if (mapContainerRef.current) {
-          if ((mapContainerRef.current as any)._leaflet_id) {
-            delete (mapContainerRef.current as any)._leaflet_id;
+          const container = mapContainerRef.current as HTMLDivElement & { _leaflet_id?: number };
+          if (container._leaflet_id) {
+            delete container._leaflet_id;
           }
           mapContainerRef.current.innerHTML = '';
         }
@@ -97,18 +114,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           scrollWheelZoom: false,
         });
         mapInstanceRef.current = map;
-
-        // Fix default Leaflet icon paths
-        try {
-          delete (L.Icon.Default.prototype as any)._getIconUrl;
-          L.Icon.Default.mergeOptions({
-            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-          });
-        } catch {
-          // ignore
-        }
 
         // OpenStreetMap Standard Tiles
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -159,7 +164,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         const showBusinesses = activeFilter === 'all' || activeFilter === 'negocio';
         if (showBusinesses) {
           businesses.forEach((biz) => {
-            if (!biz.latitude || !biz.longitude) return;
+            if (!Number.isFinite(biz.latitude) || !Number.isFinite(biz.longitude)) return;
 
             const businessUrl = `/${biz.state_id.toLowerCase()}/${biz.city?.slug || 'sao-paulo'}/${biz.neighborhood?.slug || 'bairro'}/${biz.slug}`;
             const pin = CATEGORY_PINS.business;
@@ -170,10 +175,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             const popupContent = `
               <div style="font-family: sans-serif; min-width: 220px; padding: 6px;">
                 <span style="display:inline-block; font-size:10px; font-weight:800; background:#E36845; color:#fff; padding:2px 8px; border-radius:12px; margin-bottom:4px;">COMÉRCIO / SERVIÇO</span>
-                <div style="font-weight: 900; font-size: 14px; color: #0E3B43; margin-bottom: 2px;">${biz.name}</div>
-                <div style="font-size: 11px; color: #4FA6A6; font-weight: 700; margin-bottom: 4px;">${biz.category?.name || 'Local'}</div>
-                <div style="font-size: 12px; color: #537379; margin-bottom: 8px;">${biz.address || ''}${biz.number ? `, ${biz.number}` : ''}</div>
-                <a href="${businessUrl}" style="display: block; text-align: center; background: #E36845; color: white; font-size: 12px; font-weight: bold; padding: 7px 12px; border-radius: 8px; text-decoration: none;">Ver Estabelecimento</a>
+                <div style="font-weight: 900; font-size: 14px; color: #0E3B43; margin-bottom: 2px;">${escapeHtml(biz.name)}</div>
+                <div style="font-size: 11px; color: #4FA6A6; font-weight: 700; margin-bottom: 4px;">${escapeHtml(biz.category?.name || 'Local')}</div>
+                <div style="font-size: 12px; color: #537379; margin-bottom: 8px;">${escapeHtml(biz.address || '')}${biz.number ? `, ${escapeHtml(biz.number)}` : ''}</div>
+                <a href="${escapeHtml(businessUrl)}" style="display: block; text-align: center; background: #E36845; color: white; font-size: 12px; font-weight: bold; padding: 7px 12px; border-radius: 8px; text-decoration: none;">Ver Estabelecimento</a>
               </div>
             `;
 
@@ -187,7 +192,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
         // Filtered Places
         places.forEach((place) => {
-          if (!place.latitude || !place.longitude) return;
+          if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)) return;
 
           const matchesFilter =
             activeFilter === 'all' ||
@@ -208,12 +213,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           const popupContent = `
             <div style="font-family: sans-serif; min-width: 230px; padding: 6px;">
               <span style="display:inline-block; font-size:10px; font-weight:800; background:${pin.bg}; color:#fff; padding:2px 8px; border-radius:12px; margin-bottom:4px;">${meta.label.toUpperCase()}</span>
-              <div style="font-weight: 900; font-size: 14px; color: #0E3B43; margin-bottom: 2px;">${place.name}</div>
-              <div style="font-size: 11px; color: #0D9488; font-weight: 700; margin-bottom: 4px;">${place.subcategory || 'Utilidade Pública'}</div>
-              <div style="font-size: 12px; color: #537379; margin-bottom: 8px;">${place.address}${place.number ? `, ${place.number}` : ''}</div>
+              <div style="font-weight: 900; font-size: 14px; color: #0E3B43; margin-bottom: 2px;">${escapeHtml(place.name)}</div>
+              <div style="font-size: 11px; color: #0D9488; font-weight: 700; margin-bottom: 4px;">${escapeHtml(place.subcategory || 'Utilidade Pública')}</div>
+              <div style="font-size: 12px; color: #537379; margin-bottom: 8px;">${escapeHtml(place.address)}${place.number ? `, ${escapeHtml(place.number)}` : ''}</div>
               <div style="display: flex; gap: 6px;">
-                <a href="${placeUrl}" style="flex: 1; text-align: center; background: #0E3B43; color: white; font-size: 11px; font-weight: bold; padding: 6px 8px; border-radius: 8px; text-decoration: none;">Ver Detalhes</a>
-                <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="flex: 1; text-align: center; background: #0D9488; color: white; font-size: 11px; font-weight: bold; padding: 6px 8px; border-radius: 8px; text-decoration: none;">Como Chegar</a>
+                <a href="${escapeHtml(placeUrl)}" style="flex: 1; text-align: center; background: #0E3B43; color: white; font-size: 11px; font-weight: bold; padding: 6px 8px; border-radius: 8px; text-decoration: none;">Ver Detalhes</a>
+                <a href="${escapeHtml(directionsUrl)}" target="_blank" rel="noopener noreferrer" style="flex: 1; text-align: center; background: #0D9488; color: white; font-size: 11px; font-weight: bold; padding: 6px 8px; border-radius: 8px; text-decoration: none;">Como Chegar</a>
               </div>
             </div>
           `;
@@ -254,7 +259,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         mapInstanceRef.current = null;
       }
     };
-  }, [bizCount, placesCount, centerLat, centerLng, zoom, selectedBusinessId, selectedPlaceId, radiusKm, activeFilter]);
+  }, [businesses, places, centerLat, centerLng, zoom, selectedBusinessId, selectedPlaceId, radiusKm, activeFilter]);
 
   if (addressQuery) {
     const queryParam = encodeURIComponent(addressQuery);
@@ -311,65 +316,27 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
               <span>({businesses.length})</span>
             </button>
           )}
-          {hasPlaces && (
-            <>
+          {hasPlaces && availablePlaceGroups.map(({ group, count }) => {
+            const meta = PLACE_CATEGORY_META[group];
+            const pin = CATEGORY_PINS[group] || CATEGORY_PINS.outros;
+            const selected = activeFilter === group;
+            return (
               <button
+                key={group}
                 type="button"
-                onClick={() => setActiveFilter('saude')}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
-                  activeFilter === 'saude'
-                    ? 'bg-[#E11D48] text-white shadow-sm'
-                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100'
+                onClick={() => setActiveFilter(group)}
+                style={selected ? { backgroundColor: meta.pinColor } : undefined}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 border ${
+                  selected
+                    ? 'text-white shadow-sm border-transparent'
+                    : meta.bg
                 }`}
               >
-                <span>🏥 Saúde</span>
+                <span>{pin.icon} {meta.label}</span>
+                <span>({count})</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveFilter('transporte')}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
-                  activeFilter === 'transporte'
-                    ? 'bg-[#7C3AED] text-white shadow-sm'
-                    : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
-                }`}
-              >
-                <span>🚉 Transporte</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFilter('lazer')}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
-                  activeFilter === 'lazer'
-                    ? 'bg-[#059669] text-white shadow-sm'
-                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                }`}
-              >
-                <span>🌳 Lazer</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFilter('educacao')}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
-                  activeFilter === 'educacao'
-                    ? 'bg-[#2563EB] text-white shadow-sm'
-                    : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
-                }`}
-              >
-                <span>🏫 Educação</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFilter('servicos_publicos')}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
-                  activeFilter === 'servicos_publicos'
-                    ? 'bg-[#0D9488] text-white shadow-sm'
-                    : 'bg-teal-50 text-teal-800 hover:bg-teal-100'
-                }`}
-              >
-                <span>🏛️ Serviços</span>
-              </button>
-            </>
-          )}
+            );
+          })}
         </div>
       )}
 

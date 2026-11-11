@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de esporte e atividade física</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eef9fd"/><stop offset="1" stop-color="#cdeaf7"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="1020" cy="105" r="170" fill="#fff" opacity=".34"/>
+  <ellipse cx="600" cy="430" rx="410" ry="175" fill="#fff" stroke="#0284c7" stroke-width="22"/><ellipse cx="600" cy="430" rx="310" ry="110" fill="#d8f0f8" stroke="#68b9d9" stroke-width="15"/><path d="M190 430h820M600 255v350" stroke="#9dd2e7" stroke-width="10" opacity=".8"/>
+  <circle cx="720" cy="350" r="72" fill="#0284c7"/><path d="m720 290 34 25-13 40h-42l-13-40Zm-34 65-32 25 13 39h42l13-39m19-25 32 25-13 39h-42l-13-39" fill="none" stroke="#fff" stroke-width="10" stroke-linejoin="round"/>
+</svg>

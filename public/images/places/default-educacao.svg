@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de educação e escola</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eff6ff"/><stop offset="1" stop-color="#cfe3ff"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="175" cy="105" r="165" fill="#fff" opacity=".38"/><path d="M0 570Q270 515 520 565T950 548T1200 545V675H0Z" fill="#79a9ea" opacity=".22"/>
+  <path d="M600 205c-105-72-230-58-330-15v285c105-40 222-50 330 18 108-68 225-58 330-18V190c-100-43-225-57-330 15Z" fill="#fff" stroke="#2563eb" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M600 205v288M330 255c82-27 156-25 220 4M330 325c82-27 156-25 220 4M650 259c64-29 138-31 220-4M650 329c64-29 138-31 220-4" fill="none" stroke="#94baf0" stroke-width="15" stroke-linecap="round"/>
+</svg>

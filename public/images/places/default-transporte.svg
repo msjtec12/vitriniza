@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title">
+  <title id="title">Ilustração de transporte público</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f0ff"/><stop offset="1" stop-color="#ded4fa"/></linearGradient></defs>
+  <rect width="1200" height="675" fill="url(#g)"/><circle cx="1020" cy="100" r="170" fill="#fff" opacity=".32"/><path d="M0 565Q260 520 500 558T930 545T1200 530V675H0Z" fill="#9b82dc" opacity=".24"/>
+  <rect x="355" y="120" width="490" height="420" rx="85" fill="#fff" stroke="#7c3aed" stroke-width="18"/><rect x="410" y="195" width="380" height="180" rx="26" fill="#e8e0fb"/><path d="M600 195v180" stroke="#b3a2e7" stroke-width="15"/><circle cx="455" cy="450" r="38" fill="#7c3aed"/><circle cx="745" cy="450" r="38" fill="#7c3aed"/><path d="m435 585 60-65m270 65-60-65M400 585h400" stroke="#6240c7" stroke-width="18" stroke-linecap="round"/>
+</svg>
